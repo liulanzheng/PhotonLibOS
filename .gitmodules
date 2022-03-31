@@ -1,0 +1,17 @@
+[submodule "rapidjson"]
+	path = rapidjson
+	url = git@gitlab.alibaba-inc.com:ray.dr/rapidjson.git
+[submodule "thirdparty/aliyun-oss-cpp-sdk"]
+	path = fs/ossfs/aliyun-oss-cpp-sdk
+	url = git@gitlab.alibaba-inc.com:dadi/aliyun-oss-cpp-sdk.git
+[submodule "fs/hdfs/libhdfs3_source"]
+	path = fs/hdfs/libhdfs3_source
+	url = git@gitlab.alibaba-inc.com:dadi/libhdfs3_source.git
+[submodule "fs/cache/ocf_cache/ocf"]
+	path = fs/cache/ocf_cache/ocf
+	url = git@gitlab.alibaba-inc.com:sbu/ocf.git
+	branch = v21.6.4
+[submodule "third_party/liburing"]
+	path = third_party/liburing
+	url = git@gitlab.alibaba-inc.com:sbu/liburing.git
+	branch = alios7-configured
