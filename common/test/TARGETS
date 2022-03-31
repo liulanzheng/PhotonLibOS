@@ -1,0 +1,48 @@
+includes = {
+    '../executor/test/TARGETS',
+    '../memory-stream/test/TARGETS',
+    '../metric-meter/test/TARGETS',
+    '../stream-messenger/test/TARGETS',
+}
+
+targets = {
+    'test' : cpp_fast_test(
+        testing = [':test'],
+        incs = [ './' ],
+        srcs = [ './test.cpp', './x.cpp' ],
+        static_deps = [
+            'gtest-1.7.0:gtest',
+            'gmock-1.7.0:gmock',
+        ],
+        cxxflags = [
+            '-DLOGCURRENT'
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+    ),
+    'test_scalepool' : cpp_fast_test(
+        testing = [':test_scalepool'],
+        incs = [ './' ],
+        srcs = [ './test_scalepool.cpp' ],
+        static_deps = [
+            'gtest-1.7.0:gtest',
+            'gmock-1.7.0:gmock',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+    ),
+    'test_constexprstr' : cpp_fast_test(
+        testing = [':test_constexprstr'],
+        incs = [ './' ],
+        srcs = [ './test_constexprstr.cpp' ],
+        static_deps = [
+            'gtest-1.7.0:gtest',
+            'gmock-1.7.0:gmock',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+    )
+}

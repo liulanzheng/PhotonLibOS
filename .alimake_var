@@ -1,0 +1,13 @@
+import base64
+metrics_cxxflags = ['-DMETRICS']
+arch = shell('uname -i')
+
+REGAUTH = "REFEMUVBNUV8ZGFkaV9kb2NrZXJfaW1hZ2V8ZGFkaUFVSnh4REZ0WVkyM0Zqaw===="
+OSSAUTH = "REFEMUVBNUV8TFRBSVdzYkNEak1LUWJhV3w3bGpCakVWdGdFMEJUNU50VXU4Wm9yT3hTM1lCZkk="
+
+_, REGISTRY_ID, REGISTRY_KEY = base64.decodestring(REGAUTH).strip().split('|')
+_, OSS_ID, OSS_KEY = base64.decodestring(OSSAUTH).strip().split('|')
+
+REGISTRY_AUTH_FLAGS = [r'-DREGISTRY_ID=\"%s\"' %
+                       REGISTRY_ID, r'-DREGISTRY_KEY=\"%s\"' % REGISTRY_KEY]
+OSS_AUTH_FLAGS = [r'-DOSS_ID=\"%s\"' % OSS_ID, r'-DOSS_KEY=\"%s\"' % OSS_KEY]

@@ -1,0 +1,72 @@
+includes = {
+    'third_party/TARGETS',
+}
+
+targets = {
+	'photon' : cpp_exportable_library (
+        incs = [
+            './',
+            'third_party/liburing/src/include',
+        ],
+        srcs =  glob('common/*.cpp') +
+                glob('common/memory-stream/*.cpp') +
+                glob('common/stream-messenger/*.cpp') +
+                glob('fs/*.cpp') +
+                glob('fs/httpfs/*.cpp') +
+                glob('fs/checkedfs/tool/*.cpp') +
+                glob('io/*.cpp') +
+                glob('net/*.cpp') +
+                glob('net/http/*.cpp') +
+                glob('net/security-context/*.cpp') +
+                glob('rpc/*.cpp') +
+                glob('thread/*.cpp') +
+                glob('thread/switch_context_%s.s' % arch),
+        static_deps = [
+            'curl-7.42.1:curl',
+            'openssl-1.0.2a:ssl',
+            'openssl-1.0.2a:crypto',
+            'zlib-1.2.8:z',
+            'boost-1.69.0:boost_atomic',
+            'libaio-0.3.110.1:aio',
+            'fuse-2.9.4:fuse',
+            'gflags-2.1.2:gflags',
+            'fuse-devel-2.9.2',
+            'liberpc-devel-17.1.0',
+            'kerberos-1.15.1:krb5',
+            'kerberos-1.15.1:k5crypto',
+            'kerberos-1.15.1:com_err',
+            'kerberos-1.15.1:krb5support',
+            'kerberos-1.15.1:gssapi_krb5',
+            'keyutils-1.5.8:keyutils',
+            'gsasl-1.8.0:gsasl',
+            ':third_party/uring_lib',
+            ':third_party/osssdk_lib',
+            ':third_party/easy_weak_lib',
+        ],
+        custom_flags = {
+            'whole_archive_static_deps': 1,
+            'dep_extends': 'shared',
+        },
+        ccflags = [
+            '-D_FILE_OFFSET_BITS=64',
+            '-DFUSE_USE_VERSION=29',
+        ],
+        ldflags = [
+            '--version-script=%s/io/libaioversion.map' % ALIMAKE_TARGETS_DIR,
+            '--version-script=%s/io/libfuseversion.map' % ALIMAKE_TARGETS_DIR,
+            '--version-script=%s/third_party/liburing.map' % ALIMAKE_TARGETS_DIR,
+        ],
+	),
+    'gsasl-1.8.0' : pre_http_archive( #Base on libgsasl, with all ctypes function renamed to avoid duplicate definition
+       url = 'http://test-xunyi.oss-cn-hangzhou-zmf.aliyuncs.com/daditest%2Fgsasl-1.8.0-rename-ctypes.tar.gz => gsasl-1.8.0',
+       md5 = 'a9ecf2a338f7565026920a1492f5e72a',
+    ),
+    'kerberos-1.15.1' : pre_http_archive(
+       url = 'http://test-xunyi.oss-cn-hangzhou-zmf.aliyuncs.com/daditest%2Fkerberos-1.15.1.tar.gz => kerberos-1.15.1',
+       md5 = 'b2693bc64493d458600d2db25ff99979',
+    ),
+    'keyutils-1.5.8' : pre_http_archive(
+     url = 'http://test-xunyi.oss-cn-hangzhou-zmf.aliyuncs.com/daditest%2Fkeyutils-1.5.8.tar.gz => keyutils-1.5.8',
+     md5 = '3ddc0f80571caa15b02450cee0c59b78',
+    ),
+}

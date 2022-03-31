@@ -1,0 +1,19 @@
+includes = {
+    '../common/test/TARGETS',
+    '../fs/test/TARGETS',
+    '../io/test/TARGETS',
+    '../net/test/TARGETS',
+    '../rpc/test/TARGETS',
+    '../thread/test/TARGETS',
+
+
+    #'../fs/lsmt/test/TARGETS',
+    #'../fs/zfile/test/TARGETS',
+
+    #'../cluster/nuwa/test/TARGETS',
+    #'../vrbd/test/TARGETS',
+    #'../executor/test/TARGETS',
+    #'../net/http/test/TARGETS',
+    #'../security-context/test/TARGETS',
+}
+

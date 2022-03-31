@@ -1,0 +1,13 @@
+targets = {
+    'rpc_test': cpp_fast_test(
+        testing=['rpc',],
+        incs=['../'],
+        srcs=['test.cpp'],
+        static_deps=[
+            'gtest-1.7.0:gtest',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+    )
+}

@@ -1,0 +1,90 @@
+includes = {
+    '../httpfs/test/TARGETS'
+}
+
+targets = {
+    'test': cpp_fast_test (
+        testing=[':fs',],
+        incs = [
+            '../'
+        ],
+        srcs = [
+            'test.cpp',
+        ],
+        static_deps = [
+            'gtest-1.7.0:gtest',
+            'gmock-1.7.0:gmock',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+    ),
+    'test_exportfs': cpp_fast_test (
+        testing=['exportfs',],
+        incs = [
+            '../'
+        ],
+        srcs = [
+            'test_exportfs.cpp',
+        ],
+        deps = [
+            'boost-1.69.0:boost_atomic',
+        ],
+        static_deps = [
+            'gtest-1.7.0:gtest',
+            'gmock-1.7.0:gmock',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+    ),
+    'test_throttled': cpp_fast_test (
+        testing=[':fs',],
+        incs = [
+            '../'
+        ],
+        srcs = [
+            'test_throttledfile.cpp',
+        ],
+        static_deps = [
+            'gtest-1.7.0:gtest',
+            'gmock-1.7.0:gmock',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+    ),
+    'test_simplefuse': cpp_program (
+        incs = [
+            './',
+        ],
+        srcs = [
+            'simplefuse.cpp',
+        ],
+        shared_deps = [
+            'fuse-devel-2.9.2',
+        ],
+        deps = [
+            'boost-1.69.0:boost_atomic',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+    ),
+    'test_filecopy': cpp_fast_test(
+        testing=['filecopy',],
+        incs = [
+            './'
+        ],
+        srcs = [
+            'test_filecopy.cpp',
+        ],
+        static_deps = [
+            'gtest-1.7.0:gtest',
+            'gmock-1.7.0:gmock',
+        ],
+        ldflags=[
+            '-lphoton',
+        ]
+    ),
+}

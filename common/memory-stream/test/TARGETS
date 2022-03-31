@@ -1,0 +1,14 @@
+targets = {
+    'test-memory-stream' : cpp_fast_test(
+        testing = [':test-memory-stream'],
+        incs = [ './' ],
+        srcs = [ './test.cpp' ],
+        static_deps = [
+            'gtest-1.7.0:gtest',
+            'gmock-1.7.0:gmock',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+    ),
+}

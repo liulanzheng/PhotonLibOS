@@ -1,0 +1,180 @@
+#include <fcntl.h>
+#include <gflags/gflags.h>
+#include <chrono>
+#include <cstddef>
+#include <cstring>
+#include <string>
+#include <thread>
+
+#include "net/http/client.h"
+#include "net/curl.h"
+#include "net/socket.h"
+#include "net/etsocket.h"
+#include "common/alog-stdstring.h"
+#include "io/fd-events.h"
+#include "thread/thread11.h"
+#include "io/aio-wrapper.h"
+#include "common/stream.h"
+#include "net/curl.h"
+#include "net/tlssocket.h"
+DEFINE_int32(times, 1, "times that read whole file through http per thread");
+DEFINE_int32(threads, 1, "photon thread pool size per file");
+DEFINE_int32(concurrency, 10, "concurrent fetch file number");
+DEFINE_int32(maxconn, 32, "max connection num");
+DEFINE_int32(block_cnt, 32, "block cnt in file");
+DEFINE_uint64(seg_size, 1024 * 1024, "block size");
+DEFINE_bool(libaio, false, "using libaio");
+DEFINE_bool(curl, false, "test curl");
+DEFINE_bool(client, false, "test client");
+
+const static char target[] = "http://j63d14400.sqa.eu95:19876";
+
+class StringStream {
+    std::string s;
+    public:
+        int ptr = 0;
+        StringStream() {
+            s.resize(FLAGS_seg_size);
+        }
+        std::string& str() {
+            return s;
+        }
+        void clean() {
+            ptr = 0;
+        }
+        size_t write(void* c, size_t n) {
+            LOG_DEBUG("CALL WRITE");
+            // s.append((char*)c, n);
+
+            if (ptr + n > s.size()) LOG_ERROR_RETURN(0, 0, "buffer limit excceed");
+            memcpy((char*)s.data() + ptr, c, n);
+            ptr += n;
+            return n;
+        }
+};
+
+struct result {
+    uint64_t t_begin = 0, t_end = 1;
+    uint64_t sum_latency = 0, sum_throuput = 0, cnt = 0;
+    bool failed = false;
+    result operator +=(result &rhs) {
+        sum_latency += rhs.sum_latency;
+        sum_throuput += rhs.sum_throuput;
+        cnt += rhs.cnt;
+        failed |= rhs.failed;
+        return *this;
+    }
+};
+
+inline uint64_t GetSteadyTimeUs() {
+    auto now = std::chrono::steady_clock::now();
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(
+               now.time_since_epoch())
+        .count() / 1000;
+}
+void curl_thread_entry(result* res) {
+    std::unique_ptr<Net::cURL> client(new Net::cURL());
+    std::unique_ptr<StringStream> buffer(new StringStream());
+    client->set_redirect(0);
+    for (auto t = 0; t < FLAGS_times; t++) {
+        for (auto i = 0; i < FLAGS_block_cnt; i++) {
+            auto t_begin = GetSteadyTimeUs();
+            buffer->clean();
+            client->GET(target, buffer.get());
+            auto t_end = GetSteadyTimeUs();
+            if (buffer->ptr != FLAGS_seg_size) {
+                LOG_ERROR(VALUE(buffer->ptr), VALUE(errno), VALUE(i), VALUE(FLAGS_block_cnt));
+                res->failed = true;
+            }
+            res->sum_throuput += FLAGS_seg_size;
+            res->sum_latency += t_end - t_begin;
+            res->cnt++;
+        }
+    }
+}
+void test_curl(result &res) {
+    res.t_begin = GetSteadyTimeUs();
+    std::vector<photon::join_handle*> jhs;
+    for (auto i = 0; i < FLAGS_threads; ++i) {
+        jhs.emplace_back(photon::thread_enable_join(
+            photon::thread_create11(&curl_thread_entry, &res)));
+    }
+    for (auto &h : jhs) {
+        photon::thread_join(h);
+    }
+    res.t_end = GetSteadyTimeUs();
+}
+void client_thread_entry(result *res, Net::HTTP::Client *client, int idx) {
+    std::string body_buf;
+    body_buf.resize(FLAGS_seg_size);
+    // auto client = Net::HTTP::new_http_client();
+    // DEFER(delete client);
+    for (auto t = 0; t < FLAGS_times; t++) {
+        for (auto i = 0; i < FLAGS_block_cnt; i++) {
+            auto t_begin = GetSteadyTimeUs();
+            // auto op = client->new_operation(Net::HTTP::Verb::GET, target);
+            // DEFER(delete op);
+            Net::HTTP::Client::OperationOnStack<64 * 1024 - 1> operation(client, Net::HTTP::Verb::GET, target);
+            auto op = &operation;
+            client->call(op);
+            if (op->resp.content_length() != FLAGS_seg_size) {
+                LOG_ERROR(VALUE(op->resp.content_length()), VALUE(errno), VALUE(i), VALUE(FLAGS_block_cnt));
+                res->failed = true;
+            }
+            auto ret = op->resp_body->read((void*)body_buf.data(), FLAGS_seg_size);
+            if (ret != FLAGS_seg_size) {
+                LOG_ERROR(VALUE(ret), VALUE(errno), VALUE(i), VALUE(FLAGS_block_cnt));
+                res->failed = true;
+            }
+            auto t_end = GetSteadyTimeUs();
+            res->sum_throuput += FLAGS_seg_size;
+            res->sum_latency += t_end - t_begin;
+            res->cnt++;
+        }
+    }
+}
+void test_client(result &res) {
+    res.t_begin = GetSteadyTimeUs();
+    auto client = Net::HTTP::new_http_client();
+    DEFER(delete client);
+    std::vector<photon::join_handle*> jhs;
+    for (auto i = 0; i < FLAGS_threads; ++i) {
+        jhs.emplace_back(photon::thread_enable_join(
+            photon::thread_create11(&client_thread_entry, &res, client, i)));
+    }
+    for (auto h : jhs) {
+        photon::thread_join(h);
+    }
+    res.t_end = GetSteadyTimeUs();
+}
+int main(int argc, char** argv) {
+    gflags::ParseCommandLineFlags(&argc, &argv, true);
+    set_log_output_level(ALOG_INFO);
+    auto ret = photon::init();
+    if (ret < 0) return -1;
+    DEFER({ photon::fini(); });
+    ret = photon::fd_events_init();
+    if (ret < 0) return -1;
+    DEFER({ photon::fd_events_fini(); });
+    ret = Net::et_poller_init();
+    if (ret < 0) return -1;
+    DEFER(Net::et_poller_fini());
+    ret = Net::cURL::init(CURL_GLOBAL_ALL, 0, 0);
+    if (ret < 0) return -1;
+    DEFER({ photon::thread_sleep(3); Net::cURL::fini(); });
+    if (FLAGS_libaio)
+        photon::libaio_wrapper_init();
+    DEFER(if (FLAGS_libaio) photon::libaio_wrapper_fini());
+    result res_curl, res_client;
+    if (FLAGS_curl) test_curl(res_curl);
+    if (FLAGS_client) test_client(res_client);
+    if (res_curl.cnt != 0) LOG_INFO("libcurl latency = `us , throuput = `MB/s, failed = `, read_size = `Bytes, threads = `",
+                res_curl.sum_latency / res_curl.cnt,
+                res_curl.sum_throuput * 1000 * 1000 / (res_curl.t_end - res_curl.t_begin) / 1024 / 1024,
+                res_curl.failed, FLAGS_seg_size, FLAGS_threads);
+    if (res_client.cnt != 0) LOG_INFO("http_client latency = `us , throuput = `MB/s, failed = `, , read_size = `Bytes, threads = `",
+                res_client.sum_latency / res_client.cnt,
+                res_client.sum_throuput * 1000 * 1000 / (res_client.t_end - res_client.t_begin) / 1024 / 1024,
+                res_client.failed, FLAGS_seg_size, FLAGS_threads);
+    return 0;
+}

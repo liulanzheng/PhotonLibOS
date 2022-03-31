@@ -1,0 +1,129 @@
+targets = {
+    'client_test': cpp_fast_test (
+        testing = [ 'http_client' ],
+        incs = [
+            '../../../third_party/aliyun-oss-cpp-sdk/sdk/include',
+            '../../../third_party/aliyun-oss-cpp-sdk/sdk/src',
+        ],
+        srcs = [
+            'test.cpp',
+        ],
+        static_deps=[
+            'curl-7.42.1',
+            'openssl-1.0.2a',
+            'gtest-1.7.0:gtest',
+            'gtest-1.7.0:gtest_main',
+            'gflags-2.1.2',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+        ccflags=OSS_AUTH_FLAGS,
+    ),
+    'server_test': cpp_fast_test (
+        testing = [ 'http_server' ],
+        incs = [
+            '../../../third_party/aliyun-oss-cpp-sdk/sdk/include',
+            '../../../third_party/aliyun-oss-cpp-sdk/sdk/src',
+        ],
+        srcs = [
+            'server_test.cpp',
+        ],
+        static_deps=[
+            'curl-7.42.1',
+            'openssl-1.0.2a',
+            'gtest-1.7.0:gtest',
+            'gtest-1.7.0:gtest_main',
+            'gflags-2.1.2',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+        ccflags=OSS_AUTH_FLAGS,
+    ),
+    'headers_dev_test': cpp_fast_test (
+        testing = [ 'new_headers' ],
+        incs = [
+            '../../../third_party/aliyun-oss-cpp-sdk/sdk/include',
+            '../../../third_party/aliyun-oss-cpp-sdk/sdk/src',
+        ],
+        srcs = [
+            'headers_test.cpp',
+        ],
+        static_deps=[
+            'curl-7.42.1',
+            'openssl-1.0.2a',
+            'gtest-1.7.0:gtest',
+            'gtest-1.7.0:gtest_main',
+            'gflags-2.1.2',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+        ccflags=OSS_AUTH_FLAGS,
+    ),
+    'cookie_jar_test': cpp_fast_test (
+        testing = [ 'cookie_jar' ],
+        incs = [
+            '../../../third_party/aliyun-oss-cpp-sdk/sdk/include',
+            '../../../third_party/aliyun-oss-cpp-sdk/sdk/src',
+        ],
+        srcs = [
+            'cookie_jar_test.cpp',
+        ],
+        static_deps=[
+            'curl-7.42.1',
+            'gtest-1.7.0:gtest',
+            'gtest-1.7.0:gtest_main',
+            'gflags-2.1.2',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+        ccflags=OSS_AUTH_FLAGS,
+    ),
+    'simple_server' : cpp_program(
+        incs = [
+            './',
+        ],
+        srcs = [
+            'server.cpp',
+        ],
+        static_deps = [
+            'gtest-1.7.0:gtest',
+            'gflags-2.1.2',
+            'boost-1.69.0',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+        ccflags=OSS_AUTH_FLAGS
+    ),
+    'perftest': cpp_program (
+        incs = [
+        ],
+        srcs = [
+            'perf.cpp',
+        ],
+        static_deps=[
+            'curl-7.42.1',
+            'gtest-1.7.0:gtest',
+            'gtest-1.7.0:gtest_main',
+            'gflags-2.1.2',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+        ccflags=OSS_AUTH_FLAGS,
+    ),
+    'pure_curl': cpp_program (
+        incs = ['.'],
+        srcs = [
+            'pure_libcurl.cpp',
+        ],
+        static_deps=[
+            'curl-7.42.1:curl',
+            'gflags-2.1.2:gflags',
+        ],
+    ),
+}

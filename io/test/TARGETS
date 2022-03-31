@@ -1,0 +1,61 @@
+targets = {
+    'signalfdtest': cpp_fast_test(
+        testing=['signalfd',],
+        incs=['./'],
+        srcs=[
+            'signalfdtest.cpp'
+        ],
+        static_deps=[
+            'gtest-1.7.0:gtest',
+            'gflags-2.1.2',
+        ],
+        ldflags=[
+            '-lphoton',
+        ]
+    ),
+    'signalfdboom': cpp_fast_test(
+        testing=['signalfd',],
+        incs=['./'],
+        srcs=[
+            'signalfdboom.cpp'
+        ],
+        static_deps=[
+            'gtest-1.7.0:gtest',
+            'gflags-2.1.2',
+        ],
+        ldflags=[
+            '-lphoton',
+        ]
+    ),
+    'syncio_ut': cpp_fast_test(
+        testing=['syncio',],
+        incs=[
+            './',
+        ],
+        srcs=[
+            'test-syncio.cpp',
+        ],
+        static_deps=[
+            'gtest-1.7.0:gtest',
+        ],
+        ldflags=[
+            '-lphoton'
+        ],
+    ),
+#    'iouring_ut': cpp_fast_test(
+#        incs=[
+#          './',
+#        ],
+#        srcs=[
+#          'test-iouring.cpp',
+#        ],
+#        static_deps=[
+#          'gtest-1.7.0:gtest',
+#          'gflags-2.1.2',
+#        ],
+#        ldflags=[
+#          '-lphoton'
+#        ],
+#        testing=['syncio'],
+#      ),
+}

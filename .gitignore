@@ -1,0 +1,34 @@
+# wildcards
+*.o
+*.gch
+a.out
+a.out.dSYM
+.DS_Store
+*.swp
+*.bin
+*.tar
+*.tar.*
+*.gcov
+
+/.vscode
+/.dep_create
+/tags
+/GPATH
+/GRTAGS
+/GTAGS
+/.devcontainer
+
+# clion files
+/.idea/
+/cmake-build-debug/
+
+# clangd files
+/.clang_complete
+/.ccls*
+/.cquery*
+/.clang-format
+/compile_commands.json
+
+# alimake
+/.undef.alicpp.deps
+/alimake_download_error.log

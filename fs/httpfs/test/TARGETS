@@ -1,0 +1,56 @@
+targets = {
+    'httpfs_ut': cpp_fast_test(
+        testing=['httpfs',],
+        incs=[
+            '../../../third_party/aliyun-oss-cpp-sdk/sdk/include',
+            '../../../third_party/aliyun-oss-cpp-sdk/sdk/src',
+        ],
+        srcs=['httpfs_ut.cpp'],
+        static_deps=[
+            'curl-7.42.1',
+            'openssl-1.0.2a',
+            'gtest-1.7.0:gtest'
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+        ccflags=OSS_AUTH_FLAGS
+    ),
+    'httpfs_v2_ut': cpp_fast_test(
+        testing=['httpfs_v2',],
+        incs=[
+            '../../../third_party/aliyun-oss-cpp-sdk/sdk/include',
+            '../../../third_party/aliyun-oss-cpp-sdk/sdk/src',
+        ],
+        srcs=['httpfs_v2_ut.cpp'],
+        static_deps=[
+            'curl-7.42.1',
+            'openssl-1.0.2a',
+            'gtest-1.7.0:gtest',
+            'boost-1.69.0',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+        ccflags=OSS_AUTH_FLAGS
+    ),
+    'httpfs_perf' : cpp_program(
+        incs=[
+            '../../../third_party/aliyun-oss-cpp-sdk/sdk/include',
+            '../../../third_party/aliyun-oss-cpp-sdk/sdk/src',
+        ],
+        srcs = [
+            'httpfs_perf.cpp',
+        ],
+        static_deps = [
+            'gtest-1.7.0:gtest',
+            'curl-7.42.1',
+            'gflags-2.1.2',
+            'openssl-1.0.2a',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+        ccflags=OSS_AUTH_FLAGS
+    ),
+}

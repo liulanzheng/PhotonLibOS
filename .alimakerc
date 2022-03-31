@@ -1,0 +1,15 @@
+--compiler-version=4.9.2
+--glibc-version=2.17
+--linux-version=4.19.91
+--auto-download
+--static-libc++
+--set-rpath
+--project-ldflags="-rpath=\$$ORIGIN"
+--project-ldflags=-LALIMAKE_OUTPUT_DIR/
+--project-ldflags=-rpath=ALIMAKE_OUTPUT_DIR/
+--project-ldflags=-L/usr/lib64
+--project-ldflags=-rpath=/usr/lib64/
+--project-ccflags=-msse4.2
+--project-ccflags=-mcrc32
+--project-ccflags=-D__STDC_FORMAT_MACROS
+--project-ccflags=-D_GLIBCXX_USE_NANOSLEEP

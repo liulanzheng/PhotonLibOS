@@ -1,0 +1,111 @@
+includes = {
+    '../security-context/test/TARGETS',
+}
+
+targets = {
+    'test': cpp_fast_test (
+        testing = ['socket'],
+        incs = [
+            '../',
+            '../../'
+        ], 
+        srcs = [
+            'test.cpp',
+        ],
+        static_deps = [
+            'curl-7.42.1',
+            'gtest-1.7.0:gtest',
+            'gtest-1.7.0:gtest_main',
+            'gmock-1.7.0:gmock',
+			'libcom_err-devel-1.42.9',
+            'krb5-devel-1.15.1',
+            'openssl-1.0.2a',
+        ],
+        ldflags = [
+            '-lphoton',
+        ],
+    ),
+    'test-server': cpp_program (
+        incs = [
+            '../',
+            '../../'
+        ], 
+        srcs = [
+            'test-server.cpp',
+        ],
+        static_deps = [
+            'gtest-1.7.0:gtest',
+            'gtest-1.7.0:gtest_main',
+            'gmock-1.7.0:gmock',
+			'libcom_err-devel-1.42.9',
+            'krb5-devel-1.15.1',
+            'openssl-1.0.2a',
+        ],
+        ldflags = [
+            '-lphoton',
+        ],
+    ),
+    'test-client': cpp_program (
+        incs = [
+            '../',
+            '../../'
+        ], 
+        srcs = [
+            'test-client.cpp',
+        ],
+        static_deps = [
+            'gtest-1.7.0:gtest',
+            'gtest-1.7.0:gtest_main',
+            'gmock-1.7.0:gmock',
+			'libcom_err-devel-1.42.9',
+            'krb5-devel-1.15.1',
+            'openssl-1.0.2a',
+        ],
+        ldflags = [
+            '-lphoton',
+        ],
+    ),
+    'test_curl': cpp_fast_test (
+        testing = ['curl'],
+        incs = [
+            '../',
+            '../../'
+        ], 
+        srcs = [
+            'test_curl.cpp',
+        ],
+        deps = [
+            'curl-7.42.1',
+        ],
+        static_deps = [
+            'gtest-1.7.0:gtest',
+            'gtest-1.7.0:gtest_main',
+            'gmock-1.7.0:gmock',
+        ],
+        ldflags = [
+            '-lphoton',
+        ],
+    ),
+    'zerocopy-client': cpp_program(
+        srcs = [
+            'zerocopy-client.cpp',
+        ],
+        static_deps = [
+            'gflags-2.1.2',
+        ],
+        ldflags = [
+            '-lphoton',
+        ],
+    ),
+    'zerocopy-server': cpp_program(
+        srcs = [
+            'zerocopy-server.cpp',
+        ],
+        static_deps = [
+            'gflags-2.1.2',
+        ],
+        ldflags = [
+            '-lphoton',
+        ],
+    ),
+}

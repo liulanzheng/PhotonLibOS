@@ -1,0 +1,26 @@
+targets = {
+    'test': cpp_fast_test(
+        testing=[],
+        incs=[],
+        srcs=['test.cpp'],
+        static_deps=[
+            'gtest-1.7.0:gtest',
+            'openssl-1.0.2a',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+    ),
+    'test-sasl': cpp_fast_test(
+        testing=[],
+        incs=[],
+        srcs=['test-sasl.cpp'],
+        static_deps=[
+            'gtest-1.7.0:gtest',
+            'gsasl-1.8.0',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+    ),
+}

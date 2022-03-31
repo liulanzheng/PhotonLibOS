@@ -1,0 +1,44 @@
+targets = {
+    'uring_lib' : cpp_library (
+        incs = [
+            'liburing/src/include/',
+        ],
+        ccflags = [
+             '-D_GNU_SOURCE',
+             '-fomit-frame-pointer',
+             '-Wextra',
+             '-Wno-unused-parameter',
+             '-Wno-sign-compare',
+             '-Wno-error=missing-field-initializers',
+        ],
+        srcs = [
+             'liburing/src/setup.c',
+             'liburing/src/queue.c',
+             'liburing/src/register.c',
+             'liburing/src/syscall.c',
+        ],
+    ),
+    'osssdk_lib': cpp_library(
+        incs = [
+            './aliyun-oss-cpp-sdk/sdk/include',
+            './aliyun-oss-cpp-sdk/sdk/include/alibabacloud/oss',
+            './aliyun-oss-cpp-sdk/sdk/src/',
+            './aliyun-oss-cpp-sdk/sdk/src/external',
+        ],
+        srcs =  glob('./aliyun-oss-cpp-sdk/sdk/src/*.c*') +
+                glob('./aliyun-oss-cpp-sdk/sdk/src/*/*.c*') +
+                glob('./aliyun-oss-cpp-sdk/sdk/src/external/*/*.c*'),
+        shared_deps= [
+            'curl-7.42.1',
+            'openssl-1.0.2a',
+        ],
+    ),
+    'easy_weak_lib': cpp_library(
+        srcs = [
+            'easy_weak/easy_weak.cpp',
+        ],
+        static_deps = [
+            'liberpc-devel-17.1.0',
+        ],
+    ),
+}

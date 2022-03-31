@@ -1,0 +1,13 @@
+targets = {
+    'test-stream-messenger' : cpp_fast_test(
+        testing = [':test-stream-messenger'],
+        incs = [ './' ],
+        srcs = [ './test.cpp' ],
+        static_deps = [
+            'gtest-1.7.0:gtest',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+    ),
+}

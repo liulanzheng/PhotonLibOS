@@ -1,0 +1,9 @@
+targets={
+    'example_metric': cpp_program(
+        incs=['./'],
+        srcs=['example.cpp'],
+        ldflags=[
+            '-lphoton',
+        ],
+    ),
+}
