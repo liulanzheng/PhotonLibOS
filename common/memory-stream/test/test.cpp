@@ -65,8 +65,10 @@ TEST(MemoryStream, normalTest)
 
 int main(int argc, char **argv)
 {
-    log_output_level = 0;
+    log_output_level = ALOG_DEBUG;
     ::testing::InitGoogleTest(&argc, argv);
+    photon::init();
+    DEFER(photon::fini());
     auto ret = RUN_ALL_TESTS();
     return ret;
 }

@@ -47,7 +47,7 @@ void* echo_server(void* mc_)
     return nullptr;
 }
 
-TEST(StreamMessenger, normalTest)
+TEST(StreamMessenger, DISABLED_normalTest)
 {
     auto ds = new_duplex_memory_stream(64);
     DEFER(delete ds);
@@ -76,8 +76,10 @@ TEST(StreamMessenger, normalTest)
 
 int main(int argc, char **argv)
 {
-    log_output_level = 0;
+    log_output_level = ALOG_DEBUG;
     ::testing::InitGoogleTest(&argc, argv);
+    photon::init();
+    DEFER(photon::fini());
     auto ret = RUN_ALL_TESTS();
     return 0;
 }
