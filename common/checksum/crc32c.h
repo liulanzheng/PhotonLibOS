@@ -2,7 +2,7 @@
  * Alibaba Group Inc. 2019 Copyrights
  */
 
-#include <stdint.h>
+#include <cstdint>
 #include <string>
 
 #pragma once

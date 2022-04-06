@@ -1,13 +1,12 @@
 #pragma once
-#include <stddef.h>
-#include <stdint.h>
-#include <stdio.h>
+#include <cstddef>
+#include <cstdint>
+#include <cstdio>
 #include <unistd.h>
-
 #include <type_traits>
 
-#include "thread/thread.h"
-#include "common/utility.h"
+#include "photon/thread/thread.h"
+#include "photon/common/utility.h"
 
 #ifndef likely
 #define __ease_metrics_defined_likely__

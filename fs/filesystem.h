@@ -1,7 +1,7 @@
 #pragma once
-#include <errno.h>
-#include <stdarg.h>
-#include "common/stream.h"
+#include <cerrno>
+#include <cstdarg>
+#include "photon/common/stream.h"
 
 #define UNIMPLEMENTED(func)  \
     virtual func             \

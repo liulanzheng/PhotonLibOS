@@ -1,8 +1,8 @@
 #pragma once
-#include <assert.h>
-#include <errno.h>
-#include "verb.h"
-#include "common/estring.h"
+#include <cassert>
+#include <cerrno>
+#include "photon/net/http/verb.h"
+#include "photon/common/estring.h"
 
 namespace Net {
 

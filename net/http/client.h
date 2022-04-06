@@ -1,14 +1,14 @@
 #pragma once
 
 #include <memory>
-#include "verb.h"
-#include "headers.h"
-#include "url.h"
-#include "common/callback.h"
-#include "common/object.h"
-#include "common/string_view.h"
-#include "common/stream.h"
-#include "common/timeout.h"
+#include "photon/net/http/verb.h"
+#include "photon/net/http/headers.h"
+#include "photon/net/http/url.h"
+#include "photon/common/callback.h"
+#include "photon/common/object.h"
+#include "photon/common/string_view.h"
+#include "photon/common/stream.h"
+#include "photon/common/timeout.h"
 namespace Net {
 namespace HTTP {
 

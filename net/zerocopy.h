@@ -1,8 +1,8 @@
 #pragma once
 
 #include <cstdint>
-#include "common/ring.h"
-#include "thread/thread.h"
+#include "photon/common/ring.h"
+#include "photon/thread/thread.h"
 
 namespace Net {
 

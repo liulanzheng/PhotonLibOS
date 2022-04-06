@@ -1,6 +1,6 @@
 #pragma once
-#include "common/string_view.h"
-#include "common/conststr.h"
+#include "photon/common/string_view.h"
+#include "photon/common/conststr.h"
 namespace Net {
 namespace HTTP {
 DEFINE_ENUM_STR(Verb, verbstr, UNKNOWN, DELETE, GET, HEAD, POST, PUT, CONNECT,

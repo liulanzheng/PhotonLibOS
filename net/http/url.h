@@ -1,6 +1,6 @@
 #pragma once
-#include "common/string_view.h"
-#include "common/estring.h"
+#include "photon/common/string_view.h"
+#include "photon/common/estring.h"
 
 namespace Net {
 namespace HTTP {

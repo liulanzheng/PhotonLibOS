@@ -1,5 +1,5 @@
 #pragma once
-#include <signal.h>
+#include <csignal>
 
 
 // sync_signal will be executed sequentially in a dedicated photon thread

@@ -13,3 +13,4 @@
 --project-ccflags=-mcrc32
 --project-ccflags=-D__STDC_FORMAT_MACROS
 --project-ccflags=-D_GLIBCXX_USE_NANOSLEEP
+--project-includes=ALIMAKE_REPO_ROOT/include

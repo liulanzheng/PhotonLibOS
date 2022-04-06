@@ -1,9 +1,10 @@
 #pragma once
-#include <inttypes.h>
-#include <errno.h>
+#include <cinttypes>
+#include <cerrno>
 #include <type_traits>
-#include "utility.h"
-#include "PMF.h"
+
+#include "photon/common/utility.h"
+#include "photon/common/PMF.h"
 
 struct Delegate_Base { };
 

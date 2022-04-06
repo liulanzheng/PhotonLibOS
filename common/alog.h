@@ -1,14 +1,15 @@
 #pragma once
-#include <stdio.h>
-#include <inttypes.h>
-#include <string.h>
-#include <errno.h>
-#include <assert.h>
-#include <time.h>
+#include <cstdio>
+#include <cinttypes>
+#include <cstring>
+#include <cerrno>
+#include <cassert>
+#include <ctime>
 #include <utility>
 #include <type_traits>
-#include "utility.h"
-#include "object.h"
+
+#include "photon/common/utility.h"
+#include "photon/common/object.h"
 
 class ILogOutput : public Object {
 public:

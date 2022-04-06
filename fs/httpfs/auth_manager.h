@@ -3,9 +3,9 @@
 #include <cinttypes>
 #include <cstddef>
 
-#include "common/callback.h"
-#include "common/object.h"
-#include "common/stream.h"
+#include "photon/common/callback.h"
+#include "photon/common/object.h"
+#include "photon/common/stream.h"
 
 namespace FileSystem {
 struct IFile;

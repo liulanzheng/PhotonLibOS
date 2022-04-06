@@ -1,6 +1,6 @@
 #pragma once
-#include "thread.h"
-#include "../common/identity-pool.h"
+#include "photon/thread/thread.h"
+#include "photon/common/identity-pool.h"
 
 namespace photon
 {

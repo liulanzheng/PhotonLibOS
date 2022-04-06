@@ -1,8 +1,8 @@
 #pragma once
-#include <inttypes.h>
-#include <assert.h>
+#include <cinttypes>
+#include <cassert>
 #include <algorithm>
-#include "range-split.h"
+#include "photon/fs/range-split.h"
 
 // 本文件主打（文件偏移量）区间的分解操作，支持不固定间隔（struct range_split_vi）
 

@@ -1,5 +1,5 @@
 #pragma once
-#include <inttypes.h>
+#include <cinttypes>
 
 template<typename PF, typename T>
 struct pmf_map

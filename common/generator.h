@@ -1,5 +1,5 @@
 #pragma once
-#include <assert.h>
+#include <cassert>
 #include <type_traits>
 
 template<typename Derived>

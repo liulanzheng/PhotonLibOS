@@ -3,10 +3,10 @@
 #include <type_traits>
 #include <vector>
 
-#include "common/callback.h"
-#include "thread/thread11.h"
-#include "common/string_view.h"
-#include "socket.h"
+#include "photon/common/callback.h"
+#include "photon/thread/thread11.h"
+#include "photon/common/string_view.h"
+#include "photon/net/socket.h"
 namespace Net {
 
 // user must make sure host or domain is a NULL TERMINATED c-string

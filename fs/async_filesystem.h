@@ -1,9 +1,9 @@
 #pragma once
-#include <stdarg.h>
+#include <cstdarg>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include "common/async_stream.h"
+#include "photon/common/async_stream.h"
 
 struct dirent;
 class iovector;

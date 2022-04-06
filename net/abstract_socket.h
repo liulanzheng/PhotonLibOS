@@ -6,9 +6,9 @@ Internal header provides abstract socket base class
 
 #include <vector>
 
-#include "common/alog.h"
-#include "thread/thread11.h"
-#include "socket.h"
+#include "photon/common/alog.h"
+#include "photon/thread/thread11.h"
+#include "photon/net/socket.h"
 
 #define UNIMPLEMENTED(method)                                   \
     virtual method override {                                   \

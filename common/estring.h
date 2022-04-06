@@ -1,14 +1,15 @@
 #pragma once
-#include <stdio.h>
-#include <assert.h>
-#include <string.h>
+#include <cstdio>
+#include <cassert>
+#include <cstring>
 #include <limits>
 #include <string>
 #include <bitset>
 #include <tuple>
 #include <type_traits>
-#include "string_view.h"
-#include "utility.h"
+
+#include "photon/common/string_view.h"
+#include "photon/common/utility.h"
 
 struct charset : std::bitset<256>
 {

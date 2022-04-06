@@ -1,6 +1,6 @@
 #pragma once
-#include <inttypes.h>
-#include "iovector.h"
+#include <cinttypes>
+#include "photon/common/iovector.h"
 
 class IMessageChannel
 {

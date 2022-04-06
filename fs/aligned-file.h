@@ -1,5 +1,5 @@
 #pragma once
-#include <inttypes.h>
+#include <cinttypes>
 
 struct AlignedAlloc;
 struct IOAlloc;

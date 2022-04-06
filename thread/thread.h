@@ -1,10 +1,10 @@
 #pragma once
-#include <inttypes.h>
-#include <assert.h>
-#include <errno.h>
+#include <cinttypes>
+#include <cassert>
+#include <cerrno>
 #include <atomic>
 #include <type_traits>
-#include "../common/callback.h"
+#include "photon//common/callback.h"
 
 namespace photon
 {

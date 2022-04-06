@@ -1,6 +1,6 @@
 #pragma once
-#include <stdint.h>
-#include <inttypes.h>
+#include <cstdint>
+#include <cinttypes>
 #include <atomic>
 
 struct __perf_counter;

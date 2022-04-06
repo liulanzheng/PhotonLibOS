@@ -10,7 +10,7 @@
 #include <thread>
 #include <vector>
 
-#include "thread11.h"
+#include "photon/thread/thread11.h"
 
 class WorkPool {
 public:

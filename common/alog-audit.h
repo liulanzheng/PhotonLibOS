@@ -1,8 +1,8 @@
 #pragma once
 #include <utility>
 
-#include "alog.h"
-#include "utility.h"
+#include "photon/common/alog.h"
+#include "photon/common/utility.h"
 
 #define AU_FILEOP(pathname, offset, size)   \
     make_named_value("pathname", pathname), \

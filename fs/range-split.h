@@ -1,7 +1,7 @@
 #pragma once
-#include <inttypes.h>
-#include <assert.h>
-#include "common/utility.h"
+#include <cinttypes>
+#include <cassert>
+#include "photon/common/utility.h"
 
 // 本文件主打（文件偏移量）区间的分解操作，支持固定间隔（struct range_split）,
 // 以及2的幂次固定间隔（struct range_split_power2）

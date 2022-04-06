@@ -1,9 +1,10 @@
 #pragma once
+
 #define _FILE_OFFSET_BITS 64
 #define FUSE_USE_VERSION 29
-#include <fuse.h>
 
-#include "filesystem.h"
+#include <fuse.h>
+#include "photon/fs/filesystem.h"
 
 int fuser_go(FileSystem::IFileSystem* fs, int argc, char* argv[]);
 

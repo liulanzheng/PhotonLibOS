@@ -1,6 +1,6 @@
 #pragma once
 
-#include "common/object.h"
+#include "photon/common/object.h"
 
 namespace Net {
 class ISocketStream;

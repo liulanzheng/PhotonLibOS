@@ -1,14 +1,14 @@
 #pragma once
-#include <inttypes.h>
+#include <cinttypes>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <arpa/inet.h>
-#include <string.h>
+#include <cstring>
 
-#include "common/stream.h"
-#include "common/callback.h"
-#include "common/object.h"
+#include "photon/common/stream.h"
+#include "photon/common/callback.h"
+#include "photon/common/object.h"
 
 struct LogBuffer;
 namespace Net

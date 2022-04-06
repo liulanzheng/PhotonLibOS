@@ -1,14 +1,15 @@
 #pragma once
-#include <inttypes.h>
-#include <assert.h>
+#include <cinttypes>
+#include <cassert>
 #include <sys/types.h>
-#include <errno.h>
+#include <cerrno>
 #include <utility>
 #include <tuple>
 #include <type_traits>
-#include "object.h"
-#include "callback.h"
-#include "thread/thread11.h"
+
+#include "photon/common/object.h"
+#include "photon/common/callback.h"
+#include "photon/thread/thread11.h"
 
 template<typename T>
 struct _AsyncResult

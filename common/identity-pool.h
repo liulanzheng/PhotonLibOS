@@ -1,10 +1,10 @@
 #pragma once
-#include <stdlib.h>
-#include <inttypes.h>
+#include <cstdlib>
+#include <cinttypes>
 #include <new>
-#include "callback.h"
-#include "../thread/thread.h"
-#include "../thread/list.h"
+#include "photon/common/callback.h"
+#include "photon/thread/thread.h"
+#include "photon/thread/list.h"
 
 class IdentityPoolBase: public intrusive_list_node<IdentityPoolBase> {
 public:

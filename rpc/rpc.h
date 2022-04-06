@@ -1,11 +1,11 @@
 #pragma once
-#include <assert.h>
-#include "common/stream.h"
-#include "common/iovector.h"
-#include "common/object.h"
-#include "common/callback.h"
-#include "net/socket.h"
-#include "serialize.h"
+#include <cassert>
+#include "photon/common/stream.h"
+#include "photon/common/iovector.h"
+#include "photon/common/object.h"
+#include "photon/common/callback.h"
+#include "photon/net/socket.h"
+#include "photon/rpc/serialize.h"
 
 namespace RPC
 {

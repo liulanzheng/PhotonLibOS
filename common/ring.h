@@ -1,8 +1,8 @@
 #pragma once
 #include <utility>
 #include <unistd.h>
-#include <stdlib.h>
-#include "../thread/thread.h"
+#include <cstdlib>
+#include "photon/thread/thread.h"
 
 // RingBase exists only to reduce the size of template RingQueue
 class RingBase

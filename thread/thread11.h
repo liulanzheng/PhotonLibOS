@@ -2,10 +2,10 @@
 #include <tuple>
 #include <utility>
 #include "thread.h"
-#include "../common/PMF.h"
-#include "../common/utility.h"
-#include "../common/tuple-assistance.h"
-#include "../common/callback.h"
+#include "photon/common/PMF.h"
+#include "photon/common/utility.h"
+#include "photon/common/tuple-assistance.h"
+#include "photon/common/callback.h"
 
 namespace photon
 {

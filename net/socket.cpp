@@ -10,17 +10,13 @@
 #include <unistd.h>
 #include <memory>
 
-#include "common/alog.h"
-#include "common/iovector.h"
-#include "io/fd-events.h"
-#include "thread/thread.h"
-#include "thread/thread11.h"
-#include "common/utility.h"
-#include "abstract_socket.h"
-#include "basic_socket.h"
-#include "tlssocket.h"
-#include "utils.h"
-#include "zerocopy.h"
+#include "photon/io/fd-events.h"
+#include "photon/thread/thread11.h"
+#include "photon/common/utility.h"
+#include "photon/net/abstract_socket.h"
+#include "photon/net/basic_socket.h"
+#include "photon/net/tlssocket.h"
+#include "photon/net/zerocopy.h"
 
 #ifndef SO_ZEROCOPY
 #define SO_ZEROCOPY 60

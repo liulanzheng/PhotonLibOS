@@ -1,11 +1,11 @@
 #pragma once
-#include <inttypes.h>
+#include <cinttypes>
 #include <vector>
-#include "common/object.h"
-#include "common/callback.h"
-#include "common/string_view.h"
-#include "common/iovector.h"
-#include "verb.h"
+#include "photon/common/object.h"
+#include "photon/common/callback.h"
+#include "photon/common/string_view.h"
+#include "photon/common/iovector.h"
+#include "photon/net/http/verb.h"
 namespace FileSystem {
     class IFileSystem;
 }

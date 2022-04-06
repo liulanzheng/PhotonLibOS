@@ -15,15 +15,16 @@
 */
 
 #pragma once
-#include <stdlib.h>
-#include <limits.h>
-#include <assert.h>
-#include <string.h>
+#include <cstdlib>
+#include <climits>
+#include <cassert>
+#include <cstring>
 #include <new>
 #include <memory>
 #include <sys/uio.h>
-#include "callback.h"
-#include "io-alloc.h"
+
+#include "photon/common/callback.h"
+#include "photon/common/io-alloc.h"
 
 inline bool operator == (const iovec& a, const iovec& b)
 {

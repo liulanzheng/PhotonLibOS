@@ -1,7 +1,6 @@
 #pragma once
 
-#include <stdint.h>
-
+#include <cstdint>
 #include <type_traits>
 
 #include "string_view.h"

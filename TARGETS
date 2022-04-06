@@ -5,7 +5,6 @@ includes = {
 targets = {
 	'photon' : cpp_exportable_library (
         incs = [
-            './',
             'third_party/liburing/src/include',
         ],
         srcs =  glob('common/*.cpp') +

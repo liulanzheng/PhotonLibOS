@@ -1,16 +1,16 @@
 #pragma once
-#include <assert.h>
+#include <cassert>
 #include <curl/curl.h>
 
 #include <initializer_list>
 #include <string>
 #include <unordered_map>
 
-#include "common/alog-functionptr.h"
-#include "common/alog-stdstring.h"
-#include "common/alog.h"
-#include "common/estring.h"
-#include "common/iovector.h"
+#include "photon/common/alog-functionptr.h"
+#include "photon/common/alog-stdstring.h"
+#include "photon/common/alog.h"
+#include "photon/common/estring.h"
+#include "photon/common/iovector.h"
 
 namespace Net {
 

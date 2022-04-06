@@ -1,11 +1,11 @@
 #pragma once
-#include <inttypes.h>
+#include <cinttypes>
 #include <sys/socket.h>
 
-#include "common/iovector.h"
-#include "thread/thread.h"
-#include "common/timeout.h"
-#include "common/utility.h"
+#include "photon/common/iovector.h"
+#include "photon/thread/thread.h"
+#include "photon/common/timeout.h"
+#include "photon/common/utility.h"
 
 namespace Net {
 int socket(int domain, int type, int protocol);

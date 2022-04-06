@@ -1,7 +1,7 @@
 #pragma once
-#include <inttypes.h>
-#include "common/message-channel.h"
-#include "common/stream.h"
+#include <cinttypes>
+#include "photon/common/message-channel.h"
+#include "photon/common/stream.h"
 
 // a message channel based on any `IStream` object
 namespace StreamMessenger

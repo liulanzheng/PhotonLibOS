@@ -1,9 +1,9 @@
 #pragma once
-#include <inttypes.h>
-#include <assert.h>
-#include "thread.h"
-#include "../common/callback.h"
-#include "../common/alog.h"
+#include <cinttypes>
+#include <cassert>
+#include "photon/thread/thread.h"
+#include "photon/common/callback.h"
+#include "photon/common/alog.h"
 
 namespace photon
 {

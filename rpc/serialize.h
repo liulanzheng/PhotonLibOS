@@ -1,13 +1,13 @@
 #pragma once
-#include <inttypes.h>
-#include <stddef.h>
-#include <string.h>
-#include <assert.h>
+#include <cinttypes>
+#include <cstddef>
+#include <cstring>
+#include <cassert>
 #include <string>
 #include <vector>
 #include <sys/uio.h>
-#include "common/iovector.h"
-#include "common/utility.h"
+#include "photon/common/iovector.h"
+#include "photon/common/utility.h"
 
 namespace RPC
 {

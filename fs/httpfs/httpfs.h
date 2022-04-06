@@ -6,8 +6,8 @@
 #include <string>
 #include <utility>
 
-#include "common/callback.h"
-#include "fs/filesystem.h"
+#include "photon/common/callback.h"
+#include "photon/fs/filesystem.h"
 
 namespace FileSystem {
 enum HTTPFileFlags {
@@ -54,9 +54,11 @@ IFileSystem* new_httpfs(bool default_https = false,
 IFile* new_httpfile(const char* url, IFileSystem* httpfs = nullptr,
                     uint64_t conn_timeout = -1UL, uint64_t stat_expire = -1UL,
                     FileOpenCallback open_cb = {});
+
 IFileSystem* new_httpfs_v2(bool default_https = false,
                            uint64_t conn_timeout = -1UL,
                            uint64_t stat_expire = -1UL);
+
 IFile* new_httpfile_v2(const char* url, IFileSystem* httpfs = nullptr,
                        uint64_t conn_timeout = -1UL,
                        uint64_t stat_expire = -1UL);

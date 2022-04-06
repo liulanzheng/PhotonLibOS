@@ -1,7 +1,7 @@
 #pragma once
-#include "alog.h"
 #include <string>
-#include "string_view.h"
+#include "photon/common/alog.h"
+#include "photon/common/string_view.h"
 
 inline LogBuffer& operator << (LogBuffer& log, const std::string& s)
 {

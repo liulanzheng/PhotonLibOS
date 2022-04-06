@@ -1,13 +1,13 @@
 #pragma once
-#include <inttypes.h>
+#include <cinttypes>
 #ifdef __APPLE__
 #include <malloc/malloc.h>
 #else
 #include <malloc.h>
 #endif
-#include <assert.h>
-#include "callback.h"
-#include "identity-pool.h"
+#include <cassert>
+#include "photon/common/callback.h"
+#include "photon/common/identity-pool.h"
 
 // Defines allocator and deallocator for I/O memory,
 // which deal with a ranged size.

@@ -11,8 +11,8 @@ Maintainer: Huiba Li (huiba.lhb@alibaba-inc.com)
 */
 
 #pragma once
-#include <inttypes.h>
-#include "common/callback.h"
+#include <cinttypes>
+#include "photon/common/callback.h"
 
 namespace photon
 {
