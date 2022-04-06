@@ -7,7 +7,7 @@
 #include <sys/vfs.h>
 #include <queue>
 #include "thread/thread11.h"
-#include "io/signal.h"
+#include "io/signalfd.h"
 #include "net/socket.h"
 #include "common/alog-stdstring.h"
 #include "io/fd-events.h"

@@ -10,7 +10,7 @@
 
 #include "common/alog.h"
 #include "io/fd-events.h"
-#include "io/signal.h"
+#include "io/signalfd.h"
 #include "thread/thread11.h"
 #include "common/utility.h"
 #include "socket.h"

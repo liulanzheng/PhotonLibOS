@@ -13,7 +13,7 @@
 #include "io/aio-wrapper.h"
 #include "io/fd-events.h"
 #include "thread/thread11.h"
-#include "io/signal.h"
+#include "io/signalfd.h"
 #include "net/socket.h"
 #include "net/zerocopy.h"
 #include "common/alog.h"
@@ -22,7 +22,7 @@
 #include "common/utility.h"
 #include "common/callback.h"
 #include "rpc/rpc.h"
-#include "fs/checkedfs/tool/crc32c.h"
+#include "common/checksum/crc32c.h"
 #include "zerocopy-common.h"
 
 using namespace std;

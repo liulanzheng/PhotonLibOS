@@ -42,20 +42,20 @@ targets = {
             '-lphoton'
         ],
     ),
-#    'iouring_ut': cpp_fast_test(
-#        incs=[
-#          './',
-#        ],
-#        srcs=[
-#          'test-iouring.cpp',
-#        ],
-#        static_deps=[
-#          'gtest-1.7.0:gtest',
-#          'gflags-2.1.2',
-#        ],
-#        ldflags=[
-#          '-lphoton'
-#        ],
-#        testing=['syncio'],
-#      ),
+    'iouring_ut': cpp_fast_test(
+        incs=[
+          './',
+        ],
+        srcs=[
+          'test-iouring.cpp',
+        ],
+        static_deps=[
+          'gtest-1.7.0:gtest',
+          'gflags-2.1.2',
+        ],
+        ldflags=[
+          '-lphoton'
+        ],
+        testing=['syncio'],
+      ),
 }

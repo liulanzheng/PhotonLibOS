@@ -20,7 +20,7 @@
 #include "common/utility.h"
 #include "common/io-alloc.h"
 #include "rpc/rpc.h"
-#include "fs/checkedfs/tool/crc32c.h"
+#include "common/checksum/crc32c.h"
 #include "zerocopy-common.h"
 
 using namespace std;

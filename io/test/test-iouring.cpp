@@ -6,16 +6,16 @@
 #include <gtest/gtest.h>
 #include <gflags/gflags.h>
 
-#include "../syncio/fd-events.h"
-#include "../syncio/aio-wrapper.h"
-#include "../syncio/signal.h"
-#include "../../fs/localfs.h"
-#include "../../fs/filesystem.h"
-#include "../../fs/checkedfs/tool/crc32c.h"
-#include "../../io-alloc.h"
-#include "../thread11.h"
-#include "../../alog.h"
-#include "../../net/socket.h"
+#include "io/fd-events.h"
+#include "io/aio-wrapper.h"
+#include "io/signalfd.h"
+#include "fs/localfs.h"
+#include "fs/filesystem.h"
+#include "common/checksum/crc32c.h"
+#include "common/io-alloc.h"
+#include "thread/thread11.h"
+#include "common/alog.h"
+#include "net/socket.h"
 
 // Common parameters
 bool stop_test = false;
