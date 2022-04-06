@@ -1,7 +1,7 @@
 targets = {
-    'rpc_test': cpp_fast_test(
-        testing=['rpc',],
-        incs=['../'],
+    'test-rpc': cpp_fast_test(
+        testing=[],
+        incs=[],
         srcs=['test.cpp'],
         static_deps=[
             'gtest-1.7.0:gtest',
@@ -9,5 +9,17 @@ targets = {
         ldflags=[
             '-lphoton',
         ],
-    )
+    ),
+    'test-ooo': cpp_fast_test(
+        testing=[],
+        incs=[],
+        srcs=['test-ooo.cpp'],
+        static_deps=[
+            'gtest-1.7.0:gtest',
+            'gflags-2.1.2',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+    ),
 }

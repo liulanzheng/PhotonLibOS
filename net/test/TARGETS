@@ -1,4 +1,5 @@
 includes = {
+    '../http/test/TARGETS',
     '../security-context/test/TARGETS',
 }
 
