@@ -355,7 +355,7 @@ int handler(void *, Net::ISocketStream *stream) {
     DEFER(delete_sasl_context(session));
     char buf[6];
     char buffer[1048576];
-    auto ss = Security::new_sasl_stream(session, stream, true);
+    auto ss = Security::new_sasl_stream(session, stream, false);
     DEFER(delete ss);
     LOG_INFO("BEFORE READ");
     auto ret = ss->read(buf, 6);

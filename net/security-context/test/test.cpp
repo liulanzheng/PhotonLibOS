@@ -71,7 +71,7 @@ int handler(void* arg, Net::ISocketStream* stream) {
     char buf[6];
     char buffer[1048576];
     auto ss = Security::new_tls_stream(ctx, stream,
-                                       Security::SecurityRole::Server, true);
+                                       Security::SecurityRole::Server, false);
     DEFER(delete ss);
     LOG_INFO("BEFORE READ");
     auto ret = ss->read(buf, 6);

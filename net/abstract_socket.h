@@ -84,8 +84,8 @@ public:
             return -1;
         }
         memcpy(ptr, val, len);
-        ptr += len;
         push_back(SocketOpt{level, name, ptr, len});
+        ptr += len;
         return 0;
     }
     int get_opt(int level, int name, void* val, socklen_t* len)

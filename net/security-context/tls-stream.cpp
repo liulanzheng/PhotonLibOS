@@ -160,9 +160,7 @@ TLSContext* new_tls_context(const char* cert_str, const char* key_str,
     return ret;
 }
 
-void delete_tls_context(TLSContext* ctx) {
-    delete ctx;
-}
+void delete_tls_context(TLSContext* ctx) { delete ctx; }
 
 class TLSStream : public Net::ISocketStream {
 public:
@@ -177,7 +175,7 @@ public:
 
     TLSStream(TLSContext* ctx, ISocketStream* stream, SecurityRole r,
               bool ownership = false)
-        : role(r), underlay_stream(stream) {
+        : role(r), underlay_stream(stream), ownership(ownership) {
         ssl = SSL_new(ctx->ctx);
         rbio = BIO_new(BIO_s_mem());
         wbio = BIO_new(BIO_s_mem());
@@ -186,7 +184,7 @@ public:
 
     ~TLSStream() {
         SSL_free(ssl);
-        if (ownership && !underlay_stream) {
+        if (ownership) {
             delete underlay_stream;
         }
     }
@@ -494,8 +492,9 @@ public:
         return underlay->listen(backlog);
     }
     int forwarding_handler(Net::ISocketStream* stream) {
-        return m_handler(
-            new_tls_stream(ctx, stream, SecurityRole::Server, true));
+        auto s = new_tls_stream(ctx, stream, SecurityRole::Server, false);
+        DEFER(delete s);
+        return m_handler(s);
     }
     virtual Net::ISocketServer* set_handler(Handler handler) override {
         m_handler = handler;

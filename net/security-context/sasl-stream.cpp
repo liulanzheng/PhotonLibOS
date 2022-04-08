@@ -4,7 +4,7 @@
 #include "common/iovector.h"
 #include "net/socket.h"
 
-//#include <error.h>
+#include <error.h>
 
 namespace Security {
 
@@ -89,6 +89,10 @@ SaslSession *new_sasl_server_session(const char *mech, Gsasl_auth_cb auth_cb,
     return ret;
 }
 
+void gsasl_property_set_session(SaslSession *session, Gsasl_property prop, const char *data) {
+    gsasl_property_set(session->session, prop, data);
+}
+
 void delete_sasl_context(SaslSession *session) { delete session; }
 
 class SaslStream : public Net::ISocketStream {
@@ -111,7 +115,7 @@ class SaslStream : public Net::ISocketStream {
     }
 
     ~SaslStream() {
-        if (m_ownership && !underlay_stream) {
+        if (m_ownership) {
             delete underlay_stream;
         }
         free(saslmsg);
@@ -289,6 +293,7 @@ class SaslStream : public Net::ISocketStream {
 
         if (decodebuf_start == decodebuf_finish) { // no data left in decodebuf
             gsasl_free(decodebuf);
+            decodebuf = nullptr;
             return read_more(buf, cnt);
         }
         // read from decodebuf

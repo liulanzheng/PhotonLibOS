@@ -44,6 +44,14 @@ SaslSession *new_sasl_client_session(const char *mech, Gsasl_auth_cb auth_cb,
  */
 SaslSession *new_sasl_server_session(const char *mech, Gsasl_auth_cb auth_cb,
                                      Gsasl_prep_cb prep_cb);
+/**
+ * @brief set property of sasl session. It will call gsasl_property_set function.
+ *
+ * @param session SaslSession handle.
+ * @param prop enumerated value of Gsasl_property type, indicating the type of data in data.
+ * @param data zero terminated character string to store.
+ */
+void gsasl_property_set_session(SaslSession* session, Gsasl_property prop, const char *data);
 
 /**
  * @brief Destruct and free a sasl session.

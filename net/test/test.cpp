@@ -193,6 +193,23 @@ TEST(ETSocket, timeout) {
     EXPECT_GE(photon::now - now, 1000 * 1000UL);
 }
 
+TEST(Socket, sockopt) {
+    auto cli = new_tcp_socket_client();
+    DEFER({ delete cli; });
+    struct timeval timeo;
+    timeo.tv_sec = 3600;
+    timeo.tv_usec = 0;
+    auto ret = cli->setsockopt(SOL_SOCKET, SO_SNDTIMEO, &timeo, sizeof(timeo));
+    EXPECT_EQ(0, ret);
+    struct timeval timeo_out {0, 0};
+    socklen_t len_out = sizeof(timeo_out);
+    ret = cli->getsockopt(SOL_SOCKET, SO_SNDTIMEO, &timeo_out, &len_out);
+    EXPECT_EQ(0, ret);
+    EXPECT_EQ(timeo.tv_sec, timeo_out.tv_sec);
+    EXPECT_EQ(timeo.tv_usec, timeo_out.tv_usec);
+    EXPECT_EQ((socklen_t)sizeof(timeo), len_out);
+}
+
 TEST(ETServer, listen_twice) {
     auto server = Net::new_et_tcp_socket_server();
     DEFER(delete server);
@@ -413,6 +430,23 @@ TEST(Socket, autoremove) {
     delete sock;
     ret = stat(path, &statbuf);
     EXPECT_EQ(-1, ret);
+}
+
+TEST(Socket, sockopt) {
+    auto cli = new_tcp_socket_client();
+    DEFER({ delete cli; });
+    struct timeval timeo;
+    timeo.tv_sec = 3600;
+    timeo.tv_usec = 0;
+    auto ret = cli->setsockopt(SOL_SOCKET, SO_SNDTIMEO, &timeo, sizeof(timeo));
+    EXPECT_EQ(0, ret);
+    struct timeval timeo_out {0, 0};
+    socklen_t len_out = sizeof(timeo_out);
+    ret = cli->getsockopt(SOL_SOCKET, SO_SNDTIMEO, &timeo_out, &len_out);
+    EXPECT_EQ(0, ret);
+    EXPECT_EQ(timeo.tv_sec, timeo_out.tv_sec);
+    EXPECT_EQ(timeo.tv_usec, timeo_out.tv_usec);
+    EXPECT_EQ((socklen_t)sizeof(timeo), len_out);
 }
 
 TEST(Socket, faults) {
@@ -638,7 +672,7 @@ TEST(utils, gethostbyname) {
     EXPECT_EQ(localhost.to_nl(), addr.to_nl());
     std::vector<Net::IPAddr> addrs;
     Net::gethostbyname("localhost", addrs);
-    EXPECT_GT(addrs.size(), 0);
+    EXPECT_GT((int)addrs.size(), 0);
     EXPECT_EQ(localhost.to_nl(), addrs[0].to_nl());
     Net::IPAddr host = Net::gethostbypeer("localhost");
     EXPECT_EQ(localhost.to_nl(), host.to_nl());
