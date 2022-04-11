@@ -17,12 +17,6 @@ enum HTTPFileFlags {
 };
 
 using FileOpenCallback = Delegate<void, const char*, IFile*>;
-class AuthManager;
-
-AuthManager* new_http_param_signature_manager(bool secure = false,
-                                              uint64_t timeout = 5UL * 1000 *
-                                                                 1000,
-                                              IFileSystem* httpfs = nullptr);
 
 /**
  * @brief create httpfs object

@@ -10,7 +10,6 @@
 #include "io/fd-events.h"
 #include "thread/thread.h"
 #include "fs/localfs.h"
-#include "fs/httpfs/auth_manager.h"
 #define protected public
 #include "../httpfs.cpp"
 #undef protected
@@ -272,51 +271,6 @@ TEST(httpfs, callback) {
     EXPECT_EQ(6, ret);
     if (ret >= 0) buffer[ret] = 0;
     EXPECT_STREQ("hello\n", buffer);
-}
-
-TEST(authmanager, basic) {
-    // authmanager should keep auth for first access just after open
-    // so certain cached-file can open then stat immediatly without
-    // ioctl setting up http parameters
-
-    system(
-        "echo 'hello' > /tmp/ease-httpfs-test-file && osscmd put "
-        "/tmp/ease-httpfs-test-file oss://ray-dr/hello");
-
-    auto mgn = FileSystem::new_http_param_signature_manager();
-    DEFER(delete mgn);
-    auto fs = FileSystem::new_httpfs(false, -1, -1, mgn->opencb());
-    DEFER(delete fs);
-
-    auto expire =
-        std::chrono::duration_cast<std::chrono::seconds>(
-            (std::chrono::system_clock::now() + std::chrono::seconds(3600))
-                .time_since_epoch())
-            .count();
-    auto signature =
-        oss_signature("ray-dr", "GET", "/hello", expire, OSS_ID,
-                      OSS_KEY);
-
-    /// set param by ioctl
-    auto queryparam =
-        "OSSAccessKeyId=LTAIWsbCDjMKQbaW&Expires=" + std::to_string(expire) +
-        "&Signature=" + Net::url_escape(signature.c_str());
-
-    mgn->put("ray-dr.oss-cn-hangzhou-zmf.aliyuncs.com/hello",
-             queryparam.c_str());
-    struct stat buf;
-
-    auto file = fs->open("/ray-dr.oss-cn-hangzhou-zmf.aliyuncs.com/hello", 0);
-    DEFER(delete file);
-    EXPECT_EQ(0, file->fstat(&buf));
-
-    mgn->put("/http://ray-dr.oss-cn-hangzhou-zmf.aliyuncs.com/hello",
-             queryparam.c_str());
-
-    auto file2 =
-        fs->open("/http://ray-dr.oss-cn-hangzhou-zmf.aliyuncs.com/hello", 0);
-    DEFER(delete file2);
-    EXPECT_EQ(0, file2->fstat(&buf));
 }
 
 int main(int argc, char** argv) {

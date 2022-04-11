@@ -12,7 +12,6 @@
 #include "thread/thread.h"
 #include "common/alog-stdstring.h"
 #include "fs/localfs.h"
-#include "fs/httpfs/auth_manager.h"
 #define protected public
 #include "../httpfs_v2.cpp"
 #undef protected

@@ -45,7 +45,6 @@ targets = {
         ],
         custom_flags = {
             'whole_archive_static_deps': 1,
-            'dep_extends': 'shared',
         },
         ccflags = [
             '-D_FILE_OFFSET_BITS=64',
@@ -54,19 +53,18 @@ targets = {
         ldflags = [
             '--version-script=%s/io/libaioversion.map' % ALIMAKE_TARGETS_DIR,
             '--version-script=%s/io/libfuseversion.map' % ALIMAKE_TARGETS_DIR,
-            '--version-script=%s/third_party/liburing.map' % ALIMAKE_TARGETS_DIR,
         ],
 	),
-    'gsasl-1.8.0' : pre_http_archive( #Base on libgsasl, with all ctypes function renamed to avoid duplicate definition
-       url = 'http://test-xunyi.oss-cn-hangzhou-zmf.aliyuncs.com/daditest%2Fgsasl-1.8.0-rename-ctypes.tar.gz => gsasl-1.8.0',
-       md5 = 'a9ecf2a338f7565026920a1492f5e72a',
+    'gsasl-1.8.0' : pre_http_archive(
+        url = 'http://test-xunyi.oss-cn-hangzhou-zmf.aliyuncs.com/release/gsasl-1.8.0.tar.gz => gsasl-1.8.0',
+        md5 = '3c7eed0d77b4c4f00c3bcc015e19e11c',
     ),
     'kerberos-1.15.1' : pre_http_archive(
-       url = 'http://test-xunyi.oss-cn-hangzhou-zmf.aliyuncs.com/daditest%2Fkerberos-1.15.1.tar.gz => kerberos-1.15.1',
-       md5 = 'b2693bc64493d458600d2db25ff99979',
+        url = 'http://test-xunyi.oss-cn-hangzhou-zmf.aliyuncs.com/daditest%2Fkerberos-1.15.1.tar.gz => kerberos-1.15.1',
+        md5 = 'b2693bc64493d458600d2db25ff99979',
     ),
     'keyutils-1.5.8' : pre_http_archive(
-     url = 'http://test-xunyi.oss-cn-hangzhou-zmf.aliyuncs.com/daditest%2Fkeyutils-1.5.8.tar.gz => keyutils-1.5.8',
-     md5 = '3ddc0f80571caa15b02450cee0c59b78',
+        url = 'http://test-xunyi.oss-cn-hangzhou-zmf.aliyuncs.com/daditest%2Fkeyutils-1.5.8.tar.gz => keyutils-1.5.8',
+        md5 = '3ddc0f80571caa15b02450cee0c59b78',
     ),
 }

@@ -1,0 +1,46 @@
+includes = {
+    '../third_party/TARGETS',
+}
+
+targets = {
+	'photon_lib' : cpp_library (
+        incs = [
+            '../third_party/liburing/src/include',
+        ],
+        srcs =  glob('../common/*.cpp') +
+                glob('../common/checksum/*.cpp') +
+                glob('../common/memory-stream/*.cpp') +
+                glob('../common/stream-messenger/*.cpp') +
+                glob('../fs/*.cpp') +
+                glob('../fs/httpfs/*.cpp') +
+                glob('../fs/checkedfs/tool/*.cpp') +
+                glob('../io/*.cpp') +
+                glob('../net/*.cpp') +
+                glob('../net/http/*.cpp') +
+                glob('../net/security-context/*.cpp') +
+                glob('../rpc/*.cpp') +
+                glob('../thread/*.cpp') +
+                glob('../thread/switch_context_%s.s' % arch),
+        static_deps = [
+            'curl-7.42.1',
+            'openssl-1.0.2a',
+            'zlib-1.2.8',
+            'boost-1.69.0',
+            'libaio-0.3.110.1',
+            'fuse-2.9.4',
+            'gflags-2.1.2',
+            'fuse-devel-2.9.2',
+            'liberpc-devel-17.1.0',
+            'kerberos-1.15.1',
+            'keyutils-1.5.8',
+            'gsasl-1.8.0',
+            ':../third_party/uring_lib',
+            ':../third_party/osssdk_lib',
+            ':../third_party/easy_weak_lib',
+        ],
+        ccflags = [
+            '-D_FILE_OFFSET_BITS=64',
+            '-DFUSE_USE_VERSION=29',
+        ],
+	),
+}
