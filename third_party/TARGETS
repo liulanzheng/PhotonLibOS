@@ -18,27 +18,9 @@ targets = {
              'liburing/src/syscall.c',
         ],
     ),
-    'osssdk_lib': cpp_library(
-        incs = [
-            './aliyun-oss-cpp-sdk/sdk/include',
-            './aliyun-oss-cpp-sdk/sdk/include/alibabacloud/oss',
-            './aliyun-oss-cpp-sdk/sdk/src/',
-            './aliyun-oss-cpp-sdk/sdk/src/external',
-        ],
-        srcs =  glob('./aliyun-oss-cpp-sdk/sdk/src/*.c*') +
-                glob('./aliyun-oss-cpp-sdk/sdk/src/*/*.c*') +
-                glob('./aliyun-oss-cpp-sdk/sdk/src/external/*/*.c*'),
-        shared_deps= [
-            'curl-7.42.1',
-            'openssl-1.0.2a',
-        ],
-    ),
     'easy_weak_lib': cpp_library(
         srcs = [
             'easy_weak/easy_weak.cpp',
-        ],
-        static_deps = [
-            'liberpc-devel-17.1.0',
         ],
     ),
 }

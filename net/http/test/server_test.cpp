@@ -1,8 +1,6 @@
 #include <fcntl.h>
 #include <time.h>
 #include <gtest/gtest.h>
-#include <openssl/hmac.h>
-#include <utils/Utils.h>
 #include <netinet/tcp.h>
 
 // #define protected public

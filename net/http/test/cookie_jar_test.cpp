@@ -1,7 +1,6 @@
 #include "../cookie_jar.cpp"
 #include <fcntl.h>
 #include <gtest/gtest.h>
-#include <utils/Utils.h>
 #include <time.h>
 
 #include <chrono>

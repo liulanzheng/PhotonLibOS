@@ -31,7 +31,6 @@ targets = {
             'fuse-2.9.4:fuse',
             'gflags-2.1.2:gflags',
             'fuse-devel-2.9.2',
-            'liberpc-devel-17.1.0',
             'kerberos-1.15.1:krb5',
             'kerberos-1.15.1:k5crypto',
             'kerberos-1.15.1:com_err',
@@ -40,7 +39,6 @@ targets = {
             'keyutils-1.5.8:keyutils',
             'gsasl-1.8.0:gsasl',
             ':third_party/uring_lib',
-            ':third_party/osssdk_lib',
             ':third_party/easy_weak_lib',
         ],
         custom_flags = {

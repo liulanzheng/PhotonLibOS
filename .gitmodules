@@ -2,7 +2,3 @@
 	path = third_party/liburing
 	url = git@gitlab.alibaba-inc.com:sbu/liburing.git
 	branch = alios7-configured
-[submodule "third_party/aliyun-oss-cpp-sdk"]
-	path = third_party/aliyun-oss-cpp-sdk
-	url = git@gitlab.alibaba-inc.com:dadi/aliyun-oss-cpp-sdk.git
-	branch = metrics_support
