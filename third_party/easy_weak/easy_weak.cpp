@@ -1,10 +1,9 @@
-#include <easy/easy_io_struct.h>
+#include "easy_weak.h"
 
 #include <cstdio>
 #include <cerrno>
 
-static const char* err_msg =
-    "calling a weak implement, please link libeasy library.";
+static const char* err_msg = "You are calling a weak implementation. Please link the easy library.";
 
 #define RETURN_ERROR(code) do {         \
     fprintf(stderr, "%s\n", err_msg);   \
