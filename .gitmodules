@@ -1,4 +1,0 @@
-[submodule "third_party/liburing"]
-	path = third_party/liburing
-	url = git@gitlab.alibaba-inc.com:sbu/liburing.git
-	branch = alios7-configured
