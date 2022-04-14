@@ -1,5 +1,6 @@
 #define protected public
 #define private public
+
 #include "../generator.h"
 #include "../estring.h"
 #include "../alog.cpp"
@@ -16,6 +17,10 @@
 #include "../expirecontainer.h"
 #include "thread/timer.h"
 #include "thread/thread11.h"
+
+#undef private
+#undef protected
+
 #include <stdint.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -1157,7 +1162,8 @@ TEST(estring, test)
 {
     estring s = "alskdjf,;;,q3r1234;poiu";
     LOG_DEBUG(s);
-    auto sp = s.split(charset(";,"));
+    charset cs(";,");
+    auto sp = s.split(cs);
     auto it = sp.begin();
     auto front = *it;
     auto remainder = it.remainder();

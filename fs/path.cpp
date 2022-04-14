@@ -301,7 +301,7 @@ namespace FileSystem
             m_stack.pop();
             if (m_stack.empty())
             {
-                m_path.clear();
+                m_path.remove_prefix(m_path.length());
                 return -1; // finished walking
             }
             assert(m_path.back() == '/');
