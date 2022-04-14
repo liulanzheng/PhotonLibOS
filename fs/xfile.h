@@ -1,7 +1,8 @@
 #pragma once
 #include <cinttypes>
 
-namespace FileSystem
+namespace photon {
+namespace fs
 {
     class IFile;
 
@@ -17,4 +18,5 @@ namespace FileSystem
     // create a strip file that is composed by stripping `n` `files` of the same size
     // `stripe_size` must be power of 2
     IFile* new_stripe_file(uint64_t stripe_size, IFile** files, uint64_t n, bool ownership = false);
+}
 }

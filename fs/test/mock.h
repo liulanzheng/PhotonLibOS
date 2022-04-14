@@ -1,12 +1,12 @@
 #pragma once
 
 #include <gmock/gmock.h>
-#include "fs/filesystem.h"
+#include <photon/fs/filesystem.h>
 
 namespace Mock {
-    using namespace FileSystem;
-    using FileSystem::DIR;
-    using FileSystem::fiemap;
+    using namespace photon::fs;
+    using photon::fs::DIR;
+    using photon::fs::fiemap;
 
     class MockNullFile : public IFile {
     public:

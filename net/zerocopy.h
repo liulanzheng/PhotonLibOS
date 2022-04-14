@@ -1,10 +1,11 @@
 #pragma once
 
 #include <cstdint>
-#include "photon/common/ring.h"
-#include "photon/thread/thread.h"
+#include <photon/common/ring.h>
+#include <photon/thread/thread.h>
 
-namespace Net {
+namespace photon {
+namespace net {
 
 class ZerocopyEventEntry {
 public:
@@ -39,4 +40,5 @@ int zerocopy_fini();
 /* Check if kernel version satisfies and thus zerocopy feature should be enabled */
 bool zerocopy_available();
 
+}
 }

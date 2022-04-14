@@ -1,14 +1,14 @@
-#include "rpc/rpc.cpp"
+#include "../../rpc/rpc.cpp"
 #include <memory>
 #include <gtest/gtest.h>
-#include "thread/thread.h"
-#include "common/memory-stream/memory-stream.h"
-#include "common/utility.h"
-#include "common/alog-stdstring.h"
-#include "net/socket.h"
+#include <photon/thread/thread.h>
+#include <photon/common/memory-stream/memory-stream.h>
+#include <photon/common/utility.h>
+#include <photon/common/alog-stdstring.h>
+#include <photon/net/socket.h>
 using namespace std;
 using namespace photon;
-using namespace RPC;
+using namespace rpc;
 
 std::string S = "1234567890";
 struct Args
@@ -51,9 +51,9 @@ struct Args
 
 FunctionID FID(234);
 
-RPC::Header rpc_server_read(IStream* s)
+rpc::Header rpc_server_read(IStream* s)
 {
-    RPC::Header header;
+    rpc::Header header;
     s->read(&header, sizeof(header));
 //    EXPECT_EQ(header.tag, 1);
 
@@ -71,7 +71,7 @@ RPC::Header rpc_server_read(IStream* s)
 char STR[] = "!@#$%^&*()_+";
 void rpc_server_write(IStream* s, uint64_t tag)
 {
-    RPC::Header header;
+    rpc::Header header;
     header.tag = tag;
     header.size = LEN(STR);
 
@@ -96,7 +96,7 @@ void* rpc_server(void* args_)
     return nullptr;
 }
 
-int server_function(void* instance, iovector* request, RPC::Skeleton::ResponseSender sender, IStream*)
+int server_function(void* instance, iovector* request, rpc::Skeleton::ResponseSender sender, IStream*)
 {
     EXPECT_EQ(instance, (void*)123);
 
@@ -111,7 +111,7 @@ int server_function(void* instance, iovector* request, RPC::Skeleton::ResponseSe
     return 0;
 }
 
-int server_exit_function(void* instance, iovector* request, RPC::Skeleton::ResponseSender sender, IStream*)
+int server_exit_function(void* instance, iovector* request, rpc::Skeleton::ResponseSender sender, IStream*)
 {
     IOVector iov;
     iov.push_back(STR, LEN(STR));
@@ -126,15 +126,15 @@ int server_exit_function(void* instance, iovector* request, RPC::Skeleton::Respo
 
 bool skeleton_exited;
 photon::condition_variable skeleton_exit;
-RPC::Skeleton* g_sk;
+rpc::Skeleton* g_sk;
 void* rpc_skeleton(void* args)
 {
     skeleton_exited = false;
     auto s = (IStream*)args;
     auto sk = new_skeleton();
     g_sk = sk;
-    sk->add_function(FID, RPC::Skeleton::Function((void*)123, &server_function));
-    sk->add_function(-1,  RPC::Skeleton::Function(sk, &server_exit_function));
+    sk->add_function(FID, rpc::Skeleton::Function((void*)123, &server_function));
+    sk->add_function(-1,  rpc::Skeleton::Function(sk, &server_exit_function));
     sk->serve(s);
     LOG_DEBUG("exit");
     skeleton_exit.notify_all();
@@ -244,7 +244,7 @@ void* do_concurrent_call_timeout(void* arg)
     return nullptr;
 }
 
-int server_function_timeout(void* instance, iovector* request, RPC::Skeleton::ResponseSender sender, IStream*)
+int server_function_timeout(void* instance, iovector* request, rpc::Skeleton::ResponseSender sender, IStream*)
 {
     EXPECT_EQ(instance, (void*)123);
     Args args;
@@ -268,8 +268,8 @@ void* rpc_skeleton_timeout(void* args)
     auto s = (IStream*)args;
     auto sk = new_skeleton();
     g_sk = sk;
-    sk->add_function(FID, RPC::Skeleton::Function((void*)123, &server_function_timeout));
-    sk->add_function(-1,  RPC::Skeleton::Function(sk, &server_exit_function));
+    sk->add_function(FID, rpc::Skeleton::Function((void*)123, &server_function_timeout));
+    sk->add_function(-1,  rpc::Skeleton::Function(sk, &server_exit_function));
     sk->serve(s);
     LOG_DEBUG("exit");
     skeleton_exit.notify_all();

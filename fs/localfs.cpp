@@ -26,12 +26,11 @@
 #include "virtual-file.h"
 #include "fiemap.h"
 #include "subfs.h"
-#include "io/aio-wrapper.h"
-#include "common/alog.h"
-#include "thread/thread.h"
-#include "io/iouring-wrapper.h"
+#include <photon/io/aio-wrapper.h>
+#include <photon/common/alog.h>
+#include <photon/thread/thread.h>
+#include <photon/io/iouring-wrapper.h>
 
-using namespace photon;
 
 // UN-interrupted syscall
 #define UISysCall(call) ([&](){     \
@@ -52,7 +51,8 @@ using namespace photon;
 #undef UISysCall    // no longer needed
 #define UISysCall(call) call
 
-namespace FileSystem
+namespace photon {
+namespace fs
 {
     class BaseFileAdaptor : public VirtualFile, public IFileXAttr
     {
@@ -555,4 +555,5 @@ namespace FileSystem
 
         return new_localfile_adaptor(fd, io_engine_type);
     }
+}
 }

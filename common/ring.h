@@ -2,7 +2,7 @@
 #include <utility>
 #include <unistd.h>
 #include <cstdlib>
-#include "photon/thread/thread.h"
+#include <photon/thread/thread.h>
 
 // RingBase exists only to reduce the size of template RingQueue
 class RingBase

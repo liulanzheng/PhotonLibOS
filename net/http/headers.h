@@ -1,13 +1,13 @@
 #pragma once
 #include <cassert>
 #include <cerrno>
-#include "photon/net/http/verb.h"
-#include "photon/common/estring.h"
+#include <photon/net/http/verb.h>
+#include <photon/common/estring.h>
 
-namespace Net {
+namespace photon {
+namespace net {
 
 class ISocketStream;
-namespace HTTP {
 
 class Headers
 {

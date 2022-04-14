@@ -22,9 +22,6 @@
 
 #include "crc32c.h"
 
-namespace FileSystem {
-
-namespace crc32 {
 
 static uint32_t (*crc32c_func)(const uint8_t*, size_t, uint32_t) = nullptr;
 
@@ -764,6 +761,3 @@ uint32_t crc32c_fast(const void *data, size_t nbytes, uint32_t crc) {
 }
 
 }  // namespace testing
-
-}  // namespace tool
-}  // namespace ease

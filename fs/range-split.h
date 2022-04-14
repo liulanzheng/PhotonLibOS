@@ -1,14 +1,15 @@
 #pragma once
 #include <cinttypes>
 #include <cassert>
-#include "photon/common/utility.h"
+#include <photon/common/utility.h>
 
 // 本文件主打（文件偏移量）区间的分解操作，支持固定间隔（struct range_split）,
 // 以及2的幂次固定间隔（struct range_split_power2）
 
 // 变长间隔在range-split-vi.h中支持(struct range_split_vi)
 
-namespace FileSystem
+namespace photon {
+namespace fs
 {
     struct sub_range
     {
@@ -357,4 +358,5 @@ namespace FileSystem
                 process _(rs.postface);
         }
     }
+}
 }

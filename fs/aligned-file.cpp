@@ -2,16 +2,17 @@
 
 #include <stdlib.h>
 #include <fcntl.h>
-#include "common/iovector.h"
+#include <photon/common/iovector.h>
 #include "filesystem.h"
 #include "forwardfs.h"
 #include "range-split.h"
 #include "range-split-vi.h"
-#include "common/utility.h"
-#include "common/alog.h"
-#include "common/io-alloc.h"
+#include <photon/common/utility.h>
+#include <photon/common/alog.h>
+#include <photon/common/io-alloc.h>
 
-namespace FileSystem
+namespace photon {
+namespace fs
 {
     static constexpr size_t MAX_TMP_IOVEC_SIZE=32;
 
@@ -306,4 +307,5 @@ namespace FileSystem
 
         return new AlignedFSAdaptor(fs, alignment, align_memory, ownership, alloc);
     }
+}
 }

@@ -11,21 +11,22 @@
 #include <cstdlib>
 #include <string>
 
-#include "net/curl.h"
-#include "net/socket.h"
-#include "common/alog.h"
+#include <photon/net/curl.h>
+#include <photon/net/socket.h>
+#include <photon/common/alog.h>
 #define protected public
 #define private public
 #include "../client.cpp"
 #undef protected
 #undef private
 // #include "client.h"
-#include "io/fd-events.h"
-#include "net/etsocket.h"
-#include "thread/thread11.h"
-#include "common/stream.h"
+#include <photon/io/fd-events.h>
+#include <photon/net/etsocket.h>
+#include <photon/thread/thread11.h>
+#include <photon/common/stream.h>
 
-using namespace Net::HTTP;
+using namespace photon;
+using namespace photon::net;
 
 static std::string hmac_sha1(const std::string& key, const std::string& data) {
     HMAC_CTX ctx;
@@ -80,7 +81,7 @@ TEST(http_client, post) {
         OSS_ID, OSS_KEY);
     auto queryparam_post =
         "OSSAccessKeyId=LTAIWsbCDjMKQbaW&Expires=" + std::to_string(expire) +
-        "&Signature=" + Net::url_escape(signature_post.c_str());
+        "&Signature=" + net::url_escape(signature_post.c_str());
     LOG_DEBUG(VALUE(queryparam_post));
     std::string target_post =
         "http://qisheng-ds.oss-cn-hangzhou-zmf.aliyuncs.com/ease_ut/"
@@ -101,7 +102,7 @@ TEST(http_client, post) {
         OSS_ID, OSS_KEY);
     auto queryparam_get =
         "OSSAccessKeyId=LTAIWsbCDjMKQbaW&Expires=" + std::to_string(expire) +
-        "&Signature=" + Net::url_escape(signature_get.c_str());
+        "&Signature=" + net::url_escape(signature_get.c_str());
     std::string target_get =
         "http://qisheng-ds.oss-cn-hangzhou-zmf.aliyuncs.com/ease_ut/"
         "ease-httpclient-test-postfile?" +
@@ -163,7 +164,7 @@ constexpr char http_response_data[] = "HTTP/1.1 200 4TEST\r\n"
                                       "second chunk \r\n"
                                       "0\r\n"
                                       "\r\n";
-int chunked_handler(void*, Net::ISocketStream* sock) {
+int chunked_handler(void*, net::ISocketStream* sock) {
     EXPECT_NE(nullptr, sock);
     LOG_DEBUG("Accepted");
     char recv[4096];
@@ -176,7 +177,7 @@ int chunked_handler(void*, Net::ISocketStream* sock) {
 constexpr char header_data[] = "HTTP/1.1 200 ok\r\n"
                                "Transfer-Encoding: chunked\r\n"
                                "\r\n";
-int chunked_handler_complict(void*, Net::ISocketStream* sock) {
+int chunked_handler_complict(void*, net::ISocketStream* sock) {
     EXPECT_NE(nullptr, sock);
     LOG_DEBUG("Accepted");
     char recv[4096];
@@ -206,7 +207,7 @@ int chunked_handler_complict(void*, Net::ISocketStream* sock) {
     return 0;
 }
 
-Net::EndPoint ep{Net::IPAddr("127.0.0.1"), 19731};
+net::EndPoint ep{net::IPAddr("127.0.0.1"), 19731};
 std::string std_data;
 const size_t std_data_size = 64 * 1024;
 static int digtal_num(int n) {
@@ -217,7 +218,7 @@ static int digtal_num(int n) {
     } while (n);
     return ret;
 }
-void chunked_send(int offset, int size, Net::ISocketStream* sock) {
+void chunked_send(int offset, int size, net::ISocketStream* sock) {
     auto s = std::to_string(size) + "\r\n";
     sock->write(s.data(), 2 + digtal_num(size));
     auto ret = sock->write(std_data.data() + offset, size);
@@ -225,7 +226,7 @@ void chunked_send(int offset, int size, Net::ISocketStream* sock) {
     sock->write("\r\n", 2);
 }
 std::vector<int> rec;
-int chunked_handler_pt(void*, Net::ISocketStream* sock) {
+int chunked_handler_pt(void*, net::ISocketStream* sock) {
     EXPECT_NE(nullptr, sock);
     LOG_DEBUG("Accepted");
     char recv[4096];
@@ -253,7 +254,7 @@ int chunked_handler_pt(void*, Net::ISocketStream* sock) {
 }
 
 TEST(http_client, chunked) {
-    auto server = Net::new_tcp_socket_server();
+    auto server = net::new_tcp_socket_server();
     DEFER({ delete server; });
     server->setsockopt(SOL_SOCKET, SO_REUSEPORT, 1);
     server->set_handler({nullptr, &chunked_handler});
@@ -333,7 +334,7 @@ int wa_test[] = {5265,
 4487,
 2195,
 292};
-int chunked_handler_debug(void*, Net::ISocketStream* sock) {
+int chunked_handler_debug(void*, net::ISocketStream* sock) {
     EXPECT_NE(nullptr, sock);
     LOG_DEBUG("Accepted");
     char recv[4096];
@@ -351,7 +352,7 @@ int chunked_handler_debug(void*, Net::ISocketStream* sock) {
 }
 
 TEST(http_client, debug) {
-    auto server = Net::new_tcp_socket_server();
+    auto server = net::new_tcp_socket_server();
     DEFER({ delete server; });
     server->setsockopt(SOL_SOCKET, SO_REUSEPORT, 1);
     server->set_handler({nullptr, &chunked_handler_debug});
@@ -389,17 +390,17 @@ TEST(http_client, debug) {
     }
     std::cout << "new" << std::endl;
 }
-int sleep_handler(void*, Net::ISocketStream* sock) {
+int sleep_handler(void*, net::ISocketStream* sock) {
     photon::thread_sleep(3);
     return 0;
 }
 int dummy_body_writer(void* self, IStream* stream) { return 0; }
 
 TEST(http_client, server_no_resp) {
-    auto server = Net::new_tcp_socket_server();
+    auto server = net::new_tcp_socket_server();
     DEFER(delete server);
     server->set_handler({nullptr, &sleep_handler});
-    server->bind(38812, Net::IPAddr());
+    server->bind(38812, net::IPAddr());
     server->listen();
     server->start_loop();
 
@@ -422,7 +423,7 @@ TEST(http_client, partial_body) {
         OSS_ID, OSS_KEY);
     auto queryparam_get =
         "OSSAccessKeyId=LTAIWsbCDjMKQbaW&Expires=" + std::to_string(expire) +
-        "&Signature=" + Net::url_escape(signature_get.c_str());
+        "&Signature=" + net::url_escape(signature_get.c_str());
     std::string target_get =
         "http://qisheng-ds.oss-cn-hangzhou-zmf.aliyuncs.com/ease_ut/"
         "ease-httpclient-test-postfile?" +
@@ -463,11 +464,11 @@ int main(int argc, char** arg) {
     DEFER(photon::fini());
     photon::fd_events_init();
     DEFER(photon::fd_events_fini());
-    if (Net::et_poller_init() < 0) {
-        LOG_ERROR("Net::et_poller_init failed");
+    if (net::et_poller_init() < 0) {
+        LOG_ERROR("net::et_poller_init failed");
         exit(EAGAIN);
     }
-    DEFER(Net::et_poller_fini());
+    DEFER(net::et_poller_fini());
     set_log_output_level(ALOG_DEBUG);
     ::testing::InitGoogleTest(&argc, arg);
     LOG_DEBUG("test result:`", RUN_ALL_TESTS());

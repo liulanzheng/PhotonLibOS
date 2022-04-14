@@ -3,10 +3,11 @@
 #include <stddef.h>
 #include <sys/stat.h>
 
-#include "common/alog.h"
+#include <photon/common/alog.h>
 #include "filesystem.h"
 
-namespace FileSystem {
+namespace photon {
+namespace fs {
 
 static constexpr size_t ALIGNMENT = 4096;
 
@@ -56,4 +57,5 @@ ssize_t filecopy(IFile* infile, IFile* outfile, size_t bs, int retry_limit) {
     return offset;
 }
 
-}  // namespace FileSystem
+}  // namespace fs
+}

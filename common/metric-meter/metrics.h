@@ -5,8 +5,8 @@
 #include <unistd.h>
 #include <type_traits>
 
-#include "photon/thread/thread.h"
-#include "photon/common/utility.h"
+#include <photon/thread/thread.h>
+#include <photon/common/utility.h>
 
 #ifndef likely
 #define __ease_metrics_defined_likely__

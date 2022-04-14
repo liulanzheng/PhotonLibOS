@@ -1,20 +1,22 @@
 #include <fcntl.h>
 #include <gtest/gtest.h>
 
-#include "common/alog.h"
-#include "fs/exportfs.h"
-#include "fs/filesystem.h"
-#include "fs/localfs.h"
-#include "common/utility.h"
-#include "common/executor/executor.h"
-#include "common/executor/stdlock.h"
+#include <photon/common/alog.h>
+#include <photon/fs/exportfs.h>
+#include <photon/fs/filesystem.h>
+#include <photon/fs/localfs.h>
+#include <photon/common/utility.h>
+#include <photon/common/executor/executor.h>
+#include <photon/common/executor/stdlock.h>
+
+using namespace photon;
 
 std::atomic<int> count;
 
 int ftask(Executor::HybridEaseExecutor *eth) {
     for (int i = 0; i < 1000; i++) {
         auto ret = eth->perform([] {
-            auto fs = FileSystem::new_localfs_adaptor();
+            auto fs = fs::new_localfs_adaptor();
             if (!fs) return -1;
             DEFER(delete fs);
             auto file = fs->open("/etc/hosts", O_RDONLY);
@@ -51,7 +53,7 @@ TEST(std_executor, test) {
            10000L * 1000000 / microsec);
 }
 
-int exptask(FileSystem::IFileSystem *fs) {
+int exptask(fs::IFileSystem *fs) {
     for (int i = 0; i < 1000; i++) {
         auto file = fs->open("/etc/hosts", O_RDONLY);
         EXPECT_NE(nullptr, file);
@@ -68,14 +70,14 @@ TEST(std_executor, with_exportfs) {
     Executor::HybridEaseExecutor eth;
 
     auto fs = eth.perform([] {
-        FileSystem::exportfs_init();
-        auto local = FileSystem::new_localfs_adaptor();
-        return FileSystem::export_as_sync_fs(local);
+        fs::exportfs_init();
+        auto local = fs::new_localfs_adaptor();
+        return fs::export_as_sync_fs(local);
     });
     ASSERT_NE(nullptr, fs);
     DEFER(eth.perform([&fs] {
         delete fs;
-        FileSystem::exportfs_fini();
+        fs::exportfs_fini();
     }));
 
     printf("Task applied, wait for loop\n");
@@ -99,7 +101,7 @@ TEST(std_executor, with_exportfs) {
 // int astask(Executor::HybridEaseExecutor *eth) {
 //     for (int i = 0; i < 1000; i++) {
 //         auto ret = eth->async_perform([] {
-//             auto fs = FileSystem::new_localfs_adaptor();
+//             auto fs = fs::new_localfs_adaptor();
 //             if (!fs) return -1;
 //             DEFER(delete fs);
 //             auto file = fs->open("/etc/hosts", O_RDONLY);

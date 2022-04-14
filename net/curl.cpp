@@ -3,15 +3,16 @@
 #include <shared_mutex>
 #include <vector>
 
-#include "common/alog.h"
-#include "common/event-loop.h"
-#include "io/fd-events.h"
-#include "thread/thread11.h"
-#include "thread/timer.h"
-#include "common/timeout.h"
-#include "common/utility.h"
+#include <photon/common/alog.h>
+#include <photon/common/event-loop.h>
+#include <photon/io/fd-events.h>
+#include <photon/thread/thread11.h>
+#include <photon/thread/timer.h>
+#include <photon/common/timeout.h>
+#include <photon/common/utility.h>
 
-namespace Net {
+namespace photon {
+namespace net {
 static constexpr int poll_size = 16;
 static constexpr int EOK = ENXIO;
 
@@ -264,4 +265,5 @@ std::string url_escape(const char* str) {
     DEFER(curl_free(s));
     return std::string(s);
 }
-}  // namespace Net
+}  // namespace net
+}

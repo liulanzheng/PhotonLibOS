@@ -8,10 +8,11 @@
 #include "filesystem.h"
 #include "forwardfs.h"
 #include "path.h"
-#include "common/iovector.h"
-#include "common/alog.h"
+#include <photon/common/iovector.h>
+#include <photon/common/alog.h>
 
-namespace FileSystem
+namespace photon {
+namespace fs
 {
     // Sub tree of a file system
     class SubFileSystem : public IFileSystem
@@ -295,4 +296,4 @@ namespace FileSystem
         return new SubFile(underlay_file, offset, length, ownership);
     }
 }
-
+}

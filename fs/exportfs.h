@@ -1,7 +1,8 @@
 #pragma once
 #include <cstdint>
 
-namespace FileSystem
+namespace photon {
+namespace fs
 {
     class IFile;
     class IFileSystem;
@@ -34,4 +35,5 @@ namespace FileSystem
         IFileSystem*   export_as_easy_sync_fs(IFileSystem* fs);
         DIR*           export_as_easy_sync_dir(DIR* dir);
     }
+}
 }

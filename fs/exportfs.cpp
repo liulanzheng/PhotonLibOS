@@ -8,14 +8,14 @@
 #include <sched.h>
 #include "filesystem.h"
 #include "async_filesystem.h"
-#include "thread/thread.h"
-#include "thread/thread-pool.h"
-#include "io/fd-events.h"
-#include "common/event-loop.h"
-#include "common/alog.h"
-using namespace photon;
+#include <photon/thread/thread.h>
+#include <photon/thread/thread-pool.h>
+#include <photon/io/fd-events.h>
+#include <photon/common/event-loop.h>
+#include <photon/common/alog.h>
 
-namespace FileSystem
+namespace photon {
+namespace fs
 {
     static EventLoop* evloop = nullptr;
     typedef boost::lockfree::spsc_queue<std::function<void()>, boost::lockfree::capacity<65536> > spsc;
@@ -459,4 +459,5 @@ namespace FileSystem
     {
         return new ExportAsAsyncDIR(dir);
     }
+}
 }

@@ -1,23 +1,25 @@
 #include "../socket.h"
 #include "../tlssocket.h"
-#include "thread/thread.h"
-#include "io/fd-events.h"
-#include "common/alog.h"
+#include <photon/thread/thread.h>
+#include <photon/io/fd-events.h>
+#include <photon/common/alog.h>
+
+using namespace photon;
 
 int main(int argc, char** argv) {
     photon::init();
     photon::fd_events_init();
-    Net::ssl_init("net/test/cert.pem", "net/test/key.pem", "Just4Test");
+    net::ssl_init("net/test/cert.pem", "net/test/key.pem", "Just4Test");
     DEFER({
-        Net::ssl_fini();
+        net::ssl_fini();
         photon::fd_events_fini();
         photon::fini();
     });
-    auto server = Net::new_tls_socket_server();
+    auto server = net::new_tls_socket_server();
     DEFER(delete server);
 
-    auto logHandle = [&](Net::ISocketStream* arg) {
-        auto sock = (Net::ISocketStream*) arg;
+    auto logHandle = [&](net::ISocketStream* arg) {
+        auto sock = (net::ISocketStream*) arg;
         char buff[4096];
         uint64_t recv_cnt = 0;
         ssize_t len = 0;
@@ -32,7 +34,7 @@ int main(int argc, char** argv) {
         return 0;
     };
     server->set_handler(logHandle);
-    server->bind(31526, Net::IPAddr());
+    server->bind(31526, net::IPAddr());
     server->listen(1024);
     server->start_loop(true);
 }

@@ -1,11 +1,11 @@
 #pragma once
 #include <tuple>
 #include <utility>
-#include "thread.h"
-#include "photon/common/PMF.h"
-#include "photon/common/utility.h"
-#include "photon/common/tuple-assistance.h"
-#include "photon/common/callback.h"
+#include <photon/thread/thread.h>
+#include <photon/common/PMF.h>
+#include <photon/common/utility.h>
+#include <photon/common/tuple-assistance.h>
+#include <photon/common/callback.h>
 
 namespace photon
 {

@@ -3,10 +3,10 @@
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <sys/utsname.h>
-#include "common/event-loop.h"
-#include "io/fd-events.h"
-#include "thread/thread.h"
-#include "common/alog.h"
+#include <photon/common/event-loop.h>
+#include <photon/io/fd-events.h>
+#include <photon/thread/thread.h>
+#include <photon/common/alog.h>
 #include "socket.h"
 
 #ifndef SO_EE_ORIGIN_ZEROCOPY
@@ -19,7 +19,8 @@
 
 using namespace std;
 
-namespace Net {
+namespace photon {
+namespace net {
 
 class ErrQueueEventLoop {
 public:
@@ -206,4 +207,5 @@ void ZerocopyEventEntry::handle_events() {
     }
 }
 
+}
 }

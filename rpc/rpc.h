@@ -1,13 +1,14 @@
 #pragma once
 #include <cassert>
-#include "photon/common/stream.h"
-#include "photon/common/iovector.h"
-#include "photon/common/object.h"
-#include "photon/common/callback.h"
-#include "photon/net/socket.h"
-#include "photon/rpc/serialize.h"
+#include <photon/common/stream.h>
+#include <photon/common/iovector.h>
+#include <photon/common/object.h>
+#include <photon/common/callback.h>
+#include <photon/net/socket.h>
+#include <photon/rpc/serialize.h>
 
-namespace RPC
+namespace photon {
+namespace rpc
 {
     union FunctionID
     {
@@ -165,14 +166,14 @@ namespace RPC
     public:
         // Get a RPC stub(client) from expire-container, which is a connection pool.
         // If no existing stub was found, a new one will be created.
-        virtual Stub* get_stub(const Net::EndPoint& endpoint, bool tls) = 0;
+        virtual Stub* get_stub(const net::EndPoint& endpoint, bool tls) = 0;
 
         // Put the RPC stub, could destroy the resource `immediately`, otherwise a ref count will be made,
         // and the resource will be cleared later.
-        virtual int put_stub(const Net::EndPoint& endpoint, bool immediately) = 0;
+        virtual int put_stub(const net::EndPoint& endpoint, bool immediately) = 0;
 
         // Get an existing stub. Return nullptr if not found.
-        virtual Stub* acquire(const Net::EndPoint& endpoint) = 0;
+        virtual Stub* acquire(const net::EndPoint& endpoint) = 0;
 
         // Get RPC call timeout.
         virtual uint64_t get_timeout() const = 0;
@@ -253,4 +254,5 @@ namespace RPC
             }
         };
     }
+}
 }

@@ -1,16 +1,17 @@
 #pragma once
 
 #include <memory>
-#include "photon/net/http/verb.h"
-#include "photon/net/http/headers.h"
-#include "photon/net/http/url.h"
-#include "photon/common/callback.h"
-#include "photon/common/object.h"
-#include "photon/common/string_view.h"
-#include "photon/common/stream.h"
-#include "photon/common/timeout.h"
-namespace Net {
-namespace HTTP {
+#include <photon/net/http/verb.h>
+#include <photon/net/http/headers.h>
+#include <photon/net/http/url.h>
+#include <photon/common/callback.h>
+#include <photon/common/object.h>
+#include <photon/common/string_view.h>
+#include <photon/common/stream.h>
+#include <photon/common/timeout.h>
+
+namespace photon {
+namespace net {
 
 class ICookieJar : public Object {
 public:
@@ -105,6 +106,5 @@ Client* new_http_client(ICookieJar *cookie_jar = nullptr);
 
 ICookieJar* new_simple_cookie_jar();
 
-}  // namespace HTTP
-
-} //namespace Net
+} //namespace net
+}

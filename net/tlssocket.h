@@ -1,10 +1,11 @@
 #pragma once
-#include "photon/net/socket.h"
+#include <photon/net/socket.h>
 
 struct ssl_st;
 typedef struct ssl_st SSL;
 
-namespace Net {
+namespace photon {
+namespace net {
 
 int ssl_init(const char* cert_path, const char* key_path,
              const char* passphrase);
@@ -20,4 +21,5 @@ ssize_t ssl_set_pkey_file(const char* path);
 ISocketClient* new_tls_socket_client();
 ISocketServer* new_tls_socket_server();
 
-}  // namespace Net
+}  // namespace net
+}

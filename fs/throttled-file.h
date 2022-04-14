@@ -1,7 +1,8 @@
 #pragma once
 #include <cinttypes>
 
-namespace FileSystem
+namespace photon {
+namespace fs
 {
     struct ThrottleLimits
     {
@@ -29,4 +30,5 @@ namespace FileSystem
     extern "C" IFileSystem *new_throttled_fs(IFileSystem *fs,
                                              const ThrottleLimits &limits,
                                              bool ownership = false);
+}
 }

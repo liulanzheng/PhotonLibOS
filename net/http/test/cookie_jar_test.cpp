@@ -8,13 +8,14 @@
 #include <cstring>
 #include <string>
 #include <gflags/gflags.h>
-#include "io/fd-events.h"
-#include "thread/thread11.h"
+#include <photon/io/fd-events.h>
+#include <photon/thread/thread11.h>
 #include <iostream>
-#include "common/alog.h"
-#include "common/alog-stdstring.h"
+#include <photon/common/alog.h>
+#include <photon/common/alog-stdstring.h>
 
-using namespace Net::HTTP;
+using namespace photon;
+using namespace photon::net;
 using namespace std;
 
 class ResponseHeaderAdaptor : public ResponseHeaders {

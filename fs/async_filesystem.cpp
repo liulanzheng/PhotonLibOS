@@ -6,12 +6,11 @@
 #include <type_traits>
 #include "filesystem.h"
 #include "exportfs.h"
-#include "thread/thread.h"
-#include "io/fd-events.h"
-#include "common/utility.h"
+#include <photon/thread/thread.h>
+#include <photon/io/fd-events.h>
+#include <photon/common/utility.h>
 #include "third_party/easy_weak/easy_weak.h"
 using namespace std;
-using namespace photon;
 
 // Concepts
 // Performer: a facility that performs the intended operation in background, without blocking photon
@@ -19,7 +18,8 @@ using namespace photon;
 // AsyncPerformer: performs async operations that are executed in other kernel threads
 // UIF: Underlay Interface ---- the IF to be wrapped
 
-namespace FileSystem
+namespace photon {
+namespace fs
 {   // threaded performer, for general functions
     template<typename R>
     struct th_performer
@@ -718,4 +718,5 @@ namespace FileSystem
         auto adir = export_as_async_dir(dir);
         return _new_dir_adaptor<AsyncDIR, EasyPerformer>(adir, -1);
     }
+}
 }

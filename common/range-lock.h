@@ -1,7 +1,7 @@
 #pragma once
 #include <cinttypes>
 #include <set>
-#include "photon/thread/thread.h"
+#include <photon/thread/thread.h>
 
 class RangeLock
 {

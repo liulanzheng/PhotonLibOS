@@ -1,7 +1,7 @@
 #pragma once
 
-namespace Net {
-namespace HTTP {
+namespace photon {
+namespace net {
 
 /**
     file need to be update after each time beast has been updated
@@ -362,6 +362,6 @@ enum class Field {
     x400_trace,
     xref,
 };
-}
 
-}  // namespace Net
+}  // namespace net
+}

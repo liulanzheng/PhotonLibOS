@@ -1,7 +1,8 @@
 #pragma once
 #include <cinttypes>
 
-namespace FileSystem
+namespace photon {
+namespace fs
 {
     typedef uint32_t __u32;
     typedef uint64_t __u64;
@@ -70,4 +71,5 @@ namespace FileSystem
 #define FIEMAP_EXTENT_SHARED            0x00002000 /* Space shared with other
                                                     * files. */
 
+}
 }

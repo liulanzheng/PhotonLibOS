@@ -1,7 +1,7 @@
 #pragma once
 #include <typeinfo>
 #include <cxxabi.h>
-#include "photon/common/alog.h"
+#include <photon/common/alog.h>
 
 template<typename T>
 inline LogBuffer& __printfp__(LogBuffer& log, T func)

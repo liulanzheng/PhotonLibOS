@@ -1,4 +1,8 @@
-#include "io/signalfd.cpp"
+#include <photon/io/signalfd.h>
+#include <photon/io/fd-events.h>
+#include <photon/common/utility.h>
+#include <photon/common/alog.h>
+#include <photon/thread/thread.h>
 
 #include <csignal>
 #include <gtest/gtest.h>

@@ -1,9 +1,9 @@
 #include "url.h"
-#include "common/alog.h"
-#include "common/alog-stdstring.h"
+#include <photon/common/alog.h>
+#include <photon/common/alog-stdstring.h>
 
-namespace Net {
-namespace HTTP {
+namespace photon {
+namespace net {
 
 void URL::from_string(std::string_view url) {
     m_url = url.begin();

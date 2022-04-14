@@ -3,11 +3,13 @@
 
 #include "client.h"
 #include "parser.h"
-#include "common/string-keyed.h"
-#include "thread/thread11.h"
-#include "common/estring.h"
-namespace Net {
-namespace HTTP {
+#include <photon/common/string-keyed.h>
+#include <photon/thread/thread11.h>
+#include <photon/common/estring.h>
+
+namespace photon {
+namespace net {
+
 using namespace std;
 
 static uint64_t local_gmt_gap_us = 0;
@@ -105,6 +107,7 @@ public:
 
 ICookieJar* new_simple_cookie_jar() {
     return new SimpleCookieJar();
+
 }
 }
 }

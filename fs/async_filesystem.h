@@ -3,12 +3,13 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include "photon/common/async_stream.h"
+#include <photon/common/async_stream.h>
 
 struct dirent;
 class iovector;
 
-namespace FileSystem
+namespace photon {
+namespace fs
 {
     struct fiemap;
     class IAsyncFileSystem;
@@ -254,4 +255,5 @@ namespace FileSystem
         IFileSystem* new_sync_fs_adaptor(IFileSystem* fs);
         DIR*         new_sync_dir_adaptor(DIR* dir);
     }
+}
 }

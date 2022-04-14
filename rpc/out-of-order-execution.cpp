@@ -1,12 +1,13 @@
 #include "out-of-order-execution.h"
 #include <unordered_map>
-#include "thread/thread.h"
-#include "common/utility.h"
-#include "common/alog.h"
+#include <photon/thread/thread.h>
+#include <photon/common/utility.h>
+#include <photon/common/alog.h>
 using namespace std;
 
-namespace photon
-{
+namespace photon {
+namespace rpc {
+
     class OooEngine
     {
     public:
@@ -189,4 +190,4 @@ namespace photon
         return e->get_queue_count();
     }
 }
-
+}

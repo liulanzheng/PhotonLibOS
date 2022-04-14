@@ -6,9 +6,9 @@ Internal header provides abstract socket base class
 
 #include <vector>
 
-#include "photon/common/alog.h"
-#include "photon/thread/thread11.h"
-#include "photon/net/socket.h"
+#include <photon/common/alog.h>
+#include <photon/thread/thread11.h>
+#include <photon/net/socket.h>
 
 #define UNIMPLEMENTED(method)                                   \
     virtual method override {                                   \
@@ -25,7 +25,8 @@ Internal header provides abstract socket base class
         LOG_ERROR_RETURN(ENOSYS, , #method " unimplemented"); \
     }
 
-namespace Net {
+namespace photon {
+namespace net {
 /// Abstract base class combines all socket interfaces
 class SocketBase : public ISocketStream,
                    public ISocketClient,
@@ -97,4 +98,5 @@ public:
     }
 };
 
-}  // namespace Net
+}  // namespace net
+}

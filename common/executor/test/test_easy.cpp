@@ -1,12 +1,14 @@
 #include <fcntl.h>
 #include <gtest/gtest.h>
 
-#include "common/alog.h"
-#include "fs/filesystem.h"
-#include "fs/localfs.h"
-#include "common/utility.h"
-#include "common/executor/executor.h"
-#include "common/executor/easylock.h"
+#include <photon/common/alog.h>
+#include <photon/fs/filesystem.h>
+#include <photon/fs/localfs.h>
+#include <photon/common/utility.h>
+#include <photon/common/executor/executor.h>
+#include <photon/common/executor/easylock.h>
+
+using namespace photon;
 
 class EasyCoroutinePool {
     easy_uthread_control_t euc;
@@ -51,7 +53,7 @@ int ftask(easy_baseth_t *, easy_task_t *task) {
     auto ret = eth->perform<Executor::EasyContext>([] {
         sem.wait(1);
         DEFER(sem.signal(1));
-        auto fs = FileSystem::new_localfs_adaptor();
+        auto fs = fs::new_localfs_adaptor();
         if (!fs) return -1;
         DEFER(delete fs);
         auto file = fs->open("/etc/hosts", O_RDONLY);

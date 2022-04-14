@@ -1,15 +1,15 @@
 #include <unistd.h>
 #include <fcntl.h>
-#include "thread/thread.h"
-#include "io/aio-wrapper.h"
+#include <photon/thread/thread.h>
+#include <photon/io/aio-wrapper.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include "io/fd-events.h"
-#include "common/utility.h"
-#include "common/alog.h"
+#include <photon/io/fd-events.h>
+#include <photon/common/utility.h>
+#include <photon/common/alog.h>
 #include <gtest/gtest.h>
 using namespace photon;
 

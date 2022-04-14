@@ -5,9 +5,9 @@
 #include <cstring>
 #include <random>
 
-#include "thread/thread.h"
+#include <photon/thread/thread.h>
 #include "../metrics.h"
-#include "thread/timer.h"
+#include <photon/thread/timer.h>
 
 class Table {
 public:

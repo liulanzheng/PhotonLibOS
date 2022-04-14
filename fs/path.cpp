@@ -3,12 +3,13 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
-#include "common/utility.h"
+#include <photon/common/utility.h>
 #include "string.h"
 #include "assert.h"
-#include "common/alog.h"
-#include "common/alog-stdstring.h"
-#include "common/enumerable.h"
+#include <photon/common/alog.h>
+#include <photon/common/alog-stdstring.h>
+#include <photon/common/enumerable.h>
+
 using namespace std;
 
 #define ERROR_RETURN(no, ret) { errno = no; return ret; }
@@ -31,8 +32,8 @@ using namespace std;
     if (it == node->end())                  \
         ERROR_RETURN(ENOENT, -1);
 
-
-namespace FileSystem
+namespace photon {
+namespace fs
 {
     void Path::iterator::set(const char* p)
     {
@@ -320,4 +321,5 @@ namespace FileSystem
         } /* else if (ret == 0) */
         return 0;   // file
     }
+}
 }
