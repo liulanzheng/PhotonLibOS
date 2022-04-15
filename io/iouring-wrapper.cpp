@@ -160,7 +160,7 @@ public:
                 LOG_ERROR_RETURN(EBUSY, -1, "iouring: submission queue is full");
             }
             ioCtx cancel_ctx{CURRENT, -1, true, false};
-            io_uring_prep_cancel(sqe, &io_ctx, 0);
+            io_uring_prep_cancel(sqe, (__u64) &io_ctx, 0);
             io_uring_sqe_set_data(sqe, &cancel_ctx);
             photon::thread_sleep(-1);
             errno = err_backup.no;
@@ -217,7 +217,7 @@ public:
             LOG_ERROR_RETURN(0, -1, "iouring: event is either non-existent or one-shot finished");
         }
 
-        io_uring_prep_poll_remove(sqe, &iter->second.io_ctx);
+        io_uring_prep_poll_remove(sqe, (__u64) &iter->second.io_ctx);
         return 0;
     }
 

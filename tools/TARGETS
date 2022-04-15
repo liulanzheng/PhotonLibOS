@@ -13,7 +13,6 @@ targets = {
                 glob('../common/stream-messenger/*.cpp') +
                 glob('../fs/*.cpp') +
                 glob('../fs/httpfs/*.cpp') +
-                glob('../fs/checkedfs/tool/*.cpp') +
                 glob('../io/*.cpp') +
                 glob('../net/*.cpp') +
                 glob('../net/http/*.cpp') +
@@ -33,7 +32,7 @@ targets = {
             'kerberos-1.15.1',
             'keyutils-1.5.8',
             'gsasl-1.8.0',
-            ':../third_party/uring_lib',
+            'liburing-2.2:uring',
             ':../third_party/easy_weak_lib',
         ],
         ccflags = [

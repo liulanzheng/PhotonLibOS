@@ -18,7 +18,6 @@ targets = {
     #    ldflags=[
     #        '-lphoton',
     #    ],
-    #    ccflags=OSS_AUTH_FLAGS,
     #),
     'server_test': cpp_fast_test (
         testing = [ 'http_server' ],
@@ -39,7 +38,6 @@ targets = {
         ldflags=[
             '-lphoton',
         ],
-        ccflags=OSS_AUTH_FLAGS,
     ),
     #'headers_test': cpp_fast_test (
     #    testing = [ 'new_headers' ],
@@ -60,7 +58,6 @@ targets = {
     #    ldflags=[
     #        '-lphoton',
     #    ],
-    #    ccflags=OSS_AUTH_FLAGS,
     #),
     'cookie_jar_test': cpp_fast_test (
         testing = [ 'cookie_jar' ],
@@ -80,7 +77,6 @@ targets = {
         ldflags=[
             '-lphoton',
         ],
-        ccflags=OSS_AUTH_FLAGS,
     ),
     'simple_server' : cpp_program(
         incs = [
@@ -97,7 +93,6 @@ targets = {
         ldflags=[
             '-lphoton',
         ],
-        ccflags=OSS_AUTH_FLAGS
     ),
     'perftest': cpp_program (
         incs = [
@@ -114,7 +109,6 @@ targets = {
         ldflags=[
             '-lphoton',
         ],
-        ccflags=OSS_AUTH_FLAGS,
     ),
     'pure_curl': cpp_program (
         incs = ['.'],

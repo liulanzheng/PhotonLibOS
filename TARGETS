@@ -13,7 +13,6 @@ targets = {
                 glob('common/stream-messenger/*.cpp') +
                 glob('fs/*.cpp') +
                 glob('fs/httpfs/*.cpp') +
-                glob('fs/checkedfs/tool/*.cpp') +
                 glob('io/*.cpp') +
                 glob('net/*.cpp') +
                 glob('net/http/*.cpp') +
@@ -38,7 +37,7 @@ targets = {
             'kerberos-1.15.1:gssapi_krb5',
             'keyutils-1.5.8:keyutils',
             'gsasl-1.8.0:gsasl',
-            ':third_party/uring_lib',
+            'liburing-2.2:uring',
             ':third_party/easy_weak_lib',
         ],
         custom_flags = {
@@ -53,6 +52,10 @@ targets = {
             '--version-script=%s/io/libfuseversion.map' % ALIMAKE_TARGETS_DIR,
         ],
 	),
+    'liburing-2.2' : pre_http_archive(
+        url = 'http://test-xunyi.oss-cn-hangzhou-zmf.aliyuncs.com/release/liburing-2.2.tar.gz => liburing-2.2',
+        md5 = 'def6df8ac7e5e866e13fdabbdfff89d1',
+    ),
     'gsasl-1.8.0' : pre_http_archive(
         url = 'http://test-xunyi.oss-cn-hangzhou-zmf.aliyuncs.com/release/gsasl-1.8.0.tar.gz => gsasl-1.8.0',
         md5 = '3c7eed0d77b4c4f00c3bcc015e19e11c',

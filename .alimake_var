@@ -1,9 +1,1 @@
-import base64
-metrics_cxxflags = ['-DMETRICS']
 arch = shell('uname -i')
-
-OSSAUTH = "REFEMUVBNUV8TFRBSVdzYkNEak1LUWJhV3w3bGpCakVWdGdFMEJUNU50VXU4Wm9yT3hTM1lCZkk="
-
-_, OSS_ID, OSS_KEY = base64.decodestring(OSSAUTH).strip().split('|')
-
-OSS_AUTH_FLAGS = [r'-DOSS_ID=\"%s\"' % OSS_ID, r'-DOSS_KEY=\"%s\"' % OSS_KEY]
