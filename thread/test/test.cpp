@@ -1,6 +1,3 @@
-#include "../thread.cpp"
-#include "../thread11.h"
-#include "../thread-pool.h"
 #include <inttypes.h>
 #include <errno.h>
 #include <math.h>
@@ -9,11 +6,16 @@
 #include <queue>
 #include <algorithm>
 #include <sys/time.h>
-#include "common/alog-audit.h"
-#include "../workerpool.h"
 #include <gflags/gflags.h>
-#define private public
 #include <gtest/gtest.h>
+
+#define private public
+
+#include "../thread.cpp"
+#include "../thread11.h"
+#include "../thread-pool.h"
+#include "../workerpool.h"
+#include "common/alog-audit.h"
 
 using namespace std;
 using namespace photon;

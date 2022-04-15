@@ -4,6 +4,9 @@
 #include "../throttled-file.h"
 #include "../throttled-file.cpp"
 
+#undef private
+#undef protected
+
 #include <thread>
 #include <chrono>
 #include <fcntl.h>

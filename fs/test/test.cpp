@@ -9,6 +9,10 @@
 #include "fs/async_filesystem.cpp"
 #include "fs/xfile.cpp"
 #include "fs/aligned-file.cpp"
+
+#undef private
+#undef protected
+
 #include <thread>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
