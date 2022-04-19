@@ -146,7 +146,10 @@ public:
     int do_epoll_wait(uint64_t timeout) {
         assert(_events_remain == 0);
         uint8_t cool_down_ms = 1;
-        timeout /= 1024;
+        // since timeout may less than 1ms
+        // in such condition, timeout_ms should be at least 1
+        // or it may call epoll_wait without any idle
+        timeout = (timeout && timeout < 1024) ? 1 : timeout / 1024;
         while (_engine_fd > 0) {
             int ret = epoll_wait(_engine_fd, _events, LEN(_events), timeout);
             if (ret < 0) {
