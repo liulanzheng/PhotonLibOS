@@ -44,18 +44,15 @@ TEST(alog, example) {
     EXPECT_STREQ("WTF is 1 this 2", log_start);
     LOG_INFO("WTF is \n means ` may be work `", "??", "!!");
     EXPECT_STREQ("WTF is \\n means ?? may be work !!", log_start);
-}
-
-#define FIRST_PROXY(x) \
-    __firstproxy(#x, x)
-TEST(alog, firstproxy) {
-    EXPECT_STREQ("Hello", FIRST_PROXY("Hello"));
-    EXPECT_STREQ("Hello\" \"WORLD\"", 
-        FIRST_PROXY("Hello"
-        "WORLD"));
-    EXPECT_STREQ("Hello     WORLD", FIRST_PROXY("Hello \
-    WORLD"));
-    EXPECT_STREQ("ABC\\nDEF\"", FIRST_PROXY("ABC\nDEF"));
+    LOG_INFO("WTF is \n means ` may be work `", "??", "!!");
+    EXPECT_STREQ("WTF is \\n means ?? may be work !!", log_start);
+    const char foobar[] = "n";
+    LOG_INFO(foobar);
+    // #S len == 6 > 2 + sizeof(yeah) 4, will fit the length condition
+    // but miss the leading/tailing character condition;
+    EXPECT_STREQ("n", log_start);
+    LOG_INFO(VALUE(foobar));
+    EXPECT_STREQ("[foobar=n]", log_start);
 }
 
 int main(int argc, char **argv)
