@@ -41,7 +41,7 @@ public:
             while(true)
             {
                 int ret = m_wait(this);
-                if (ret < 0)
+                if (ret < 0 || m_state == STOPPING)
                     goto exit;
                 if (ret > 0)
                     break;
