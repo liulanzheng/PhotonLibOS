@@ -4,7 +4,8 @@
 struct AlignedAlloc;
 struct IOAlloc;
 
-namespace FileSystem
+namespace photon {
+namespace fs
 {
     class IFile;
     class IFileSystem;
@@ -21,4 +22,5 @@ namespace FileSystem
                                         bool align_memory, bool ownership,
                                         IOAlloc* allocator = nullptr);
 
+}
 }

@@ -1,8 +1,8 @@
 #pragma once
-#include "photon/common/estring.h"
+#include <photon/common/estring.h>
 
-namespace Net {
-namespace HTTP {
+namespace photon {
+namespace net {
 
 class Parser
 {

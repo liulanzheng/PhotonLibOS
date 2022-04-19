@@ -1,5 +1,5 @@
 #include "messenger.h"
-#include "common/alog.h"
+#include <photon/common/alog.h>
 
 namespace StreamMessenger
 {

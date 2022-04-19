@@ -3,11 +3,13 @@
 #include <type_traits>
 #include <vector>
 
-#include "photon/common/callback.h"
-#include "photon/thread/thread11.h"
-#include "photon/common/string_view.h"
-#include "photon/net/socket.h"
-namespace Net {
+#include <photon/common/callback.h>
+#include <photon/thread/thread11.h>
+#include <photon/common/string_view.h>
+#include <photon/net/socket.h>
+
+namespace photon {
+namespace net {
 
 // user must make sure host or domain is a NULL TERMINATED c-string
 
@@ -125,4 +127,5 @@ inline int gethostbyname_nb(const char* name, std::vector<IPAddr>& ret) {
 
 void Base64Encode(std::string_view in, std::string &out);
 
-}  // namespace Net
+}  // namespace net
+}

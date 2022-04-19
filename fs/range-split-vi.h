@@ -2,11 +2,12 @@
 #include <cinttypes>
 #include <cassert>
 #include <algorithm>
-#include "photon/fs/range-split.h"
+#include <photon/fs/range-split.h>
 
 // 本文件主打（文件偏移量）区间的分解操作，支持不固定间隔（struct range_split_vi）
 
-namespace FileSystem
+namespace photon {
+namespace fs
 {
     // variable interval
     struct range_split_vi : public basic_range_split<range_split_vi>
@@ -54,4 +55,4 @@ namespace FileSystem
         }
     };
 }
-
+}

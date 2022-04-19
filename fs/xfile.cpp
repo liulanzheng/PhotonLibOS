@@ -8,11 +8,13 @@
 #include "virtual-file.h"
 #include "range-split.h"
 #include "range-split-vi.h"
-#include "common/utility.h"
-#include "common/alog.h"
+#include <photon/common/utility.h>
+#include <photon/common/alog.h>
+
 using namespace std;
 
-namespace FileSystem
+namespace photon {
+namespace fs
 {
     class XFile : public VirtualFile
     {
@@ -243,4 +245,5 @@ namespace FileSystem
 
         return new_file<StripeFile>(stripe_size, files, n, ownership);
     }
+}
 }

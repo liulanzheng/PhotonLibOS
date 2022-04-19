@@ -6,10 +6,11 @@
 #include <string>
 #include <vector>
 #include <sys/uio.h>
-#include "photon/common/iovector.h"
-#include "photon/common/utility.h"
+#include <photon/common/iovector.h>
+#include <photon/common/utility.h>
 
-namespace RPC
+namespace photon {
+namespace rpc
 {
     struct buffer
     {
@@ -345,4 +346,4 @@ namespace RPC
         }
     };
 }
-
+}

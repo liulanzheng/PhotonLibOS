@@ -11,11 +11,12 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <memory>
-#include "common/utility.h"
-#include "common/iovector.h"
-#include "common/alog.h"
+#include <photon/common/utility.h>
+#include <photon/common/iovector.h>
+#include <photon/common/alog.h>
 
-namespace FileSystem
+namespace photon {
+namespace fs
 {
     ssize_t VirtualFile::read(void *buf, size_t count)
     {
@@ -153,4 +154,5 @@ namespace FileSystem
         return this->fallocate(FALLOC_FL_KEEP_SIZE, offset, len);
     }
 #endif //__linux__
+}
 }

@@ -1,7 +1,8 @@
 #pragma once
-#include "photon/fs/filesystem.h"
+#include <photon/fs/filesystem.h>
 
-namespace FileSystem
+namespace photon {
+namespace fs
 {
     class ForwardFile : public IFile
     {
@@ -295,4 +296,5 @@ namespace FileSystem
             if (m_ownership) delete m_fs;
         }
     };
+}
 }

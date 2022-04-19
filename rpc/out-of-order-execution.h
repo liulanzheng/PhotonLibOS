@@ -12,11 +12,15 @@ Maintainer: Huiba Li (huiba.lhb@alibaba-inc.com)
 
 #pragma once
 #include <cinttypes>
-#include "photon/common/callback.h"
+#include <photon/common/callback.h>
 
-namespace photon
-{
-    class thread;
+namespace photon{
+
+class thread;
+
+namespace rpc {
+
+
     class OutOfOrder_Execution_Engine;
 
     OutOfOrder_Execution_Engine* new_ooo_execution_engine();
@@ -147,4 +151,5 @@ namespace photon
 
         Example().OOO_Operation();
     }
+}
 }

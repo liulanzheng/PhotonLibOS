@@ -4,12 +4,18 @@
 #define FUSE_USE_VERSION 29
 
 #include <fuse.h>
-#include "photon/fs/filesystem.h"
+#include <photon/fs/filesystem.h>
 
-int fuser_go(FileSystem::IFileSystem* fs, int argc, char* argv[]);
+namespace photon {
+namespace fs {
 
-int fuser_go_exportfs(FileSystem::IFileSystem* fs, int argc, char* argv[]);
+int fuser_go(fs::IFileSystem* fs, int argc, char* argv[]);
 
-void set_fuse_fs(FileSystem::IFileSystem* fs);
+int fuser_go_exportfs(fs::IFileSystem* fs, int argc, char* argv[]);
+
+void set_fuse_fs(fs::IFileSystem* fs);
 
 fuse_operations* get_fuse_xmp_oper();
+
+}
+}

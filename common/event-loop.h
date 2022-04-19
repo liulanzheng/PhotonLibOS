@@ -1,6 +1,6 @@
 #pragma once
-#include "photon/common/callback.h"
-#include "photon/common/object.h"
+#include <photon/common/callback.h>
+#include <photon/common/object.h>
 
 namespace photon {
 class thread;

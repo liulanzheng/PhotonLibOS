@@ -1,6 +1,6 @@
 #pragma once
-#include "photon/thread/thread.h"
-#include "photon/io/iouring-wrapper.h"
+#include <photon/thread/thread.h>
+#include <photon/io/iouring-wrapper.h>
 
 namespace photon {
 

@@ -15,8 +15,8 @@
 #include "../string-keyed.h"
 #include "../range-lock.h"
 #include "../expirecontainer.h"
-#include "thread/timer.h"
-#include "thread/thread11.h"
+#include <photon/thread/timer.h>
+#include <photon/thread/thread11.h>
 
 #undef private
 #undef protected

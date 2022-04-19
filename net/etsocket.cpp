@@ -12,16 +12,17 @@
 #include <sys/un.h>
 #include <unistd.h>
 
-#include "common/alog-stdstring.h"
-#include "common/event-loop.h"
-#include "io/fd-events.h"
-#include "thread/thread11.h"
+#include <photon/common/alog-stdstring.h>
+#include <photon/common/event-loop.h>
+#include <photon/io/fd-events.h>
+#include <photon/thread/thread11.h>
 #include "abstract_socket.h"
 #include "basic_socket.h"
-#include "thread/thread.h"
+#include <photon/thread/thread.h>
 #include "socket.h"
 
-namespace Net {
+namespace photon {
+namespace net {
 
 static const int EOK = ENXIO;
 enum class State {
@@ -155,7 +156,7 @@ public:
     }
     ETKernelSocket(int socket_family, bool autoremove)
         : m_autoremove(autoremove) {
-        fd = Net::socket(socket_family, SOCK_STREAM, 0);
+        fd = net::socket(socket_family, SOCK_STREAM, 0);
         if (fd > 0 && socket_family == AF_INET) {
             int val = 1;
             ::setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &val, sizeof(val));
@@ -181,7 +182,7 @@ public:
     typedef int (*Getter)(int sockfd, struct sockaddr* addr,
                           socklen_t* addrlen);
 
-    int do_getname(Net::EndPoint& addr, Getter getter) {
+    int do_getname(net::EndPoint& addr, Getter getter) {
         struct sockaddr_in addr_in;
         socklen_t len = sizeof(addr_in);
         int ret = getter(fd, (struct sockaddr*)&addr_in, &len);
@@ -189,10 +190,10 @@ public:
         addr.from_sockaddr_in(addr_in);
         return 0;
     }
-    virtual int getsockname(Net::EndPoint& addr) override {
+    virtual int getsockname(net::EndPoint& addr) override {
         return do_getname(addr, &::getsockname);
     }
-    virtual int getpeername(Net::EndPoint& addr) override {
+    virtual int getpeername(net::EndPoint& addr) override {
         return do_getname(addr, &::getpeername);
     }
     int do_getname(char* path, size_t count, Getter getter) {
@@ -616,4 +617,5 @@ extern "C" ISocketStream* new_et_tcp_socket_stream(int fd) {
     return new ETKernelSocketStream(fd);
 }
 
-}  // namespace Net
+}  // namespace net
+}

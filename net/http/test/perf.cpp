@@ -6,17 +6,19 @@
 #include <string>
 #include <thread>
 
-#include "net/http/client.h"
-#include "net/curl.h"
-#include "net/socket.h"
-#include "net/etsocket.h"
-#include "common/alog-stdstring.h"
-#include "io/fd-events.h"
-#include "thread/thread11.h"
-#include "io/aio-wrapper.h"
-#include "common/stream.h"
-#include "net/curl.h"
-#include "net/tlssocket.h"
+#include <photon/net/http/client.h>
+#include <photon/net/curl.h>
+#include <photon/net/socket.h>
+#include <photon/net/etsocket.h>
+#include <photon/common/alog-stdstring.h>
+#include <photon/io/fd-events.h>
+#include <photon/thread/thread11.h>
+#include <photon/io/aio-wrapper.h>
+#include <photon/common/stream.h>
+#include <photon/net/tlssocket.h>
+
+using namespace photon;
+
 DEFINE_int32(times, 1, "times that read whole file through http per thread");
 DEFINE_int32(threads, 1, "photon thread pool size per file");
 DEFINE_int32(concurrency, 10, "concurrent fetch file number");
@@ -73,7 +75,7 @@ inline uint64_t GetSteadyTimeUs() {
         .count() / 1000;
 }
 void curl_thread_entry(result* res) {
-    std::unique_ptr<Net::cURL> client(new Net::cURL());
+    std::unique_ptr<net::cURL> client(new net::cURL());
     std::unique_ptr<StringStream> buffer(new StringStream());
     client->set_redirect(0);
     for (auto t = 0; t < FLAGS_times; t++) {
@@ -104,17 +106,17 @@ void test_curl(result &res) {
     }
     res.t_end = GetSteadyTimeUs();
 }
-void client_thread_entry(result *res, Net::HTTP::Client *client, int idx) {
+void client_thread_entry(result *res, net::Client *client, int idx) {
     std::string body_buf;
     body_buf.resize(FLAGS_seg_size);
-    // auto client = Net::HTTP::new_http_client();
+    // auto client = net::HTTP::new_http_client();
     // DEFER(delete client);
     for (auto t = 0; t < FLAGS_times; t++) {
         for (auto i = 0; i < FLAGS_block_cnt; i++) {
             auto t_begin = GetSteadyTimeUs();
-            // auto op = client->new_operation(Net::HTTP::Verb::GET, target);
+            // auto op = client->new_operation(net::HTTP::Verb::GET, target);
             // DEFER(delete op);
-            Net::HTTP::Client::OperationOnStack<64 * 1024 - 1> operation(client, Net::HTTP::Verb::GET, target);
+            net::Client::OperationOnStack<64 * 1024 - 1> operation(client, net::Verb::GET, target);
             auto op = &operation;
             client->call(op);
             if (op->resp.content_length() != FLAGS_seg_size) {
@@ -135,7 +137,7 @@ void client_thread_entry(result *res, Net::HTTP::Client *client, int idx) {
 }
 void test_client(result &res) {
     res.t_begin = GetSteadyTimeUs();
-    auto client = Net::HTTP::new_http_client();
+    auto client = net::new_http_client();
     DEFER(delete client);
     std::vector<photon::join_handle*> jhs;
     for (auto i = 0; i < FLAGS_threads; ++i) {
@@ -156,12 +158,12 @@ int main(int argc, char** argv) {
     ret = photon::fd_events_init();
     if (ret < 0) return -1;
     DEFER({ photon::fd_events_fini(); });
-    ret = Net::et_poller_init();
+    ret = net::et_poller_init();
     if (ret < 0) return -1;
-    DEFER(Net::et_poller_fini());
-    ret = Net::cURL::init(CURL_GLOBAL_ALL, 0, 0);
+    DEFER(net::et_poller_fini());
+    ret = net::cURL::init(CURL_GLOBAL_ALL, 0, 0);
     if (ret < 0) return -1;
-    DEFER({ photon::thread_sleep(3); Net::cURL::fini(); });
+    DEFER({ photon::thread_sleep(3); net::cURL::fini(); });
     if (FLAGS_libaio)
         photon::libaio_wrapper_init();
     DEFER(if (FLAGS_libaio) photon::libaio_wrapper_fini());

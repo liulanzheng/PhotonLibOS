@@ -1,7 +1,8 @@
 #pragma once
-#include "photon/fs/filesystem.h"
+#include <photon/fs/filesystem.h>
 
-namespace FileSystem
+namespace photon {
+namespace fs
 {
     // this provides the basics for a implementing a "virtual" file
     // with self-managed offset, and default I/O routines.
@@ -45,4 +46,5 @@ namespace FileSystem
         UNIMPLEMENTED(int ftruncate(off_t length) override);
     };
 
+}
 }

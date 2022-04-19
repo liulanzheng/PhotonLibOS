@@ -12,18 +12,19 @@
 #include <fcntl.h>
 #include <gflags/gflags.h>
 
-#include "io/fd-events.h"
-#include "thread/thread11.h"
-#include "net/socket.h"
-#include "common/alog.h"
-#include "common/alog-stdstring.h"
-#include "common/utility.h"
-#include "common/io-alloc.h"
-#include "rpc/rpc.h"
-#include "common/checksum/crc32c.h"
+#include <photon/io/fd-events.h>
+#include <photon/thread/thread11.h>
+#include <photon/net/socket.h>
+#include <photon/common/alog.h>
+#include <photon/common/alog-stdstring.h>
+#include <photon/common/utility.h>
+#include <photon/common/io-alloc.h>
+#include <photon/rpc/rpc.h>
+#include <photon/common/checksum/crc32c.h>
 #include "zerocopy-common.h"
 
 using namespace std;
+using namespace photon;
 
 DEFINE_int32(io_type, 0, "0: read, 1: write");
 
@@ -31,8 +32,8 @@ uint8_t** g_read_buffers = nullptr;
 uint64_t g_rpc_count = 0;
 uint64_t g_rpc_time_cost = 0;
 
-void run_write_rpc(RPC::StubPool* pool, const Net::EndPoint& ep) {
-    RPC::Stub* stub = pool->get_stub(ep, false);
+void run_write_rpc(rpc::StubPool* pool, const net::EndPoint& ep) {
+    rpc::Stub* stub = pool->get_stub(ep, false);
     if (stub == nullptr) {
         LOG_ERROR("cannot get stub");
         exit(1);
@@ -62,8 +63,8 @@ void run_write_rpc(RPC::StubPool* pool, const Net::EndPoint& ep) {
     }
 }
 
-void run_read_rpc(int index, RPC::StubPool* pool, const Net::EndPoint& ep) {
-    RPC::Stub* stub = pool->get_stub(ep, false);
+void run_read_rpc(int index, rpc::StubPool* pool, const net::EndPoint& ep) {
+    rpc::Stub* stub = pool->get_stub(ep, false);
     if (stub == nullptr) {
         LOG_ERROR("cannot get stub");
         exit(1);
@@ -93,7 +94,7 @@ void run_read_rpc(int index, RPC::StubPool* pool, const Net::EndPoint& ep) {
         g_rpc_time_cost += (end.tv_sec * 1000000 + end.tv_usec - start.tv_sec * 1000000 - start.tv_usec);
 
         if (FLAGS_calculate_checksum) {
-            uint32_t crc32_calculated = FileSystem::crc32::crc32c_extend(g_read_buffers[index], FLAGS_buf_size, 0);
+            uint32_t crc32_calculated = crc32c_extend(g_read_buffers[index], FLAGS_buf_size, 0);
             uint32_t crc32_received = *(uint32_t*) (g_read_buffers[index] + FLAGS_buf_size);
             if (crc32_calculated != crc32_received) {
                 LOG_ERROR("checksum error: ` != `", crc32_calculated, crc32_received);
@@ -138,12 +139,12 @@ int main(int argc, char** argv) {
     DEFER(delete[] g_read_buffers);
     prepare_read_buffers();
 
-    auto pool = RPC::new_stub_pool(60 * 1000 * 1000, 10 * 1000 * 1000, -1);
+    auto pool = rpc::new_stub_pool(60 * 1000 * 1000, 10 * 1000 * 1000, -1);
     DEFER(delete pool);
 
     photon::thread_create11(show_performance_statis);
 
-    Net::EndPoint ep{Net::IPAddr(FLAGS_ip.c_str()), (uint16_t) FLAGS_port};
+    net::EndPoint ep{net::IPAddr(FLAGS_ip.c_str()), (uint16_t) FLAGS_port};
 
     for (size_t i = 0; i < FLAGS_num_threads; i++) {
         if (IOType(FLAGS_io_type) == IOType::READ) {

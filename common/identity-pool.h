@@ -2,9 +2,9 @@
 #include <cstdlib>
 #include <cinttypes>
 #include <new>
-#include "photon/common/callback.h"
-#include "photon/thread/thread.h"
-#include "photon/thread/list.h"
+#include <photon/common/callback.h>
+#include <photon/thread/thread.h>
+#include <photon/thread/list.h>
 
 class IdentityPoolBase: public intrusive_list_node<IdentityPoolBase> {
 public:

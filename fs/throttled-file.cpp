@@ -1,14 +1,16 @@
 #include "throttled-file.h"
 #include <inttypes.h>
-#include "common/ring.h"
+#include <photon/common/ring.h>
 #include "filesystem.h"
 #include "forwardfs.h"
-#include "common/iovector.h"
-#include "common/utility.h"
-#include "common/alog.h"
+#include <photon/common/iovector.h>
+#include <photon/common/utility.h>
+#include <photon/common/alog.h>
+
 using namespace std;
 
-namespace FileSystem
+namespace photon {
+namespace fs
 {
     class StatisticsQueue
     {
@@ -458,4 +460,5 @@ namespace FileSystem
                                   bool ownership) {
         return new ThrottledFs(fs, limits, ownership);
     }
+}
 }

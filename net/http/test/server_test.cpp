@@ -8,14 +8,16 @@
 // #include "../server.cpp"
 // #undef protected
 // #undef private
-#include "net/http/server.h"
-#include "net/http/client.h"
-#include "io/fd-events.h"
-#include "net/etsocket.h"
-#include "thread/thread11.h"
-#include "common/alog-stdstring.h"
-#include "fs/localfs.h"
-using namespace Net::HTTP;
+#include <photon/net/http/server.h>
+#include <photon/net/http/client.h>
+#include <photon/io/fd-events.h>
+#include <photon/net/etsocket.h>
+#include <photon/thread/thread11.h>
+#include <photon/common/alog-stdstring.h>
+#include <photon/fs/localfs.h>
+
+using namespace photon;
+using namespace photon::net;
 
 RetType idiot_handle(void*, HTTPServerRequest &req, HTTPServerResponse &resp) {
     std::string str;
@@ -80,7 +82,7 @@ TEST(http_server, fs_handler) {
     system(std::string("echo -n '" + fs_handler_std_str + "' > /tmp/ease_ut/http_server/fs_handler_test").c_str());
     auto server = new_http_server(19876);
     DEFER(delete server);
-    auto fs = FileSystem::new_localfs_adaptor("/tmp/ease_ut/http_server/");
+    auto fs = fs::new_localfs_adaptor("/tmp/ease_ut/http_server/");
     DEFER(delete fs);
     auto fs_handler = new_fs_handler(fs);
     DEFER(delete fs_handler);
@@ -95,14 +97,14 @@ TEST(http_server, fs_handler) {
     server->Stop();
 }
 
-Net::EndPoint ep{Net::IPAddr("127.0.0.1"), 19731};
+net::EndPoint ep{net::IPAddr("127.0.0.1"), 19731};
 std::string std_data;
 const size_t std_data_size = 64 * 1024;
 constexpr char header_data[] = "HTTP/1.1 200 ok\r\n"
                                "Transfer-Encoding: chunked\r\n"
                                "Connection: close\r\n"
                                "\r\n";
-void chunked_send(int offset, int size, Net::ISocketStream* sock) {
+void chunked_send(int offset, int size, net::ISocketStream* sock) {
     auto s = std::to_string(size) + "\r\n";
     sock->write(s.data(), s.size());
     auto ret = sock->write(std_data.data() + offset, size);
@@ -110,7 +112,7 @@ void chunked_send(int offset, int size, Net::ISocketStream* sock) {
     sock->write("\r\n", 2);
 }
 std::vector<int> rec;
-int chunked_handler_pt(void*, Net::ISocketStream* sock) {
+int chunked_handler_pt(void*, net::ISocketStream* sock) {
     EXPECT_NE(nullptr, sock);
     LOG_DEBUG("Accepted");
     char recv[4096];
@@ -159,7 +161,7 @@ TEST(http_server, proxy_handler) {
     }
     srand(time(0));
     //------------start source server---------------
-    auto source_server = Net::new_tcp_socket_server();
+    auto source_server = net::new_tcp_socket_server();
     DEFER({ delete source_server; });
     source_server->setsockopt(SOL_SOCKET, SO_REUSEPORT, 1);
     source_server->set_handler({nullptr, &chunked_handler_pt});
@@ -207,7 +209,7 @@ TEST(http_server, mux_handler) {
     }
     srand(time(0));
     //------------start source server---------------
-    auto source_server = Net::new_tcp_socket_server();
+    auto source_server = net::new_tcp_socket_server();
     DEFER({ delete source_server; });
     source_server->setsockopt(SOL_SOCKET, SO_REUSEPORT, 1);
     source_server->set_handler({nullptr, &chunked_handler_pt});
@@ -228,7 +230,7 @@ TEST(http_server, mux_handler) {
     auto proxy_handler = new_reverse_proxy_handler({nullptr, &test_director},
                                                    {nullptr, &test_modifier},
                                                    client);
-    auto fs = FileSystem::new_localfs_adaptor("/tmp/ease_ut/http_server/");
+    auto fs = fs::new_localfs_adaptor("/tmp/ease_ut/http_server/");
     DEFER(delete fs);
     auto fs_handler = new_fs_handler(fs, "static_service/");
     DEFER(delete fs_handler);
@@ -274,11 +276,11 @@ int main(int argc, char** arg) {
     DEFER(photon::fini());
     photon::fd_events_init();
     DEFER(photon::fd_events_fini());
-    if (Net::et_poller_init() < 0) {
-        LOG_ERROR("Net::et_poller_init failed");
+    if (net::et_poller_init() < 0) {
+        LOG_ERROR("net::et_poller_init failed");
         exit(EAGAIN);
     }
-    DEFER(Net::et_poller_fini());
+    DEFER(net::et_poller_fini());
     set_log_output_level(ALOG_DEBUG);
     ::testing::InitGoogleTest(&argc, arg);
     LOG_DEBUG("test result:`", RUN_ALL_TESTS());

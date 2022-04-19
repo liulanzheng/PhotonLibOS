@@ -6,13 +6,14 @@
 #include <string>
 #include <unordered_map>
 
-#include "photon/common/alog-functionptr.h"
-#include "photon/common/alog-stdstring.h"
-#include "photon/common/alog.h"
-#include "photon/common/estring.h"
-#include "photon/common/iovector.h"
+#include <photon/common/alog-functionptr.h>
+#include <photon/common/alog-stdstring.h>
+#include <photon/common/alog.h>
+#include <photon/common/estring.h>
+#include <photon/common/iovector.h>
 
-namespace Net {
+namespace photon {
+namespace net {
 
 int libcurl_init(long flags = 3 /*CURL_GLOBAL_DEFAULT*/, long pipelining = 0,
                  long maxconn = 32);
@@ -192,9 +193,9 @@ protected:
 };
 
 template <size_t N>
-class URL : public URL_Buf {
+class URLBuffer : public URL_Buf {
 public:
-    URL() : URL_Buf(N) {}
+    URLBuffer() : URL_Buf(N) {}
 
 protected:
     char m_url[N];
@@ -206,10 +207,10 @@ public:
     // CURL_GLOBAL_NOTHING, CURL_GLOBAL_DEFAULT, CURL_GLOBAL_ACK_EINTR
     static int init(long flags = CURL_GLOBAL_ALL, long pipelining = 0,
                     long maxconn = 32) {
-        return Net::libcurl_init(flags, pipelining, maxconn);
+        return net::libcurl_init(flags, pipelining, maxconn);
     }
     static int fini() {
-        Net::libcurl_fini();
+        net::libcurl_fini();
         return 0;
     }
     cURL() {
@@ -315,7 +316,7 @@ public:
         setopt(CURLOPT_URL, url);
         setopt(CURLOPT_HTTPHEADER, headers.list);
         set_write_stream(stream);
-        ret = (CURLcode)Net::curl_perform(m_curl, timeout);
+        ret = (CURLcode)net::curl_perform(m_curl, timeout);
         return get_response_code();
     }
     long GET(const char* url, uint64_t timeout = -1) {
@@ -323,7 +324,7 @@ public:
         setopt(CURLOPT_HTTPGET, 1L);
         setopt(CURLOPT_URL, url);
         setopt(CURLOPT_HTTPHEADER, headers.list);
-        ret = (CURLcode)Net::curl_perform(m_curl, timeout);
+        ret = (CURLcode)net::curl_perform(m_curl, timeout);
         return get_response_code();
     }
     template <typename T>  // method, like std::string*
@@ -333,7 +334,7 @@ public:
         setopt(CURLOPT_CUSTOMREQUEST, "HEAD");
         setopt(CURLOPT_HTTPHEADER, headers.list);
         set_write_stream(stream);
-        ret = (CURLcode)Net::curl_perform(m_curl, timeout);
+        ret = (CURLcode)net::curl_perform(m_curl, timeout);
         return get_response_code();
     }
     long HEAD(const char* url, uint64_t timeout = -1) {
@@ -341,7 +342,7 @@ public:
         setopt(CURLOPT_URL, url);
         setopt(CURLOPT_CUSTOMREQUEST, "HEAD");
         setopt(CURLOPT_HTTPHEADER, headers.list);
-        ret = (CURLcode)Net::curl_perform(m_curl, timeout);
+        ret = (CURLcode)net::curl_perform(m_curl, timeout);
         return get_response_code();
     }
     template <typename W>
@@ -362,7 +363,7 @@ public:
         setopt(CURLOPT_URL, url);
         setopt(CURLOPT_POST, 1L);
         setopt(CURLOPT_HTTPHEADER, headers.list);
-        ret = (CURLcode)Net::curl_perform(m_curl, timeout);
+        ret = (CURLcode)net::curl_perform(m_curl, timeout);
         return get_response_code();
     }
     template <typename R = DummyReaderWriter, typename W = DummyReaderWriter>
@@ -375,14 +376,14 @@ public:
         setopt(CURLOPT_URL, url);
         setopt(CURLOPT_HTTPHEADER, headers.list);
         // setopt(CURLOPT_INFILESIZE_LARGE, (curl_off_t)file_info.st_size);
-        ret = (CURLcode)Net::curl_perform(m_curl, timeout);
+        ret = (CURLcode)net::curl_perform(m_curl, timeout);
         return get_response_code();
     }
     long DELETE(const char* url, uint64_t timeout = -1) {
         setopt(CURLOPT_URL, url);
         setopt(CURLOPT_CUSTOMREQUEST, "DELETE");
         setopt(CURLOPT_HTTPHEADER, headers.list);
-        ret = (CURLcode)Net::curl_perform(m_curl, timeout);
+        ret = (CURLcode)net::curl_perform(m_curl, timeout);
         return get_response_code();
     }
     template <typename W>
@@ -460,4 +461,5 @@ protected:
         setopt(CURLOPT_READDATA, stream);
     }
 };
-}  // namespace Net
+}  // namespace net
+}

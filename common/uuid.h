@@ -1,7 +1,7 @@
 #pragma once
 
-#include "photon/common/uuid4.h"
-#include "photon/common/alog.h"
+#include <photon/common/uuid4.h>
+#include <photon/common/alog.h>
 
 class UUID
 {

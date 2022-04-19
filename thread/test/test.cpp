@@ -15,7 +15,7 @@
 #include "../thread11.h"
 #include "../thread-pool.h"
 #include "../workerpool.h"
-#include "common/alog-audit.h"
+#include <photon/common/alog-audit.h>
 
 using namespace std;
 using namespace photon;

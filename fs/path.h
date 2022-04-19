@@ -4,10 +4,11 @@
 #include <stack>
 #include <memory>
 #include <climits>
-#include "photon/fs/filesystem.h"
-#include "photon/common/string_view.h"
+#include <photon/fs/filesystem.h>
+#include <photon/common/string_view.h>
 
-namespace FileSystem
+namespace photon {
+namespace fs
 {
     using string_view = std::string_view;
     // A class to parse a path string (string_view), providing
@@ -241,5 +242,5 @@ namespace FileSystem
                 delete as_node_ptr();
         }
     } // namespace Tree
-} // namespace FileSystem
-
+} // namespace fs
+}

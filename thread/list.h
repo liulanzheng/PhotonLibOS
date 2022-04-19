@@ -1,6 +1,6 @@
 #pragma once
 #include <cassert>
-#include "photon/common/utility.h"
+#include <photon/common/utility.h>
 
 class __intrusive_list_node
 {

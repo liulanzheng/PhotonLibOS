@@ -1,17 +1,20 @@
 #pragma once
 #include <cinttypes>
 #include <vector>
-#include "photon/common/object.h"
-#include "photon/common/callback.h"
-#include "photon/common/string_view.h"
-#include "photon/common/iovector.h"
-#include "photon/net/http/verb.h"
-namespace FileSystem {
+#include <photon/common/object.h>
+#include <photon/common/callback.h>
+#include <photon/common/string_view.h>
+#include <photon/common/iovector.h>
+#include <photon/net/http/verb.h>
+
+namespace photon {
+namespace fs {
     class IFileSystem;
 }
-namespace Net {
+}
 
-namespace HTTP {
+namespace photon {
+namespace net {
 
 using HeaderLists = std::vector<std::pair<std::string_view, std::string_view>>;
 enum class Protocol {
@@ -89,7 +92,7 @@ using Director = Delegate<RetType, HTTPServerRequest&>;
 using Modifier = Delegate<RetType, HTTPServerResponse&>;
 
 //handler will ignore @ignore_prefix in target prefix
-HTTPHandler* new_fs_handler(FileSystem::IFileSystem* fs,
+HTTPHandler* new_fs_handler(fs::IFileSystem* fs,
                             std::string_view ignore_prefix = "", int worker = 0,
                             size_t prefetch_size = 16 * 1024 * 1024UL);
 HTTPHandler* new_reverse_proxy_handler(Director cb_Director,
@@ -101,6 +104,5 @@ HTTPHandler* new_reverse_proxy_handler(Director cb_Director,
 MuxHandler* new_mux_handler();
 HTTPServer* new_http_server(uint16_t port);
 
-} // end of namespace HTTP
-
-} // end of namespace Net
+} // end of namespace net
+}

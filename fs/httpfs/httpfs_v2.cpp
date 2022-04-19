@@ -7,39 +7,40 @@
 #include <string>
 #include <vector>
 
-#include "net/http/client.h"
-#include "net/http/url.h"
-#include "common/alog-stdstring.h"
-#include "thread/thread.h"
-#include "common/string-keyed.h"
-#include "common/string_view.h"
-#include "common/estring.h"
-#include "common/timeout.h"
-#include "common/utility.h"
-#include "fs/virtual-file.h"
-#include "common/iovector.h"
+#include <photon/net/http/client.h>
+#include <photon/net/http/url.h>
+#include <photon/common/alog-stdstring.h>
+#include <photon/thread/thread.h>
+#include <photon/common/string-keyed.h>
+#include <photon/common/string_view.h>
+#include <photon/common/estring.h>
+#include <photon/common/timeout.h>
+#include <photon/common/utility.h>
+#include <photon/fs/virtual-file.h>
+#include <photon/common/iovector.h>
 
-namespace FileSystem {
+namespace photon {
+namespace fs {
 
-class HttpFs_v2 : public FileSystem::IFileSystem {
+class HttpFs_v2 : public fs::IFileSystem {
 protected:
     bool m_default_https;
     uint64_t m_conn_timeout;
     uint64_t m_stat_timeout;
 
-    Net::HTTP::Client *m_client;
+    net::Client *m_client;
 
 public:
     HttpFs_v2(bool default_https, uint64_t conn_timeout, uint64_t stat_timeout)
         : m_default_https(default_https),
           m_conn_timeout(conn_timeout),
           m_stat_timeout(stat_timeout) {
-              m_client = Net::HTTP::new_http_client();
+              m_client = net::new_http_client();
           }
     ~HttpFs_v2() {
         delete m_client;
     }
-    Net::HTTP::Client* get_client() { return m_client; }
+    net::Client* get_client() { return m_client; }
     IFile* open(const char* pathname, int flags) override;
     IFile* open(const char* pathname, int flags, mode_t) override {
         return open(pathname, flags);
@@ -71,10 +72,10 @@ public:
     UNIMPLEMENTED_POINTER(DIR* opendir(const char*) override);
 };
 
-class HttpFile_v2 : public FileSystem::VirtualReadOnlyFile {
+class HttpFile_v2 : public fs::VirtualReadOnlyFile {
 public:
     std::string m_url;
-    Net::HTTP::CommonHeaders<> m_common_header;
+    net::CommonHeaders<> m_common_header;
     HttpFs_v2* m_fs;
     struct stat m_stat;
     uint64_t m_stat_gettime = 0;
@@ -102,7 +103,7 @@ public:
           m_stat_timeout(stat_timeout),
           m_url_param(param) {}
 
-    int update_stat_from_resp(const Net::HTTP::Client::Operation* op) {
+    int update_stat_from_resp(const net::Client::Operation* op) {
         auto ret = op->status_code;
         m_stat_gettime = photon::now;
         m_authorized = (ret >= 0 && ret != 401 && ret != 403);
@@ -118,11 +119,11 @@ public:
         m_stat.st_size = len;
         return 0;
     }
-    void send_read_request(Net::HTTP::Client::Operation &op, off_t offset, size_t length, const Timeout &tmo) {
+    void send_read_request(net::Client::Operation &op, off_t offset, size_t length, const Timeout &tmo) {
     again:
         estring url;
         url.appends(m_url, "?", m_url_param);
-        op.req.reset(Net::HTTP::Verb::GET, url);
+        op.req.reset(net::Verb::GET, url);
         op.set_enable_proxy(m_fs->get_client()->has_proxy());
         op.req.merge_headers(m_common_header);
         op.req.insert_range(offset, offset + length - 1);
@@ -138,7 +139,7 @@ public:
             goto again;
         }
     }
-    using HTTP_OP = Net::HTTP::Client::OperationOnStack<64 * 1024 - 1>;
+    using HTTP_OP = net::Client::OperationOnStack<64 * 1024 - 1>;
     int refresh_stat() {
         Timeout tmo(m_conn_timeout);
         HTTP_OP op;
@@ -229,8 +230,8 @@ IFile* HttpFs_v2::open(const char* pathname, int flags) {
 
     if (pathname[0] == '/') ++pathname;
     estring_view fn(pathname), prefix;
-    if (0 == Net::HTTP::what_protocol(fn))
-        prefix = Net::HTTP::http_or_s(!m_default_https);
+    if (0 == net::what_protocol(fn))
+        prefix = net::http_or_s(!m_default_https);
 
     std::string_view param;
     auto pos = fn.find_first_of('?');
@@ -252,4 +253,5 @@ IFile* new_httpfile_v2(const char* url, HttpFs_v2* httpfs, uint64_t conn_timeout
                     uint64_t stat_timeout) {
     return new HttpFile_v2(url, httpfs, conn_timeout, stat_timeout);
 }
-}  // namespace FileSystem
+}  // namespace fs
+}

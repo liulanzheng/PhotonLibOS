@@ -6,10 +6,11 @@
 #include <string>
 #include <utility>
 
-#include "photon/common/callback.h"
-#include "photon/fs/filesystem.h"
+#include <photon/common/callback.h>
+#include <photon/fs/filesystem.h>
 
-namespace FileSystem {
+namespace photon {
+namespace fs {
 enum HTTPFileFlags {
     HTTP_HEADER = 0xF01,  // (const char*, const char*) ... for header
     HTTP_URL_PARAM =
@@ -56,4 +57,5 @@ IFileSystem* new_httpfs_v2(bool default_https = false,
 IFile* new_httpfile_v2(const char* url, IFileSystem* httpfs = nullptr,
                        uint64_t conn_timeout = -1UL,
                        uint64_t stat_expire = -1UL);
-}  // namespace FileSystem
+}  // namespace fs
+}

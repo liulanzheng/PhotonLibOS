@@ -2,12 +2,13 @@
 #include <cinttypes>
 #include <sys/socket.h>
 
-#include "photon/common/iovector.h"
-#include "photon/thread/thread.h"
-#include "photon/common/timeout.h"
-#include "photon/common/utility.h"
+#include <photon/common/iovector.h>
+#include <photon/thread/thread.h>
+#include <photon/common/timeout.h>
+#include <photon/common/utility.h>
 
-namespace Net {
+namespace photon {
+namespace net {
 int socket(int domain, int type, int protocol);
 
 int connect(int fd, const struct sockaddr *addr, socklen_t addrlen,
@@ -85,4 +86,5 @@ __FORCE_INLINE__ ssize_t doiov_n(iovector_view &v, IOCB iocb) {
     }
     return count;
 }
-}  // namespace Net
+}  // namespace net
+}

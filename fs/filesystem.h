@@ -1,7 +1,7 @@
 #pragma once
 #include <cerrno>
 #include <cstdarg>
-#include "photon/common/stream.h"
+#include <photon/common/stream.h>
 
 #define UNIMPLEMENTED(func)  \
     virtual func             \
@@ -26,7 +26,8 @@ struct statfs;
 struct statvfs;
 struct iovector;
 
-namespace FileSystem
+namespace photon {
+namespace fs
 {
     const static size_t ALIGNMENT_4K = 4096;
 
@@ -322,4 +323,5 @@ namespace FileSystem
             return iterator(nullptr);
         }
     };
+}
 }

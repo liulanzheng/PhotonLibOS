@@ -1,6 +1,6 @@
 #include "memory-stream.h"
-#include "common/ring.h"
-#include "common/utility.h"
+#include <photon/common/ring.h>
+#include <photon/common/utility.h>
 
 #include <fcntl.h>
 

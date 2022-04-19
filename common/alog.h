@@ -8,8 +8,8 @@
 #include <utility>
 #include <type_traits>
 
-#include "photon/common/utility.h"
-#include "photon/common/object.h"
+#include <photon/common/utility.h>
+#include <photon/common/object.h>
 
 class ILogOutput : public Object {
 public:

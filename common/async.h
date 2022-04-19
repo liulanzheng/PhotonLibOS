@@ -7,9 +7,9 @@
 #include <tuple>
 #include <type_traits>
 
-#include "photon/common/object.h"
-#include "photon/common/callback.h"
-#include "photon/thread/thread11.h"
+#include <photon/common/object.h>
+#include <photon/common/callback.h>
+#include <photon/thread/thread11.h>
 
 template<typename T>
 struct _AsyncResult

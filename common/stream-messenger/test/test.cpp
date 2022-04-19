@@ -1,12 +1,12 @@
-#include "common/stream-messenger/messenger.h"
+#include <photon/common/stream-messenger/messenger.h>
 #include <memory>
 #include <algorithm>
 #include <string>
 #include <gtest/gtest.h>
-#include "thread/thread.h"
-#include "common/memory-stream/memory-stream.h"
-#include "common/utility.h"
-#include "common/alog.h"
+#include <photon/thread/thread.h>
+#include <photon/common/memory-stream/memory-stream.h>
+#include <photon/common/utility.h>
+#include <photon/common/alog.h>
 using namespace std;
 using namespace photon;
 using namespace StreamMessenger;

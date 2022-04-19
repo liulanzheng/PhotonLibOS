@@ -1,6 +1,7 @@
 #include <cstdio>
 
-namespace FileSystem {
+namespace photon {
+namespace fs {
 class IFile;
 
 // copy file, return errno when failed
@@ -8,3 +9,4 @@ class IFile;
 ssize_t filecopy(IFile* infile, IFile* outfile, size_t bs = 65536, int retry_limit=5);
 
 }  // namespace FileSystem
+}

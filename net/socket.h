@@ -6,12 +6,13 @@
 #include <arpa/inet.h>
 #include <cstring>
 
-#include "photon/common/stream.h"
-#include "photon/common/callback.h"
-#include "photon/common/object.h"
+#include <photon/common/stream.h>
+#include <photon/common/callback.h>
+#include <photon/common/object.h>
 
 struct LogBuffer;
-namespace Net
+namespace photon {
+namespace net
 {
     union IPAddr
     {
@@ -176,12 +177,13 @@ namespace Net
     extern "C" ISocketClient* new_uds_client();
     extern "C" ISocketServer* new_uds_server(bool autoremove = false);
 }
+}
 
 namespace std {
 template<>
-struct hash<Net::EndPoint> {
+struct hash<photon::net::EndPoint> {
     hash<uint64_t> hasher;
-    size_t operator()(const Net::EndPoint& x) const {
+    size_t operator()(const photon::net::EndPoint& x) const {
         return hasher((x.addr.to_nl() << 16) | x.port);
     }
 };

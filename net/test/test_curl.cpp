@@ -3,10 +3,12 @@
 #include <string>
 #include <thread>
 #include <vector>
-#include "net/curl.h"
-#include "common/alog.h"
-#include "thread/thread11.h"
-#include "io/fd-events.h"
+#include <photon/net/curl.h>
+#include <photon/common/alog.h>
+#include <photon/thread/thread11.h>
+#include <photon/io/fd-events.h>
+
+using namespace photon;
 
 class StringStream {
     std::string s;
@@ -26,9 +28,9 @@ class StringStream {
 TEST(cURL, feature) {
     photon::init();
     photon::fd_events_init();
-    Net::cURL::init();
+    net::cURL::init();
 
-    std::unique_ptr<Net::cURL> client(new Net::cURL());
+    std::unique_ptr<net::cURL> client(new net::cURL());
     std::unique_ptr<StringStream> buffer(new StringStream());
     client->set_redirect(10).set_verbose(true);
     // for (int i=0;i<2;i++) {
@@ -38,7 +40,7 @@ TEST(cURL, feature) {
     buffer.release();
     client.release();
 
-    Net::cURL::fini();
+    net::cURL::fini();
     photon::fd_events_fini();
     photon::fini();
 }

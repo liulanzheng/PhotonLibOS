@@ -1,9 +1,9 @@
 #pragma once
-#include "photon/common/string_view.h"
-#include "photon/common/estring.h"
+#include <photon/common/string_view.h>
+#include <photon/common/estring.h>
 
-namespace Net {
-namespace HTTP {
+namespace photon {
+namespace net {
 
 constexpr char http_url_scheme[] = "http://";
 constexpr char https_url_scheme[] = "https://";
@@ -11,14 +11,14 @@ constexpr char https_url_scheme[] = "https://";
 inline std::string_view http_or_s(bool cond)
 {
     return cond ?
-        std::string_view(Net::HTTP::http_url_scheme) :
-        std::string_view(Net::HTTP::https_url_scheme);
+        std::string_view(net::http_url_scheme) :
+        std::string_view(net::https_url_scheme);
 }
 
 inline int what_protocol(estring_view url)
 {
-    if (url.istarts_with(Net::HTTP::http_url_scheme)) return 1;
-    if (url.istarts_with(Net::HTTP::https_url_scheme)) return 2;
+    if (url.istarts_with(net::http_url_scheme)) return 1;
+    if (url.istarts_with(net::https_url_scheme)) return 2;
     return 0;
 }
 
@@ -88,5 +88,4 @@ inline bool need_optional_port(const URL& u) {
 }
 
 }
-
 }

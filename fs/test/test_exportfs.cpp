@@ -7,11 +7,12 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <type_traits>
-#include "common/alog.h"
+#include <photon/common/alog.h>
 #include "mock.h"
 #include <atomic>
 
-using namespace FileSystem;
+using namespace photon;
+using namespace photon::fs;
 using namespace testing;
 
 constexpr uint64_t magic = 150820;

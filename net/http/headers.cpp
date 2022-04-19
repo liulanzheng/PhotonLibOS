@@ -2,14 +2,15 @@
 #include <algorithm>
 #include <locale>
 #include "parser.h"
-#include "common/utility.h"
+#include <photon/common/utility.h>
 #include "url.h"
-#include "common/alog-stdstring.h"
-#include "net/socket.h"
+#include <photon/common/alog-stdstring.h>
+#include <photon/net/socket.h>
+
 using namespace std;
 
-namespace Net {
-namespace HTTP {
+namespace photon {
+namespace net {
 
 class HeaderAssistant
 {

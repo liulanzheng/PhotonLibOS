@@ -1,6 +1,6 @@
 #pragma once
 #include <cinttypes>
-#include "photon/common/stream.h"
+#include <photon/common/stream.h>
 
 
 class DuplexMemoryStream;

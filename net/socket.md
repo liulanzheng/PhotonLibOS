@@ -3,7 +3,7 @@
 ## ISocketStream
 在IStream的基础上扩展出了socket独有的recv、send、timeout等操作。
 ```cpp
-namespace Net
+namespace net
 {
     class ISocketStream : public ::IStream
     {
@@ -29,7 +29,7 @@ namespace Net
 
 ## IPv4地址
 ```cpp
-namespace Net
+namespace net
 {
     union IPAddr
     {
@@ -69,7 +69,7 @@ namespace Net
 
 ## TCPSocket
 ```cpp
-namespace Net
+namespace net
 {
     class TCPSocket : public ISocketStream
     {
@@ -98,7 +98,7 @@ namespace Net
 
 ## UNIX Domain Socket
 ```cpp
-namespace Net
+namespace net
 {
     class UNIXDomainSocket : public ISocketStream
     {
@@ -124,7 +124,7 @@ namespace Net
 
 ## 创建OS内核Socket
 ```cpp
-namespace Net
+namespace net
 {
     extern "C" TCPSocket* new_tcp_socket();
     extern "C" UNIXDomainSocket* new_unix_socket();

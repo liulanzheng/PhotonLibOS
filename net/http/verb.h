@@ -1,8 +1,8 @@
 #pragma once
-#include "photon/common/string_view.h"
-#include "photon/common/conststr.h"
-namespace Net {
-namespace HTTP {
+#include <photon/common/string_view.h>
+#include <photon/common/conststr.h>
+namespace photon {
+namespace net {
 DEFINE_ENUM_STR(Verb, verbstr, UNKNOWN, DELETE, GET, HEAD, POST, PUT, CONNECT,
                 OPTIONS, TRACE, COPY, LOCK, MKCOL, MOV, PROPFIND, PROPPATCH,
                 SEARCH, UNLOCK, BIND, REBIND, UNBIND, ACL, REPORT, MKACTIVITY,

@@ -3,10 +3,11 @@
 #include <algorithm>
 #include <string>
 #include <gtest/gtest.h>
-#include "thread/thread.h"
-#include "common/utility.h"
-#include "common/alog.h"
-#include "common/alog-stdstring.h"
+#include <photon/thread/thread.h>
+#include <photon/common/utility.h>
+#include <photon/common/alog.h>
+#include <photon/common/alog-stdstring.h>
+
 using namespace std;
 using namespace photon;
 

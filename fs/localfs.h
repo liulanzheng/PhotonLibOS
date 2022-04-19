@@ -1,7 +1,9 @@
 #pragma once
+#include <photon/fs/filesystem.h>
 #include <sys/types.h>
 
-namespace FileSystem
+namespace photon {
+namespace fs
 {
     class IFile;
     class IFileSystem;
@@ -36,4 +38,5 @@ namespace FileSystem
     {
         return new_localfile_adaptor(fd, ioengine_posixaio);
     }
+}
 }

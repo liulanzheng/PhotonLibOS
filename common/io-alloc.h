@@ -6,8 +6,8 @@
 #include <malloc.h>
 #endif
 #include <cassert>
-#include "photon/common/callback.h"
-#include "photon/common/identity-pool.h"
+#include <photon/common/callback.h>
+#include <photon/common/identity-pool.h>
 
 // Defines allocator and deallocator for I/O memory,
 // which deal with a ranged size.

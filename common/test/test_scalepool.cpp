@@ -1,13 +1,13 @@
 
 #define protected public
 #include "../identity-pool.cpp"
-#include "thread/thread-pool.h"
+#include <photon/thread/thread-pool.h>
 #include "../io-alloc.h"
 #undef protected
 
 #include "../alog.h"
 #include <gtest/gtest.h>
-#include "thread/thread.h"
+#include <photon/thread/thread.h>
 #include <vector>
 
 TEST(IdentityPoolGC, basic) {

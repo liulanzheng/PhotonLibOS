@@ -1,10 +1,10 @@
 #include "../thread.h"
 #include "../thread11.h"
-#include "io/fd-events.h"
+#include <photon/io/fd-events.h>
 #include <gtest/gtest.h>
 #include <thread>
-#include "common/metric-meter/metrics.h"
-#include "common/alog.h"
+#include <photon/common/metric-meter/metrics.h>
+#include <photon/common/alog.h>
 
 Metric::AverageLatencyCounter ldefer, lsem;
 
