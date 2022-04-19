@@ -1,3 +1,5 @@
+# $$PHOTON_UNPUBLISHED_FILE$$
+
 targets={
     'testeasy': cpp_fast_test(
         testing=['easy performer',],

@@ -3,13 +3,16 @@ import sys, os
 
 usage="""
 Usage:
-	cd photon
-	tools/export-head.py <path/to/header/file>
+	./export-header.py <path/to/header/file>
 """
 
 if len(sys.argv) != 2:
 	print usage
 	sys.exit(0)
+
+tools_dir = os.path.dirname(os.path.realpath(__file__))
+root_dir = os.path.dirname(tools_dir)
+os.chdir(root_dir)
 
 fn = sys.argv[1].strip()
 

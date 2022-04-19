@@ -18,11 +18,11 @@ namespace photon
 
     enum states
     {
-        READY = 0,      // ready to run
-        RUNNING = 1,    // CURRENTly running
-        WAITING = 2,    // waiting for some events
-        DONE = 4,       // finished the whole life-cycle
-        STANDBY = 8,
+        READY = 0,      // Ready to run
+        RUNNING = 1,    // Only one thread could be running at a time
+        SLEEPING = 2,   // Sleeping and waiting for events
+        DONE = 4,       // Have finished the whole life-cycle
+        STANDBY = 8,    // Internally used by across-vcpu scheduling
     };
 
     typedef void* (*thread_entry)(void*);

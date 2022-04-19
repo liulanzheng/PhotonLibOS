@@ -1,3 +1,5 @@
+# $$PHOTON_UNPUBLISHED_FILE$$
+
 targets = {
     'test-rpc': cpp_fast_test(
         testing=[],

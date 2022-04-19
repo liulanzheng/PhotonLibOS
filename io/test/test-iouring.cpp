@@ -683,7 +683,7 @@ int main(int argc, char** arg) {
     int ret = photon::init();
     if (ret != 0) return -1;
     DEFER(photon::fini());
-    ret = photon::fd_events_iouring_init();
+    ret = photon::fd_events_init();
     if (ret != 0) return -1;
     DEFER(photon::fd_events_fini());
 

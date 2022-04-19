@@ -3,6 +3,7 @@
 ## Overview
 
 Photon is a high-efficiency app framework, based on a set of carefully selected C++ libs.
+
 Our goal is to make programs run as fast and lightweight as the photon particle, which exactly is the name came from.
 
 ## Key Features

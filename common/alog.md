@@ -1,3 +1,4 @@
+<!--$$PHOTON_UNPUBLISHED_FILE$$-->
 # alog：一款易使用、可扩展、高性能的日志库
 
 维护者：鲁七（李慧霸）

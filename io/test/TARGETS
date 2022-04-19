@@ -1,3 +1,5 @@
+# $$PHOTON_UNPUBLISHED_FILE$$
+
 targets = {
     'signalfdtest': cpp_fast_test(
         testing=['signalfd',],

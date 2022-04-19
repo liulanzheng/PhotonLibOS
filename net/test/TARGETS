@@ -1,3 +1,5 @@
+# $$PHOTON_UNPUBLISHED_FILE$$
+
 includes = {
     '../http/test/TARGETS',
     '../security-context/test/TARGETS',

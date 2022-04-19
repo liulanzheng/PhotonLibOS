@@ -1,3 +1,4 @@
+<!--$$PHOTON_UNPUBLISHED_FILE$$-->
 # callback机制（ease/callback.h）
 This is a functor class that represents either a plain function of
 `int (*)(void*, ...)`, or a member function of class U

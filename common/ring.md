@@ -1,3 +1,4 @@
+<!--$$PHOTON_UNPUBLISHED_FILE$$-->
 # 通用的环形缓冲和环形队列类（ease/ring.h）
 
 photon线程安全：是

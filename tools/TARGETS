@@ -1,3 +1,5 @@
+# $$PHOTON_UNPUBLISHED_FILE$$
+
 includes = {
     '../third_party/TARGETS',
 }

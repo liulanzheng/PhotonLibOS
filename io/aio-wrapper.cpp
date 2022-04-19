@@ -198,7 +198,7 @@ namespace photon
             req->ioret = aio_return(req);
             // interrupt current or next sleep in th. note that
             // interrupt may call even before th comming into sleep
-            while (photon::thread_stat(req->th) != WAITING) {
+            while (photon::thread_stat(req->th) != SLEEPING) {
                 ::sched_yield();
             }
             thread_interrupt(req->th, EOK);

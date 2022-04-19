@@ -1,3 +1,5 @@
+# $$PHOTON_UNPUBLISHED_FILE$$
+
 includes = {
     '../executor/test/TARGETS',
     '../memory-stream/test/TARGETS',

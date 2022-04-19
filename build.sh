@@ -1,4 +1,5 @@
 #!/bin/bash
+# $$PHOTON_UNPUBLISHED_FILE$$
 
 # end-of-jobs marker
 job_pool_end_of_jobs="JOBPOOL_END_OF_JOBS"
