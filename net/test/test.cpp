@@ -1,3 +1,19 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #include <fcntl.h>
 #include <gtest/gtest.h>
 #include <sys/stat.h>
@@ -260,9 +276,9 @@ TEST(Socket, endpoint) {
 
     log_output = &log_output_test;
     LOG_DEBUG(ep);
-    EXPECT_STREQ("12.34.56.78:4321", &log_output_test._log_buf[77]);
+    EXPECT_NE(nullptr, strstr(log_output_test._log_buf, "12.34.56.78:4321"));
     LOG_DEBUG(ep.addr);
-    EXPECT_STREQ("12.34.56.78", &log_output_test._log_buf[77]);
+    EXPECT_NE(nullptr, strstr(log_output_test._log_buf, "12.34.56.78"));
     log_output = log_output_stdout;
 }
 
@@ -471,7 +487,9 @@ TEST(TCPServer, listen_twice) {
 }
 
 TEST(TLSSocket, basic) {
-    net::ssl_init("net/test/cert.pem", "net/test/key.pem", "Just4Test");
+    int ret;
+    ret = net::ssl_init("net/test/cert.pem", "net/test/key.pem", "Just4Test");
+    ASSERT_EQ(ret, 0);
     DEFER({ net::ssl_fini(); });
 
     photon::condition_variable recved;
@@ -480,7 +498,7 @@ TEST(TLSSocket, basic) {
     DEFER(delete server);
     server->bind(31524, net::IPAddr());
     server->timeout(10UL * 1024 * 1024);
-    int ret;
+
     auto logHandle = [&](ISocketStream* sock) {
         char buff[4096];
         ssize_t len;
