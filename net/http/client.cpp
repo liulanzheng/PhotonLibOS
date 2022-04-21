@@ -22,17 +22,14 @@ static constexpr size_t LINE_BUFFER_SIZE = 4 * 1024;
 class PooledSocketStream;
 class StreamList {
 public:
-    // photon::mutex m_mtx;
     std::queue<std::unique_ptr<Net::ISocketStream>> m_list;
     Net::ISocketStream* release_back(){
-        // photon::scoped_lock lock(m_mtx);
         auto sock = m_list.front().release();
         m_list.pop();
         return sock;
     }
     bool empty() { return m_list.empty(); }
     void emplace_back(Net::ISocketStream* sock) {
-        // photon::scoped_lock lock(m_mtx);
         m_list.emplace(sock);
     }
     size_t size() { return m_list.size(); }
@@ -51,13 +48,14 @@ public:
     PooledDialer()
         : tcpsock(Net::new_tcp_socket_client()),
           tlssock(Net::new_tls_socket_client()),
-          pool(kMinimalStreamLife) {}
+          pool(kMinimalStreamLife) {
+          }
     PooledSocketStream* dial(std::string_view host, uint16_t port, bool secure,
-                             bool &is_new_connection);
+                             bool &is_new_connection, uint64_t timeout = -1UL);
 
     template <typename T>
-    PooledSocketStream* dial(T x, bool &is_new_connection) {
-        return dial(x.host(), x.port(), x.secure(), is_new_connection);
+    PooledSocketStream* dial(T x, bool &is_new_connection, uint64_t timeout = -1UL) {
+        return dial(x.host(), x.port(), x.secure(), is_new_connection, timeout);
     }
 
     void release(const Net::EndPoint& ep, Net::ISocketStream* sock) {
@@ -252,7 +250,7 @@ public:
         return ret;
     }
 };
-PooledSocketStream* PooledDialer::dial(std::string_view host, uint16_t port, bool secure, bool &is_new_connection) {
+PooledSocketStream* PooledDialer::dial(std::string_view host, uint16_t port, bool secure, bool &is_new_connection, uint64_t timeout) {
     LOG_DEBUG("Dial to `", host);
     std::string strhost(host);
     std::vector<Net::IPAddr> hosts;
@@ -268,21 +266,24 @@ PooledSocketStream* PooledDialer::dial(std::string_view host, uint16_t port, boo
         if (lsock->empty()) {
             Net::ISocketStream* sock = nullptr;
             if (secure) {
+                tlssock->timeout(timeout);
                 sock = tlssock->connect(ep);
             } else {
+                tcpsock->timeout(timeout);
                 sock = tcpsock->connect(ep);
             }
             if (sock) {
-                LOG_DEBUG("Connected ` ssl: ` `", ep, secure, sock);
+                LOG_INFO("Connected ` host : ` ssl: ` `", ep, host, secure, sock);
                 is_new_connection = true;
                 return new PooledSocketStream(ep, sock, this);
             }
+            LOG_INFO("connect ssl : ` ep : `  host : ` failed, try others", secure, ep, host);
         }
         if (!lsock->empty()) {
             auto sock = lsock->release_back();
             if (sock) {
                 is_new_connection = false;
-                LOG_DEBUG("Get connection ` for request to `", sock, host);
+                LOG_INFO("Get connection ` for request to `", sock, host);
                 return new PooledSocketStream(ep, sock, this);
             }
         }
@@ -364,9 +365,9 @@ public:
         auto &req = op->req;
         bool is_new_connection;
         auto s = (m_proxy && !m_proxy_url.empty())
-                     ? m_dialer.dial(m_proxy_url, is_new_connection)
-                     : m_dialer.dial(req, is_new_connection);
-        if (!s) LOG_ERROR_RETURN(0, ROUNDTRIP_FAILED, "connection failed");
+                     ? m_dialer.dial(m_proxy_url, is_new_connection, tmo.timeout())
+                     : m_dialer.dial(req, is_new_connection, tmo.timeout());
+        if (!s) LOG_ERROR_RETURN(0, ROUNDTRIP_NEED_RETRY, "connection failed");
         PooledSocketStream_ptr sock(s);
         LOG_DEBUG("Sending request ` `", req.verb(), req.target());
 
@@ -383,8 +384,8 @@ public:
         }
         sock->timeout(tmo.timeout());
         if (op->req_body_writer(sock->sock) < 0)
-            LOG_ERROR_RETURN(0, ROUNDTRIP_FAILED, "ReqBodyCallback failed");
-        LOG_DEBUG("Request sent, wait for response ` `", req.verb(), req.target());
+            LOG_ERROR_RETURN(0, ROUNDTRIP_NEED_RETRY, "ReqBodyCallback failed");
+        LOG_INFO("Request sent, wait for response ` `,  Authorization: `", req.verb(), req.target(), req["Authorization"]);
         auto space = req.get_remain_space();
         auto &resp = op->resp;
         if (space.second > kMinimalHeadersSize) {
@@ -397,24 +398,19 @@ public:
             sock->timeout(tmo.timeout());
             auto ret = resp.append_bytes(sock->sock);
             if (ret < 0) {
-                if (errno == ECONNRESET) {
-                    if (is_new_connection) {
-                        LOG_ERROR_RETURN(0, ROUNDTRIP_NEED_RETRY, "connection reset by peer, retry");
-                    } else {
-                        LOG_DEBUG("abondon reseted connection, force retry");
-                        return ROUNDTRIP_FORCE_RETRY;
-                    }
+                if ((errno == ECONNRESET) && !is_new_connection) {
+                    LOG_DEBUG("abondon reseted connection, force retry");
+                    return ROUNDTRIP_FORCE_RETRY;
                 }
-                LOG_ERROR_RETURN(0, ROUNDTRIP_FAILED, "read response header failed");
+                LOG_ERROR_RETURN(0, ROUNDTRIP_NEED_RETRY, "read response header failed");
             }
             if (ret == 0) break;
         }
         op->status_code = resp.status_code();
-        LOG_DEBUG("Got response ` ` code=` || content_length=`",
+        LOG_INFO("Got response ` ` code=` || content_length=` || Authorization : `",
                     req.verb(), req.target(), op->status_code,
-                    resp["Content-Length"]);
-        if (m_cookie_jar && m_cookie_jar->get_cookies_from_headers(req.host(), &resp) != 0)
-            LOG_ERROR_RETURN(0, ROUNDTRIP_FAILED, "get_cookies_from_headers failed");
+                    resp["Content-Length"], req["Authorization"]);
+        if (m_cookie_jar) m_cookie_jar->get_cookies_from_headers(req.host(), &resp);
         if (op->status_code < 400 && op->status_code >= 300 && op->follow)
             return redirect(op, sock);
         bool abandon = (resp["Connection"] == "close") || (!resp["Trailer"].empty());
@@ -453,11 +449,14 @@ public:
             LOG_ERROR_RETURN(0, -1, "set_cookies_to_headers failed");
         Timeout tmo(std::min(op->timeout.timeout(), m_timeout));
         int retry = 0, followed = 0, ret = 0;
+        uint64_t sleep_interval = 0;
         while (followed <= op->follow && retry <= op->retry && tmo.timeout() != 0) {
             ret = do_roundtrip(op, tmo);
             if (ret == ROUNDTRIP_SUCCESS || ret == ROUNDTRIP_FAILED) break;
             switch (ret) {
                 case ROUNDTRIP_NEED_RETRY:
+                    photon::thread_usleep(sleep_interval * 1000UL);
+                    sleep_interval = (sleep_interval + 500) * 2;
                     ++retry;
                     break;
                 case ROUNDTRIP_REDIRECT:
@@ -468,13 +467,14 @@ public:
                     break;
             }
             if (tmo.timeout() == 0)
-                LOG_ERROR_RETURN(ETIMEDOUT, ROUNDTRIP_FAILED,
+                LOG_ERROR_RETURN(ETIMEDOUT, -1,
                                 "connection timedout");
             if (followed > op->follow || retry > op->retry)
-                LOG_ERROR_RETURN(ENOENT, ROUNDTRIP_FAILED,
+                LOG_ERROR_RETURN(ENOENT, -1,
                                 "connection failed");
         }
-        return ret;
+        if (ret != ROUNDTRIP_SUCCESS) LOG_ERROR_RETURN(0, -1,"too many retry, roundtrip failed");
+        return 0;
     }
 
     CommonHeaders<>* common_headers() override {

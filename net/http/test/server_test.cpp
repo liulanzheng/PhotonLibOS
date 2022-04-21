@@ -5,7 +5,7 @@
 
 // #define protected public
 // #define private public
-// #include "../server.cpp"
+#include "../server.cpp"
 // #undef protected
 // #undef private
 #include "net/http/server.h"

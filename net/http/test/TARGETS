@@ -34,6 +34,7 @@ targets = {
             'gtest-1.7.0:gtest',
             'gtest-1.7.0:gtest_main',
             'gflags-2.1.2',
+            'boost-1.69.0:boost_atomic',
         ],
         ldflags=[
             '-lphoton',

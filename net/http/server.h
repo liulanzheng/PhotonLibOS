@@ -90,8 +90,7 @@ using Modifier = Delegate<RetType, HTTPServerResponse&>;
 
 //handler will ignore @ignore_prefix in target prefix
 HTTPHandler* new_fs_handler(FileSystem::IFileSystem* fs,
-                            std::string_view ignore_prefix = "", int worker = 0,
-                            size_t prefetch_size = 16 * 1024 * 1024UL);
+                            std::string_view ignore_prefix = "");
 HTTPHandler* new_reverse_proxy_handler(Director cb_Director,
                                        Modifier cb_Modifier, Client* client);
 

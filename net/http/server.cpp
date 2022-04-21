@@ -15,6 +15,7 @@
 #include "common/estring.h"
 #include "fs/filesystem.h"
 #include "fs/httpfs/httpfs.h"
+#include "fs/range-split.h"
 #include "common/expirecontainer.h"
 #include "client.h"
 #include <boost/beast/http/buffer_body.hpp>
@@ -339,6 +340,7 @@ public:
         BeastErrorCode ec{};
         BeastBuffer buffer;
         char buf[4096];
+        DEFER(LOG_INFO("req:", std::string(buf)));
         BeastRequestParser rp(req);
         rp.get().body().data = buf;
         rp.get().body().size = sizeof(buf);
@@ -581,12 +583,16 @@ public:
             if (ec) {
                 LOG_ERRNO_RETURN(0, -1, ec.message());
             }
+            LOG_INFO("Request Accepted", VALUE(req.GetMethod()), VALUE(req.GetTarget()), VALUE(req.Find("Authorization")));
             HTTPServerResponseImpl resp(&stream, &req);
             auto ret = m_handler(req, resp);
             switch (ret) {
             case RetType::success:
+                    LOG_INFO("Request Finished", VALUE(resp.GetResult()) ,VALUE(req.GetTarget()), VALUE(req.Find("Authorization")),
+                                         VALUE(resp.Find("Www-Authenticate")));
                     break;
                 default:
+                    LOG_INFO("Request Failed",  VALUE(req.GetMethod()), VALUE(req.GetTarget()));
                     return -1;
             }
         }
@@ -623,50 +629,18 @@ public:
 
 class FsHandler : public HTTPHandler {
 public:
-    struct task {
-        std::string filename;
-        off_t offset;
-        size_t count;
-    };
     FileSystem::IFileSystem* m_fs;
     estring m_ignore_prefix = "";
     ObjectCache<std::string, FileSystem::IFile*> m_files;
-    std::queue<task> m_tasks;
-    photon::condition_variable m_cond;
-    std::vector<photon::join_handle*> m_workers;
-    size_t m_prefetch_size, m_advance_size;
     bool running = true;
-    FsHandler(FileSystem::IFileSystem* fs, std::string_view prefix,
-              int worker, size_t prefetch_size)
-              : m_fs(fs), m_files(KminFileLife),
-              m_prefetch_size(prefetch_size) {
+    FsHandler(FileSystem::IFileSystem* fs, std::string_view prefix)
+              : m_fs(fs), m_files(KminFileLife) {
         if (!prefix.empty()) m_ignore_prefix = prefix;
         if (!m_ignore_prefix.starts_with("/"))
             m_ignore_prefix = "/" + m_ignore_prefix;
-        for (int i = 0; i < worker; i++) {
-            m_workers.emplace_back(photon::thread_enable_join(
-                                   photon::thread_create11(&FsHandler::download, this)));
-        }
-        m_advance_size = m_prefetch_size * worker * 2;
     }
     ~FsHandler() {
         running = false;
-        m_cond.notify_all();
-        for (auto jh : m_workers) photon::thread_join(jh);
-    }
-    void download() {
-        while (running) {
-            if (m_tasks.empty())
-                m_cond.wait_no_lock();
-            else {
-                task t = std::move(m_tasks.front());
-                m_tasks.pop();
-                auto file = m_files.borrow(t.filename, [&]{
-                                return m_fs->open(t.filename.c_str(), O_RDONLY);
-                            });
-                file->fadvise(t.offset, t.count, POSIX_FADV_WILLNEED);
-            }
-        }
     }
     HTTPServerHandler GetHandler() override {
         return {this, &FsHandler::HandlerImpl};
@@ -677,17 +651,9 @@ public:
         resp.KeepAlive(true);
         resp.Done();
     }
-    void create_task(off_t offset, off_t &task_tail, off_t req_tail, const estring& filename) {
-        if (!m_workers.empty() && (offset + (m_advance_size >> 1) > (size_t)task_tail)) {
-            req_tail = std::min(offset + m_advance_size, (size_t)req_tail);
-            for (; task_tail < req_tail; task_tail += m_prefetch_size) {
-                m_tasks.emplace(task{.filename = filename, .offset = task_tail,
-                                     .count = m_prefetch_size});
-            }
-            m_cond.notify_all();
-        }
-    }
     RetType HandlerImpl(HTTPServerRequest &req, HTTPServerResponse &resp) {
+        LOG_INFO("enter fs handler");
+        DEFER(LOG_INFO("leave fs handler"));
         auto target = req.GetTarget();
         auto pos = target.find("?");
         std::string query;
@@ -698,6 +664,7 @@ public:
         estring filename(target);
         if ((!m_ignore_prefix.empty() && (filename.starts_with(m_ignore_prefix))))
             filename = filename.substr(m_ignore_prefix.size() - 1);
+        LOG_INFO(VALUE(filename));
         auto file = m_files.borrow(filename, [&]{
             return m_fs->open(filename.c_str(), O_RDONLY);
         });
@@ -737,25 +704,41 @@ public:
         }
         resp.ContentLength(req_size);
         resp.KeepAlive(true);
-        char seg_buf[65536];
-        off_t offset = range.first;
-        off_t task_cursor = offset;
-        while (offset <= range.second) {
-            create_task(offset, task_cursor, range.second, filename);
-            auto seg_size = std::min(size_t(range.second - offset + 1),
-                                     sizeof(seg_buf));
-            auto ret_r = file->pread(seg_buf, seg_size, offset);
-            if (ret_r == 0)
-                LOG_ERRNO_RETURN(0, RetType::failed, "pread return unexpected 0");
-            if (ret_r < 0)
+        auto ret = resp.HeaderDone();
+        if (ret != RetType::success) {
+            LOG_ERRNO_RETURN(0, RetType::failed, "Send response header failed, url : `", target);
+        } else {
+            LOG_INFO("Send response header success, url : ` , result : `", target, resp.GetResult());
+        }
+        size_t buf_size = 65536;
+        char seg_buf[buf_size + 4096];
+        char *aligned_buf = (char*) (((uint64_t)(&seg_buf[0]) + 4095) / 4096 * 4096);
+        FileSystem::range_split_power2 rs(range.first, range.second +1 -range.first, buf_size);
+        for (auto r : rs.all_parts()) {
+            auto offset = rs.multiply(r.i, r.offset);
+            auto read_offset = rs.multiply(r.i);
+            Timeout tmo(15UL*1000*1000);
+            auto sleep_interval = 0;
+        again:
+            auto ret_r = file->pread(aligned_buf, buf_size, read_offset);
+            if (ret_r != (ssize_t)(r.length + r.offset)) {
+                if (photon::now < tmo.expire()) {
+                    photon::thread_usleep(sleep_interval * 1000UL);
+                    sleep_interval = (sleep_interval + 500) * 2;
+                    goto again;
+                }
                 LOG_ERROR_RETURN(0, RetType::failed,
                                  "read file ` failed", target);
-            auto ret_w = resp.Write(seg_buf, ret_r);
-            if (ret_w != ret_r)
-                LOG_ERROR_RETURN(0, RetType::failed,
-                                 "send body failed, target: `", target, VALUE(ret_w), VALUE(ret_r));
+            }
+            auto ret_w = resp.Write(aligned_buf + r.offset, r.length);
+            if (ret_w != (ssize_t)r.length) {
+                LOG_ERRNO_RETURN(0, RetType::failed,
+                                 "send body failed, target: `", target,
+                                 VALUE(ret_w), VALUE(ret_r), VALUE(offset));
+            }
             offset += ret_r;
         }
+        LOG_INFO("send body done, url:", target);
         return resp.Done();
     }
 };
@@ -771,7 +754,10 @@ public:
         return {this, &ReverseProxyHandler::HandlerImpl};
     }
     RetType HandlerImpl(HTTPServerRequest &req, HTTPServerResponse &resp) {
-        auto ret = m_director(req);
+        LOG_INFO("enter proxy handler, url : ", req.GetTarget());
+        RetType ret;
+        DEFER(LOG_INFO("leave proxy handler", VALUE(ret)));
+        ret = m_director(req);
         if (ret != RetType::success) return ret;
         estring url;
         url.appends((req.GetProtocol() == Protocol::HTTP) ? http_url_scheme
@@ -787,7 +773,10 @@ public:
             LOG_DEBUG(kv.first, ": ", kv.second);
             if (kv.first != "Host") op->req.insert(kv.first, kv.second);
         }
-        op->call();
+        if (op->call() != 0) {
+            ret = RetType::failed;
+            LOG_ERROR_RETURN(0, RetType::failed, "http call failed");
+        }
         resp.SetResult(op->resp.status_code());
         for (auto kv : op->resp) {
             resp.Insert(kv.first, kv.second);
@@ -798,11 +787,11 @@ public:
         char seg_buf[65536];
         while (1) {
             auto read_count = op->resp_body->read(seg_buf, sizeof(seg_buf));
-            if (read_count < 0) LOG_ERROR_RETURN(0, RetType::failed,
+            if (read_count < 0) LOG_ERRNO_RETURN(0, RetType::failed,
                                                  "read from op->body failed");
             if (read_count == 0) break;
             auto write_count = resp.Write(seg_buf, read_count);
-            if (write_count != read_count) LOG_ERROR_RETURN(0, RetType::failed,
+            if (write_count != read_count) LOG_ERRNO_RETURN(0, RetType::failed,
                                                   "failed to write response_body");
         }
         return resp.Done();
@@ -853,9 +842,8 @@ HTTPServer* new_http_server(uint16_t port) {
     return new HTTPServerImpl(port);
 }
 HTTPHandler* new_fs_handler(FileSystem::IFileSystem* fs,
-                            std::string_view prefix, int worker,
-                            size_t prefetch_size) {
-    return new FsHandler(fs, prefix, worker, prefetch_size);
+                            std::string_view prefix) {
+    return new FsHandler(fs, prefix);
 }
 MuxHandler* new_mux_handler() {
     return new MuxHandlerImpl();
