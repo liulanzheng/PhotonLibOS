@@ -125,12 +125,12 @@ public:
         if (e.fd < 0 || (size_t)e.fd >= _inflight_events.size())
             LOG_ERROR_RETURN(EINVAL, -1, "invalid file descriptor ", e.fd);
         auto& entry = _inflight_events[e.fd];
-        auto intersection = e.interests & entry.interests;
+        auto intersection = e.interests & entry.interests &
+                            (EVENT_READ | EVENT_WRITE | EVENT_ERROR);
         if (intersection == 0) return 0;
 
-        auto x = entry.interests ^ intersection;
-        x &= (EVENT_READ | EVENT_WRITE | EVENT_ERROR);
-        entry.interests ^= x;
+        auto x = (entry.interests ^= intersection) &
+                 (EVENT_READ | EVENT_WRITE | EVENT_ERROR);
         if (e.interests & EVENT_READ) entry.reader_data = nullptr;
         if (e.interests & EVENT_WRITE) entry.writer_data = nullptr;
         if (e.interests & EVENT_ERROR) entry.error_data = nullptr;
