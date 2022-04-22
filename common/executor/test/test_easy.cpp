@@ -50,7 +50,7 @@ easy_atomic_t count;
 photon::semaphore sem(128);
 
 int ftask(easy_baseth_t *, easy_task_t *task) {
-    auto eth = (Executor::HybridExecutor *)task->user_data;
+    auto eth = (Executor::Executor *)task->user_data;
     auto ret = eth->perform<Executor::EasyContext>([] {
         sem.wait(1);
         DEFER(sem.signal(1));
@@ -71,15 +71,14 @@ int ftask(easy_baseth_t *, easy_task_t *task) {
 
 TEST(easy_executor, test) {
     EasyCoroutinePool ecp;
-    auto eth = Executor::new_ease_executor();
-    DEFER(delete eth);
+    Executor::Executor eth;
 
     printf("Task applied, wait for loop\n");
 
     easy_atomic_set(count, 10000);
     auto start = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < 10000; i++) {
-        ecp.runtask(&ftask, (void *)eth, i);
+        ecp.runtask(&ftask, (void *)&eth, i);
     }
     while (count) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));

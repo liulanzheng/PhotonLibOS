@@ -13,7 +13,8 @@
 
 namespace Executor {
 
-class HybridExecutorImpl : public HybridExecutor {
+class ExecutorImpl {
+public:
     using CBList = typename boost::lockfree::spsc_queue<
         Callback<>, boost::lockfree::capacity<32UL * 1024>>;
     std::unique_ptr<std::thread> th;
@@ -23,7 +24,18 @@ class HybridExecutorImpl : public HybridExecutor {
     photon::ThreadPoolBase *pool;
     std::mutex mutex;
 
-protected:
+    ExecutorImpl() {
+        loop = new_event_loop({this, &ExecutorImpl::wait_for_event},
+                              {this, &ExecutorImpl::on_event});
+        th.reset(new std::thread(&ExecutorImpl::do_loop, this));
+        while (!loop || loop->state() != loop->WAITING) ::sched_yield();
+    }
+
+    ~ExecutorImpl() {
+        photon::thread_interrupt(pth);
+        th->join();
+    }
+
     int wait_for_event(EventLoop *) {
         if (!queue.empty()) return 1;
         auto th = photon::CURRENT;
@@ -58,8 +70,8 @@ protected:
             CallArg arg;
             arg.backth = photon::CURRENT;
             if (queue.pop(arg.task)) {
-                auto th = pool->thread_create(&HybridExecutorImpl::do_event,
-                                              (void *)&arg);
+                auto th =
+                    pool->thread_create(&ExecutorImpl::do_event, (void *)&arg);
                 photon::thread_yield_to(th);
             }
         }
@@ -82,29 +94,18 @@ protected:
         photon::fd_events_fini();
         photon::fini();
     }
-
-public:
-    HybridExecutorImpl() {
-        loop = new_event_loop({this, &HybridExecutorImpl::wait_for_event},
-                              {this, &HybridExecutorImpl::on_event});
-        th.reset(new std::thread(&HybridExecutorImpl::do_loop, this));
-        while (!loop || loop->state() != loop->WAITING) ::sched_yield();
-    }
-
-    void issue(Callback<> act) override {
-        {
-            std::lock_guard<std::mutex> lock(mutex);
-            while (!queue.push(act)) ::sched_yield();
-        }
-        photon::thread_interrupt(loop->loop_thread(), EINPROGRESS);
-    }
-
-    ~HybridExecutorImpl() override {
-        photon::thread_interrupt(pth);
-        th->join();
-    }
 };
 
-HybridExecutor *new_ease_executor() { return new HybridExecutorImpl(); }
+ExecutorImpl *new_ease_executor() { return new ExecutorImpl(); }
+
+void delete_ease_executor(ExecutorImpl *e) { delete e; }
+
+void issue(ExecutorImpl *e, Callback<> act) {
+    {
+        std::lock_guard<std::mutex> lock(e->mutex);
+        while (!e->queue.push(act)) ::sched_yield();
+    }
+    photon::thread_interrupt(e->loop->loop_thread(), EINPROGRESS);
+}
 
 }  // namespace Executor

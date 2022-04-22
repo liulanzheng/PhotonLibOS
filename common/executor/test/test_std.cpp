@@ -14,7 +14,7 @@ using namespace photon;
 
 std::atomic<int> count;
 
-int ftask(Executor::HybridExecutor *eth) {
+int ftask(Executor::Executor *eth) {
     for (int i = 0; i < 1000; i++) {
         auto ret = eth->perform([] {
             auto fs = fs::new_localfs_adaptor();
@@ -34,8 +34,7 @@ int ftask(Executor::HybridExecutor *eth) {
 }
 
 TEST(std_executor, test) {
-    auto eth = Executor::new_ease_executor();
-    DEFER(delete eth);
+    Executor::Executor eth;
 
     printf("Task applied, wait for loop\n");
 
@@ -43,7 +42,7 @@ TEST(std_executor, test) {
     std::vector<std::thread> ths;
     auto start = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < 10; i++) {
-        ths.emplace_back(std::thread(&ftask, eth));
+        ths.emplace_back(std::thread(&ftask, &eth));
     }
     for (auto &th : ths) {
         th.join();
@@ -69,16 +68,15 @@ int exptask(fs::IFileSystem *fs) {
 }
 
 TEST(std_executor, with_exportfs) {
-    auto eth = Executor::new_ease_executor();
-    DEFER(delete eth);
+    Executor::Executor eth;
 
-    auto fs = eth->perform([] {
+    auto fs = eth.perform([] {
         fs::exportfs_init();
         auto local = fs::new_localfs_adaptor();
         return fs::export_as_sync_fs(local);
     });
     ASSERT_NE(nullptr, fs);
-    DEFER(eth->perform([&fs] {
+    DEFER(eth.perform([&fs] {
         delete fs;
         fs::exportfs_fini();
     }));

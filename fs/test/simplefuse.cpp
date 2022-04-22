@@ -15,6 +15,7 @@
 #include "../exportfs.h"
 #include "../fuse_adaptor.h"
 #include "../localfs.h"
+#include "photon/common/executor/executor.h"
 
 using namespace photon;
 
@@ -64,9 +65,8 @@ int main(int argc, char *argv[]) {
         auto wfs = fs::new_aligned_fs_adaptor(fs, 4096, true, true);
         return fuser_go_exportfs(wfs, args.argc, args.argv);
     } else if (cfg.exportfs && *cfg.exportfs == 'c') {
-        auto eth = Executor::new_ease_executor();
-        DEFER(delete eth);
-        auto afs = eth->perform([&]() {
+        Executor::Executor eth;
+        auto afs = eth.perform([&]() {
             auto fs = fs::new_localfs_adaptor(cfg.src, ioengine);
             auto wfs = fs::new_aligned_fs_adaptor(fs, 4096, true, true);
             fs::exportfs_init();

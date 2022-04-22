@@ -6,6 +6,8 @@
 #include <atomic>
 #include <type_traits>
 
+#include "photon/common/executor/executor.h"
+
 namespace Executor {
 
 constexpr int64_t kCondWaitMaxTime = 1000L * 1000;
@@ -56,29 +58,32 @@ struct AsyncResult {
     }
 };
 
-class HybridExecutor {
+class ExecutorImpl;
+
+ExecutorImpl *new_ease_executor();
+void delete_ease_executor(ExecutorImpl *e);
+void issue(ExecutorImpl *e, Callback<> cb);
+
+class Executor {
 public:
-    virtual ~HybridExecutor(){};
+    ExecutorImpl *e;
+    Executor() : e(new_ease_executor()) {}
+    ~Executor() { delete_ease_executor(e); }
 
     template <typename Context = StdContext, typename Func,
               typename R = typename std::result_of<Func()>::type>
     typename no_void<R>::type perform(Func &&act) {
         AsyncResult<R, Context> aret;
-        auto work = [act, &aret, this] {
+        auto work = [act, &aret] {
             if (!aret.gotit.load(std::memory_order_acquire)) {
                 aret.done(_no_void_ret_func_helper(act));
             }
             return 0;
         };
         Callback<> cb(work);
-        issue(cb);
+        issue(e, cb);
         return aret.wait_for_result();
     }
-
-protected:
-    virtual void issue(Callback<>) = 0;
 };
-
-HybridExecutor *new_ease_executor();
 
 }  // namespace Executor
