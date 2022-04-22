@@ -13,7 +13,7 @@
 
 namespace Executor {
 
-class HybridEaseExecutorImpl : public HybridEaseExecutor {
+class HybridExecutorImpl : public HybridExecutor {
     using CBList = typename boost::lockfree::spsc_queue<
         Callback<>, boost::lockfree::capacity<32UL * 1024>>;
     std::unique_ptr<std::thread> th;
@@ -58,7 +58,7 @@ protected:
             CallArg arg;
             arg.backth = photon::CURRENT;
             if (queue.pop(arg.task)) {
-                auto th = pool->thread_create(&HybridEaseExecutorImpl::do_event,
+                auto th = pool->thread_create(&HybridExecutorImpl::do_event,
                                               (void *)&arg);
                 photon::thread_yield_to(th);
             }
@@ -84,10 +84,10 @@ protected:
     }
 
 public:
-    HybridEaseExecutorImpl() {
-        loop = new_event_loop({this, &HybridEaseExecutorImpl::wait_for_event},
-                              {this, &HybridEaseExecutorImpl::on_event});
-        th.reset(new std::thread(&HybridEaseExecutorImpl::do_loop, this));
+    HybridExecutorImpl() {
+        loop = new_event_loop({this, &HybridExecutorImpl::wait_for_event},
+                              {this, &HybridExecutorImpl::on_event});
+        th.reset(new std::thread(&HybridExecutorImpl::do_loop, this));
         while (!loop || loop->state() != loop->WAITING) ::sched_yield();
     }
 
@@ -99,12 +99,12 @@ public:
         photon::thread_interrupt(loop->loop_thread(), EINPROGRESS);
     }
 
-    ~HybridEaseExecutorImpl() override {
+    ~HybridExecutorImpl() override {
         photon::thread_interrupt(pth);
         th->join();
     }
 };
 
-HybridEaseExecutor *new_ease_executor() { return new HybridEaseExecutorImpl(); }
+HybridExecutor *new_ease_executor() { return new HybridExecutorImpl(); }
 
 }  // namespace Executor

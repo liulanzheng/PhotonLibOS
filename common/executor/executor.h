@@ -56,9 +56,9 @@ struct AsyncResult {
     }
 };
 
-class HybridEaseExecutor {
+class HybridExecutor {
 public:
-    virtual ~HybridEaseExecutor(){};
+    virtual ~HybridExecutor(){};
 
     template <typename Context = StdContext, typename Func,
               typename R = typename std::result_of<Func()>::type>
@@ -79,6 +79,6 @@ protected:
     virtual void issue(Callback<>) = 0;
 };
 
-HybridEaseExecutor *new_ease_executor();
+HybridExecutor *new_ease_executor();
 
 }  // namespace Executor

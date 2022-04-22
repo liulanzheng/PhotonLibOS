@@ -14,7 +14,7 @@ using namespace photon;
 
 std::atomic<int> count;
 
-int ftask(Executor::HybridEaseExecutor *eth) {
+int ftask(Executor::HybridExecutor *eth) {
     for (int i = 0; i < 1000; i++) {
         auto ret = eth->perform([] {
             auto fs = fs::new_localfs_adaptor();
@@ -101,7 +101,7 @@ TEST(std_executor, with_exportfs) {
            10000L * 1000000 / microsec);
 }
 
-// int astask(Executor::HybridEaseExecutor *eth) {
+// int astask(Executor::HybridExecutor *eth) {
 //     for (int i = 0; i < 1000; i++) {
 //         auto ret = eth->async_perform([] {
 //             auto fs = fs::new_localfs_adaptor();
@@ -121,7 +121,7 @@ TEST(std_executor, with_exportfs) {
 // }
 
 // TEST(std_executor, async_perform) {
-//     Executor::HybridEaseExecutor eth;
+//     Executor::HybridExecutor eth;
 //     printf("Task applied, wait for loop\n");
 
 //     count = 10000;

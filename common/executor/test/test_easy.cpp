@@ -50,7 +50,7 @@ easy_atomic_t count;
 photon::semaphore sem(128);
 
 int ftask(easy_baseth_t *, easy_task_t *task) {
-    auto eth = (Executor::HybridEaseExecutor *)task->user_data;
+    auto eth = (Executor::HybridExecutor *)task->user_data;
     auto ret = eth->perform<Executor::EasyContext>([] {
         sem.wait(1);
         DEFER(sem.signal(1));
