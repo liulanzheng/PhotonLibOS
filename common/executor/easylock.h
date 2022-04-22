@@ -3,7 +3,7 @@
 #include <easy/easy_io.h>
 #include <easy/easy_uthread.h>
 
-namespace Executor {
+namespace photon {
 
 struct EasyMutex {
     easy_comutex_t mtx;
@@ -66,4 +66,4 @@ struct EasyContext {
     using Mutex = EasyMutex;
 };
 
-}  // namespace Executor
+}  // namespace photon

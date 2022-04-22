@@ -1,3 +1,4 @@
+#include "executor.h"
 #include <photon/common/alog.h>
 #include <photon/common/event-loop.h>
 #include <photon/common/executor/executor.h>
@@ -11,7 +12,7 @@
 #include <mutex>
 #include <thread>
 
-namespace Executor {
+namespace photon {
 
 class ExecutorImpl {
 public:
@@ -108,4 +109,4 @@ void issue(ExecutorImpl *e, Callback<> act) {
     photon::thread_interrupt(e->loop->loop_thread(), EINPROGRESS);
 }
 
-}  // namespace Executor
+}  // namespace photon

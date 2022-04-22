@@ -6,79 +6,71 @@
 #include <atomic>
 #include <type_traits>
 
-namespace Executor {
+namespace photon {
 
 class ExecutorImpl;
 
 ExecutorImpl *new_ease_executor();
 void delete_ease_executor(ExecutorImpl *e);
-void issue(ExecutorImpl *e, Callback<> cb);
+void issue(ExecutorImpl *e, Delegate<void> cb);
 
 class Executor {
-protected:
-    static constexpr int64_t kCondWaitMaxTime = 1000L * 1000;
-
-    struct void_t {};
-    template <typename T>
-    struct no_void {
-        using type =
-            typename std::conditional<std::is_void<T>::value, void_t, T>::type;
-    };
-
-    template <typename Func, typename R = typename std::result_of<Func()>::type>
-    static auto _no_void_ret_func_helper(Func &&func) ->
-        typename std::enable_if<std::is_void<R>::value, void_t>::type {
-        func();
-        return {};
-    }
-
-    template <typename Func, typename R = typename std::result_of<Func()>::type>
-    static auto _no_void_ret_func_helper(Func &&func) ->
-        typename std::enable_if<!std::is_void<R>::value, R>::type {
-        return func();
-    }
-
 public:
-    ExecutorImpl *e;
-    Executor() : e(new_ease_executor()) {}
+    ExecutorImpl *e = new_ease_executor();
     ~Executor() { delete_ease_executor(e); }
 
     template <typename Context = StdContext, typename Func,
-              typename R = typename std::result_of<Func()>::type>
-    typename no_void<R>::type perform(Func &&act) {
-        struct AsyncResult {
-            typename no_void<R>::type result;
-            int err = 0;
-            std::atomic_bool gotit;
-            typename Context::Mutex mtx;
-            typename Context::Cond cond;
-            AsyncResult() : gotit(false), cond(mtx) {}
-            typename no_void<R>::type wait_for_result() {
-                typename Context::CondLock lock(mtx);
-                while (!gotit.load(std::memory_order_acquire)) {
-                    cond.wait_for(lock, kCondWaitMaxTime);
-                }
-                if (err) errno = err;
-                return std::move(result);
-            }
-            void done(typename no_void<R>::type &&t) {
-                typename Context::CondLock lock(mtx);
-                result = std::move(t);
-                err = errno;
-                gotit.store(true, std::memory_order_release);
-                cond.notify_all();
-            }
-        } aret;
-        auto work = [act, &aret] {
-            if (!aret.gotit.load(std::memory_order_acquire)) {
-                aret.done(_no_void_ret_func_helper(act));
-            }
-            return 0;
-        };
-        Callback<> cb(work);
-        issue(e, cb);
-        return aret.wait_for_result();
+              typename R = typename std::result_of<Func()>::type,
+              typename _ = typename std::enable_if<!std::is_void<R>::value, R>::type>
+    R perform(Func &&act) {
+        R result;
+        AsyncOp<Context> aop;
+        aop.call(e, [&]{
+            result = act();
+            aop.done();
+        });
+        return result;
     }
+
+    template <typename Context = StdContext, typename Func,
+              typename R = typename std::result_of<Func()>::type,
+              typename _ = typename std::enable_if<std::is_void<R>::value, R>::type>
+    void perform(Func &&act) {
+        AsyncOp<Context> aop;
+        aop.call(e, [&]{
+            act();
+            aop.done();
+        });
+    }
+
+protected:
+    static constexpr int64_t kCondWaitMaxTime = 1000L * 1000;
+
+    template <typename Context>
+    struct AsyncOp {
+        int err;
+        std::atomic_bool gotit;
+        typename Context::Mutex mtx;
+        typename Context::Cond cond;
+        AsyncOp() : gotit(false), cond(mtx) {}
+        void wait_for_completion() {
+            typename Context::CondLock lock(mtx);
+            while (!gotit.load(std::memory_order_acquire)) {
+                cond.wait_for(lock, kCondWaitMaxTime);
+            }
+            if (err) errno = err;
+        }
+        void done(int error_number = 0) {
+            typename Context::CondLock lock(mtx);
+            err = error_number;
+            gotit.store(true, std::memory_order_release);
+            cond.notify_all();
+        }
+        void call(ExecutorImpl* e, Delegate<void> work) {
+            issue(e, work);
+            wait_for_completion();
+        }
+    };
 };
 
-}  // namespace Executor
+}  // namespace photon

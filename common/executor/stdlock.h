@@ -4,7 +4,7 @@
 #include <mutex>
 #include <thread>
 
-namespace Executor {
+namespace photon {
 struct StdCond {
     std::condition_variable cond;
     std::mutex &mtx;
@@ -37,4 +37,4 @@ struct StdContext {
     using Mutex = std::mutex;
 };
 
-}  // namespace Executor
+}  // namespace photon
