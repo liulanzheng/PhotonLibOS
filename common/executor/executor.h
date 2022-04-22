@@ -5,7 +5,6 @@
 #include <condition_variable>
 #include <mutex>
 #include <thread>
-#include "thread/thread.h"
 
 #include <photon/common/alog.h>
 #include <photon/common/event-loop.h>
