@@ -8,6 +8,7 @@
 #include <photon/common/utility.h>
 #include <photon/common/executor/executor.h>
 #include <photon/common/executor/stdlock.h>
+#include "photon/common/executor/executor.h"
 
 using namespace photon;
 
@@ -33,7 +34,8 @@ int ftask(Executor::HybridEaseExecutor *eth) {
 }
 
 TEST(std_executor, test) {
-    Executor::HybridEaseExecutor eth;
+    auto eth = Executor::new_ease_executor();
+    DEFER(delete eth);
 
     printf("Task applied, wait for loop\n");
 
@@ -41,7 +43,7 @@ TEST(std_executor, test) {
     std::vector<std::thread> ths;
     auto start = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < 10; i++) {
-        ths.emplace_back(std::thread(&ftask, &eth));
+        ths.emplace_back(std::thread(&ftask, eth));
     }
     for (auto &th : ths) {
         th.join();
@@ -67,15 +69,16 @@ int exptask(fs::IFileSystem *fs) {
 }
 
 TEST(std_executor, with_exportfs) {
-    Executor::HybridEaseExecutor eth;
+    auto eth = Executor::new_ease_executor();
+    DEFER(delete eth);
 
-    auto fs = eth.perform([] {
+    auto fs = eth->perform([] {
         fs::exportfs_init();
         auto local = fs::new_localfs_adaptor();
         return fs::export_as_sync_fs(local);
     });
     ASSERT_NE(nullptr, fs);
-    DEFER(eth.perform([&fs] {
+    DEFER(eth->perform([&fs] {
         delete fs;
         fs::exportfs_fini();
     }));

@@ -7,6 +7,7 @@
 #include <photon/common/utility.h>
 #include <photon/common/executor/executor.h>
 #include <photon/common/executor/easylock.h>
+#include <photon/thread/thread.h>
 
 using namespace photon;
 
@@ -70,14 +71,15 @@ int ftask(easy_baseth_t *, easy_task_t *task) {
 
 TEST(easy_executor, test) {
     EasyCoroutinePool ecp;
-    Executor::HybridEaseExecutor eth;
+    auto eth = Executor::new_ease_executor();
+    DEFER(delete eth);
 
     printf("Task applied, wait for loop\n");
 
     easy_atomic_set(count, 10000);
     auto start = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < 10000; i++) {
-        ecp.runtask(&ftask, (void *)&eth, i);
+        ecp.runtask(&ftask, (void *)eth, i);
     }
     while (count) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
