@@ -5,6 +5,7 @@
 #include <condition_variable>
 #include <mutex>
 #include <thread>
+#include "thread/thread.h"
 
 #include <photon/common/alog.h>
 #include <photon/common/event-loop.h>
@@ -156,21 +157,27 @@ protected:
         return 0;
     }
 
+    struct CallArg {
+        Callback<> task;
+        photon::thread *backth;
+    };
+
     static void *do_event(void *arg) {
-        auto a = (Callback<> *)arg;
-        auto task = *a;
-        delete a;
+        auto a = (CallArg *)arg;
+        auto task = a->task;
+        photon::thread_yield_to(a->backth);
         task();
         return nullptr;
     }
 
     int on_event(EventLoop *) {
         while (!queue.empty()) {
-            auto args = new Callback<>;
-            auto &task = *args;
-            if (queue.pop(task)) {
-                pool->thread_create(&HybridEaseExecutor::do_event,
-                                    (void *)args);
+            CallArg arg;
+            arg.backth = photon::CURRENT;
+            if (queue.pop(arg.task)) {
+                auto th = pool->thread_create(&HybridEaseExecutor::do_event,
+                                              (void *)&arg);
+                photon::thread_yield_to(th);
             }
         }
         return 0;
