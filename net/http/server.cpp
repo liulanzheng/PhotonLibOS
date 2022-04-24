@@ -720,7 +720,7 @@ public:
             auto sleep_interval = 0;
         again:
             auto ret_r = file->pread(aligned_buf, buf_size, read_offset);
-            if (ret_r < 0) {
+            if (ret_r < (ssize_t)(r.length + r.offset)) {
                 if (photon::now < tmo.expire()) {
                     photon::thread_usleep(sleep_interval * 1000UL);
                     sleep_interval = (sleep_interval + 500) * 2;
