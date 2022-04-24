@@ -25,10 +25,11 @@ public:
     R perform(Func &&act) {
         R result;
         AsyncOp<Context> aop;
-        aop.call(e, [&]{
+        auto op = [&]{
             result = act();
             aop.done();
-        });
+        };
+        aop.call(e, op);
         return result;
     }
 
@@ -37,10 +38,11 @@ public:
               typename _ = typename std::enable_if<std::is_void<R>::value, R>::type>
     void perform(Func &&act) {
         AsyncOp<Context> aop;
-        aop.call(e, [&]{
+        auto op = [&]{
             act();
             aop.done();
-        });
+        };
+        aop.call(e, op);
     }
 
 protected:

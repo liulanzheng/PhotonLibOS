@@ -14,7 +14,7 @@ using namespace photon;
 
 std::atomic<int> count;
 
-int ftask(Executor::Executor *eth) {
+int ftask(photon::Executor *eth) {
     for (int i = 0; i < 1000; i++) {
         auto ret = eth->perform([] {
             auto fs = fs::new_localfs_adaptor();
@@ -34,7 +34,7 @@ int ftask(Executor::Executor *eth) {
 }
 
 TEST(std_executor, test) {
-    Executor::Executor eth;
+    photon::Executor eth;
 
     printf("Task applied, wait for loop\n");
 
@@ -68,7 +68,7 @@ int exptask(fs::IFileSystem *fs) {
 }
 
 TEST(std_executor, with_exportfs) {
-    Executor::Executor eth;
+    photon::Executor eth;
 
     auto fs = eth.perform([] {
         fs::exportfs_init();

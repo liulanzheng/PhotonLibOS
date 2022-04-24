@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
         auto wfs = fs::new_aligned_fs_adaptor(fs, 4096, true, true);
         return fuser_go_exportfs(wfs, args.argc, args.argv);
     } else if (cfg.exportfs && *cfg.exportfs == 'c') {
-        Executor::Executor eth;
+        photon::Executor eth;
         auto afs = eth.perform([&]() {
             auto fs = fs::new_localfs_adaptor(cfg.src, ioengine);
             auto wfs = fs::new_aligned_fs_adaptor(fs, 4096, true, true);

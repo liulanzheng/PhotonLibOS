@@ -17,7 +17,7 @@ namespace photon {
 class ExecutorImpl {
 public:
     using CBList = typename boost::lockfree::spsc_queue<
-        Callback<>, boost::lockfree::capacity<32UL * 1024>>;
+        Delegate<void>, boost::lockfree::capacity<32UL * 1024>>;
     std::unique_ptr<std::thread> th;
     photon::thread *pth = nullptr;
     EventLoop *loop = nullptr;
@@ -54,7 +54,7 @@ public:
     }
 
     struct CallArg {
-        Callback<> task;
+        Delegate<void> task;
         photon::thread *backth;
     };
 
@@ -101,7 +101,7 @@ ExecutorImpl *new_ease_executor() { return new ExecutorImpl(); }
 
 void delete_ease_executor(ExecutorImpl *e) { delete e; }
 
-void issue(ExecutorImpl *e, Callback<> act) {
+void issue(ExecutorImpl *e, Delegate<void> act) {
     {
         std::lock_guard<std::mutex> lock(e->mutex);
         while (!e->queue.push(act)) ::sched_yield();

@@ -50,8 +50,8 @@ easy_atomic_t count;
 photon::semaphore sem(128);
 
 int ftask(easy_baseth_t *, easy_task_t *task) {
-    auto eth = (Executor::Executor *)task->user_data;
-    auto ret = eth->perform<Executor::EasyContext>([] {
+    auto eth = (photon::Executor *)task->user_data;
+    auto ret = eth->perform<photon::EasyContext>([] {
         sem.wait(1);
         DEFER(sem.signal(1));
         auto fs = fs::new_localfs_adaptor();
@@ -71,7 +71,7 @@ int ftask(easy_baseth_t *, easy_task_t *task) {
 
 TEST(easy_executor, test) {
     EasyCoroutinePool ecp;
-    Executor::Executor eth;
+    photon::Executor eth;
 
     printf("Task applied, wait for loop\n");
 
