@@ -1,24 +1,21 @@
 targets = {
-    #'client_test': cpp_fast_test (
-    #    testing = [ 'http_client' ],
-    #    incs = [
-    #        '../../../third_party/aliyun-oss-cpp-sdk/sdk/include',
-    #        '../../../third_party/aliyun-oss-cpp-sdk/sdk/src',
-    #    ],
-    #    srcs = [
-    #        'client_test.cpp',
-    #    ],
-    #    static_deps=[
-    #        'curl-7.42.1',
-    #        'openssl-1.0.2a',
-    #        'gtest-1.7.0:gtest',
-    #        'gtest-1.7.0:gtest_main',
-    #        'gflags-2.1.2',
-    #    ],
-    #    ldflags=[
-    #        '-lphoton',
-    #    ],
-    #),
+    'client_test': cpp_fast_test (
+       testing = [ 'http_client' ],
+       incs = [],
+       srcs = [
+           'client_test.cpp',
+       ],
+       static_deps=[
+           'curl-7.42.1',
+           'openssl-1.0.2a',
+           'gtest-1.7.0:gtest',
+           'gtest-1.7.0:gtest_main',
+           'gflags-2.1.2',
+       ],
+       ldflags=[
+           '-lphoton',
+       ],
+    ),
     'server_test': cpp_fast_test (
         testing = [ 'http_server' ],
         incs = [
@@ -40,26 +37,23 @@ targets = {
             '-lphoton',
         ],
     ),
-    #'headers_test': cpp_fast_test (
-    #    testing = [ 'new_headers' ],
-    #    incs = [
-    #        '../../../third_party/aliyun-oss-cpp-sdk/sdk/include',
-    #        '../../../third_party/aliyun-oss-cpp-sdk/sdk/src',
-    #    ],
-    #    srcs = [
-    #        'headers_test.cpp',
-    #    ],
-    #    static_deps=[
-    #        'curl-7.42.1',
-    #        'openssl-1.0.2a',
-    #        'gtest-1.7.0:gtest',
-    #        'gtest-1.7.0:gtest_main',
-    #        'gflags-2.1.2',
-    #    ],
-    #    ldflags=[
-    #        '-lphoton',
-    #    ],
-    #),
+    'headers_test': cpp_fast_test (
+       testing = [ 'new_headers' ],
+       incs = [],
+       srcs = [
+           'headers_test.cpp',
+       ],
+       static_deps=[
+           'curl-7.42.1',
+           'openssl-1.0.2a',
+           'gtest-1.7.0:gtest',
+           'gtest-1.7.0:gtest_main',
+           'gflags-2.1.2',
+       ],
+       ldflags=[
+           '-lphoton',
+       ],
+    ),
     'cookie_jar_test': cpp_fast_test (
         testing = [ 'cookie_jar' ],
         incs = [

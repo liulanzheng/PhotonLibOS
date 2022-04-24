@@ -1,7 +1,5 @@
 #include <fcntl.h>
 #include <gtest/gtest.h>
-#include <openssl/hmac.h>
-#include <utils/Utils.h>
 
 #include <chrono>
 #include <cstddef>
@@ -195,90 +193,6 @@ TEST(headers, resp_header) {
             EXPECT_EQ(1, ret);
     } while (!exceed_stream.done());
 }
-
-static std::string hmac_sha1(const std::string& key, const std::string& data) {
-    HMAC_CTX ctx;
-    unsigned char output[EVP_MAX_MD_SIZE];
-    auto evp_md = EVP_sha1();
-    unsigned int output_length;
-    HMAC_CTX_init(&ctx);
-    HMAC_Init_ex(&ctx, (const unsigned char*)key.c_str(), key.length(), evp_md,
-                 nullptr);
-    HMAC_Update(&ctx, (const unsigned char*)data.c_str(), data.length());
-    HMAC_Final(&ctx, (unsigned char*)output, &output_length);
-    HMAC_CTX_cleanup(&ctx);
-
-    return std::string((const char*)output, output_length);
-}
-
-static std::string oss_signature(const std::string& bucket,
-                                 const std::string& method,
-                                 const std::string& path, uint64_t expires,
-                                 const std::string& accessid,
-                                 const std::string& accesskey) {
-    return AlibabaCloud::OSS::Base64Encode(hmac_sha1(
-        accesskey,
-        method + "\n\n\n" + std::to_string(expires) + "\n/" + bucket + path));
-}
-
-TEST(headers, network) {
-    char CRLF[] = "\r\n";
-    auto expire =
-        std::chrono::duration_cast<std::chrono::seconds>(
-            (std::chrono::system_clock::now() + std::chrono::seconds(3600))
-                .time_since_epoch())
-            .count();
-    auto signature = oss_signature(
-        "qisheng-ds", "GET", "/ease_ut/ease-httpclient-test-postfile", expire,
-        OSS_ID, OSS_KEY);
-    auto queryparam =
-        "OSSAccessKeyId=LTAIWsbCDjMKQbaW&Expires=" + std::to_string(expire) +
-        "&Signature=" + Net::url_escape(signature.c_str());
-    // LOG_DEBUG(VALUE(queryparam));
-    std::string target =
-        "http://qisheng-ds.oss-cn-hangzhou-zmf.aliyuncs.com/ease_ut/"
-        "ease-httpclient-test-postfile?" +
-        queryparam;
-    RequestHeadersStored<> req_header(Verb::GET, target);
-    PooledDialer dialer;
-    bool is_new_conn;
-    auto pooledsock = dialer.dial(req_header.host(), req_header.port(), req_header.secure(), is_new_conn);
-    auto sock = pooledsock->sock;
-    req_header.content_length(0);
-    req_header.insert("Host", req_header.host());
-    req_header.insert("User-Agent", "curl/7.78.0");
-    req_header.insert("Accept", "*/*");
-    auto req = req_header.whole();
-    auto ret = sock->write(req.data(), req.size());
-    LOG_DEBUG(req.size());
-    auto newline="\n";
-    LOG_DEBUG(newline, req);
-    EXPECT_EQ(req.size(), ret);
-    ret = sock->write(CRLF, 2);
-    EXPECT_EQ(2, ret);
-    char resp_buf[1024 * 16];
-    ResponseHeaders resp_header(resp_buf, sizeof(resp_buf));
-    while (1) {
-        LOG_DEBUG("try append from sock");
-        auto ret = resp_header.append_bytes(sock);
-        if (ret < 0) {
-            EXPECT_GT(ret, 0);
-            return;
-        }
-        if (ret == 0) break;
-    }
-    auto sv = resp_header["Content-Length"];
-    estring_view content_length(sv);
-    auto len = content_length.to_uint64();
-    string text(resp_header.partial_body());
-    auto partial_size = text.size();
-    auto remain = len - partial_size;
-    text.resize(len);
-    ret = sock->recv((void*)(text.data()) + partial_size, remain);
-    EXPECT_EQ(remain, ret);
-    LOG_DEBUG(text);
-}
-
 TEST(headers, url) {
     RequestHeadersStored<> headers(Verb::UNKNOWN, "https://domain.com/dir1/dir2/file?key1=value1&key2=value2");
     LOG_DEBUG(VALUE(headers.target()));

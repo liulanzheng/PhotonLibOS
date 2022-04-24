@@ -1,8 +1,6 @@
 #include <fcntl.h>
 #include <time.h>
 #include <gtest/gtest.h>
-#include <openssl/hmac.h>
-#include <utils/Utils.h>
 #include <netinet/tcp.h>
 
 #include <chrono>
@@ -19,39 +17,15 @@
 #include "../client.cpp"
 #undef protected
 #undef private
+#include "../server.h"
 // #include "client.h"
 #include "io/fd-events.h"
 #include "net/etsocket.h"
 #include "thread/thread11.h"
 #include "common/stream.h"
+#include "fs/localfs.h"
 
 using namespace Net::HTTP;
-
-static std::string hmac_sha1(const std::string& key, const std::string& data) {
-    HMAC_CTX ctx;
-    unsigned char output[EVP_MAX_MD_SIZE];
-    auto evp_md = EVP_sha1();
-    unsigned int output_length;
-    HMAC_CTX_init(&ctx);
-    HMAC_Init_ex(&ctx, (const unsigned char*)key.c_str(), key.length(), evp_md,
-                 nullptr);
-    HMAC_Update(&ctx, (const unsigned char*)data.c_str(), data.length());
-    HMAC_Final(&ctx, (unsigned char*)output, &output_length);
-    HMAC_CTX_cleanup(&ctx);
-
-    return std::string((const char*)output, output_length);
-}
-
-static std::string oss_signature(const std::string& bucket,
-                                 const std::string& method,
-                                 const std::string& path, uint64_t expires,
-                                 const std::string& accessid,
-                                 const std::string& accesskey) {
-    return AlibabaCloud::OSS::Base64Encode(hmac_sha1(
-        accesskey,
-        method + "\n\n\n" + std::to_string(expires) + "\n/" + bucket + path));
-}
-
 static char socket_buf[] =
     "this is a http_client post request body text for socket stream";
 
@@ -69,44 +43,23 @@ int timeout_writer(void *self, IStream* stream) {
     stream->write((void*)&c, 1);
     return 0;
 }
+
 TEST(http_client, post) {
-    auto expire =
-        std::chrono::duration_cast<std::chrono::seconds>(
-            (std::chrono::system_clock::now() + std::chrono::seconds(3600))
-                .time_since_epoch())
-            .count();
-    auto signature_post = oss_signature(
-        "qisheng-ds", "PUT", "/ease_ut/ease-httpclient-test-postfile", expire,
-        OSS_ID, OSS_KEY);
-    auto queryparam_post =
-        "OSSAccessKeyId=LTAIWsbCDjMKQbaW&Expires=" + std::to_string(expire) +
-        "&Signature=" + Net::url_escape(signature_post.c_str());
-    LOG_DEBUG(VALUE(queryparam_post));
+    system("mkdir -p /tmp/ease_ut/http_test/");
+    system("echo \"this is a http_client post request body text for socket stream\" > /tmp/ease_ut/http_test/ease-httpclient-posttestfile");
+    auto server = new_http_server(18731);
+    DEFER(delete server);
+    auto fs = FileSystem::new_localfs_adaptor("/tmp/ease_ut/http_test/");
+    DEFER(delete fs);
+    auto fs_handler = new_fs_handler(fs);
+    DEFER(delete fs_handler);
+    server->SetHandler(fs_handler->GetHandler());
+    server->Launch();
     std::string target_post =
-        "http://qisheng-ds.oss-cn-hangzhou-zmf.aliyuncs.com/ease_ut/"
-        "ease-httpclient-test-postfile?" +
-        queryparam_post;
+        "http://localhost:18731/ease-httpclient-posttestfile";
     auto client = new_http_client();
     DEFER(delete client);
-    auto op1 = client->new_operation(Verb::PUT, target_post);
-    DEFER(delete op1);
-    op1->req.content_length(sizeof(socket_buf));
-    Callback<IStream*> cb_put(nullptr, &socket_put_cb);
-    op1->req_body_writer = cb_put;
-    client->call(op1);
-    EXPECT_EQ(200, op1->status_code);
-
-    auto signature_get = oss_signature(
-        "qisheng-ds", "GET", "/ease_ut/ease-httpclient-test-postfile", expire,
-        OSS_ID, OSS_KEY);
-    auto queryparam_get =
-        "OSSAccessKeyId=LTAIWsbCDjMKQbaW&Expires=" + std::to_string(expire) +
-        "&Signature=" + Net::url_escape(signature_get.c_str());
-    std::string target_get =
-        "http://qisheng-ds.oss-cn-hangzhou-zmf.aliyuncs.com/ease_ut/"
-        "ease-httpclient-test-postfile?" +
-        queryparam_get;
-    auto op2 = client->new_operation(Verb::GET, target_get);
+    auto op2 = client->new_operation(Verb::GET, target_post);
     DEFER(delete op2);
     op2->req.content_length(0);
     client->call(op2);
@@ -115,10 +68,11 @@ TEST(http_client, post) {
     EXPECT_EQ(sizeof(socket_buf), op2->resp.resource_size());
     auto ret = stream2->read(resp_body_buf, sizeof(socket_buf));
     EXPECT_EQ(sizeof(socket_buf), ret);
-    resp_body_buf[sizeof(socket_buf)] = '\0';
+    resp_body_buf[sizeof(socket_buf) - 1] = '\0';
+    LOG_DEBUG(resp_body_buf);
     EXPECT_EQ(0, strcmp(resp_body_buf, socket_buf));
 
-    auto op3 = client->new_operation(Verb::GET, target_get);
+    auto op3 = client->new_operation(Verb::GET, target_post);
     DEFER(delete op3);
     op3->req.content_length(0);
     op3->req.insert_range(10, 19);
@@ -130,7 +84,7 @@ TEST(http_client, post) {
     EXPECT_EQ(0, strcmp("http_clien", resp_body_buf_range));
     LOG_DEBUG(resp_body_buf_range);
 
-    auto op4 = client->new_operation(Verb::GET, target_get);
+    auto op4 = client->new_operation(Verb::GET, target_post);
     DEFER(delete op4);
     op4->req.content_length(0);
     op4->call();
@@ -412,21 +366,18 @@ TEST(http_client, server_no_resp) {
 }
 
 TEST(http_client, partial_body) {
-    auto expire =
-        std::chrono::duration_cast<std::chrono::seconds>(
-            (std::chrono::system_clock::now() + std::chrono::seconds(3600))
-                .time_since_epoch())
-            .count();
-    auto signature_get = oss_signature(
-        "qisheng-ds", "GET", "/ease_ut/ease-httpclient-test-postfile", expire,
-        OSS_ID, OSS_KEY);
-    auto queryparam_get =
-        "OSSAccessKeyId=LTAIWsbCDjMKQbaW&Expires=" + std::to_string(expire) +
-        "&Signature=" + Net::url_escape(signature_get.c_str());
+    system("mkdir -p /tmp/ease_ut/http_test/");
+    system("echo \"this is a http_client post request body text for socket stream\" > /tmp/ease_ut/http_test/ease-httpclient-posttestfile");
+    auto server = new_http_server(18731);
+    DEFER(delete server);
+    auto fs = FileSystem::new_localfs_adaptor("/tmp/ease_ut/http_test/");
+    DEFER(delete fs);
+    auto fs_handler = new_fs_handler(fs);
+    DEFER(delete fs_handler);
+    server->SetHandler(fs_handler->GetHandler());
+    server->Launch();
     std::string target_get =
-        "http://qisheng-ds.oss-cn-hangzhou-zmf.aliyuncs.com/ease_ut/"
-        "ease-httpclient-test-postfile?" +
-        queryparam_get;
+        "http://localhost:18731/ease-httpclient-posttestfile";
     auto client = new_http_client();
     DEFER(delete client);
     auto op = client->new_operation(Verb::GET, target_get);

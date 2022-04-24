@@ -340,7 +340,6 @@ public:
         BeastErrorCode ec{};
         BeastBuffer buffer;
         char buf[4096];
-        DEFER(LOG_INFO("req:", std::string(buf)));
         BeastRequestParser rp(req);
         rp.get().body().data = buf;
         rp.get().body().size = sizeof(buf);
@@ -583,16 +582,16 @@ public:
             if (ec) {
                 LOG_ERRNO_RETURN(0, -1, ec.message());
             }
-            LOG_INFO("Request Accepted", VALUE(req.GetMethod()), VALUE(req.GetTarget()), VALUE(req.Find("Authorization")));
+            LOG_DEBUG("Request Accepted", VALUE(req.GetMethod()), VALUE(req.GetTarget()), VALUE(req.Find("Authorization")));
             HTTPServerResponseImpl resp(&stream, &req);
             auto ret = m_handler(req, resp);
             switch (ret) {
             case RetType::success:
-                    LOG_INFO("Request Finished", VALUE(resp.GetResult()) ,VALUE(req.GetTarget()), VALUE(req.Find("Authorization")),
+                    LOG_DEBUG("Request Finished", VALUE(resp.GetResult()) ,VALUE(req.GetTarget()), VALUE(req.Find("Authorization")),
                                          VALUE(resp.Find("Www-Authenticate")));
                     break;
                 default:
-                    LOG_INFO("Request Failed",  VALUE(req.GetMethod()), VALUE(req.GetTarget()));
+                    LOG_DEBUG("Request Failed",  VALUE(req.GetMethod()), VALUE(req.GetTarget()));
                     return -1;
             }
         }
@@ -652,8 +651,8 @@ public:
         resp.Done();
     }
     RetType HandlerImpl(HTTPServerRequest &req, HTTPServerResponse &resp) {
-        LOG_INFO("enter fs handler");
-        DEFER(LOG_INFO("leave fs handler"));
+        LOG_DEBUG("enter fs handler");
+        DEFER(LOG_DEBUG("leave fs handler"));
         auto target = req.GetTarget();
         auto pos = target.find("?");
         std::string query;
@@ -664,7 +663,7 @@ public:
         estring filename(target);
         if ((!m_ignore_prefix.empty() && (filename.starts_with(m_ignore_prefix))))
             filename = filename.substr(m_ignore_prefix.size() - 1);
-        LOG_INFO(VALUE(filename));
+        LOG_DEBUG(VALUE(filename));
         auto file = m_files.borrow(filename, [&]{
             return m_fs->open(filename.c_str(), O_RDONLY);
         });
@@ -708,7 +707,7 @@ public:
         if (ret != RetType::success) {
             LOG_ERRNO_RETURN(0, RetType::failed, "Send response header failed, url : `", target);
         } else {
-            LOG_INFO("Send response header success, url : ` , result : `", target, resp.GetResult());
+            LOG_DEBUG("Send response header success, url : ` , result : `", target, resp.GetResult());
         }
         size_t buf_size = 65536;
         char seg_buf[buf_size + 4096];
@@ -721,7 +720,7 @@ public:
             auto sleep_interval = 0;
         again:
             auto ret_r = file->pread(aligned_buf, buf_size, read_offset);
-            if (ret_r != (ssize_t)(r.length + r.offset)) {
+            if (ret_r < 0) {
                 if (photon::now < tmo.expire()) {
                     photon::thread_usleep(sleep_interval * 1000UL);
                     sleep_interval = (sleep_interval + 500) * 2;
@@ -738,7 +737,7 @@ public:
             }
             offset += ret_r;
         }
-        LOG_INFO("send body done, url:", target);
+        LOG_DEBUG("send body done, url:", target);
         return resp.Done();
     }
 };
@@ -754,16 +753,16 @@ public:
         return {this, &ReverseProxyHandler::HandlerImpl};
     }
     RetType HandlerImpl(HTTPServerRequest &req, HTTPServerResponse &resp) {
-        LOG_INFO("enter proxy handler, url : ", req.GetTarget());
+        LOG_DEBUG("enter proxy handler, url : ", req.GetTarget());
         RetType ret;
-        DEFER(LOG_INFO("leave proxy handler", VALUE(ret)));
+        DEFER(LOG_DEBUG("leave proxy handler", VALUE(ret)));
         ret = m_director(req);
         if (ret != RetType::success) return ret;
         estring url;
         url.appends((req.GetProtocol() == Protocol::HTTP) ? http_url_scheme
                                                           : https_url_scheme,
                     req.Find("Host"), req.GetTarget());
-        LOG_INFO("new operation: ",VALUE(url));
+        LOG_DEBUG("new operation: ",VALUE(url));
         auto op = m_client->new_operation(req.GetMethod(), url);
         if (!op) LOG_ERRNO_RETURN(0, RetType::failed, "op is null");
         DEFER(delete op);

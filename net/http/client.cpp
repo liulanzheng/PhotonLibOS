@@ -273,17 +273,17 @@ PooledSocketStream* PooledDialer::dial(std::string_view host, uint16_t port, boo
                 sock = tcpsock->connect(ep);
             }
             if (sock) {
-                LOG_INFO("Connected ` host : ` ssl: ` `", ep, host, secure, sock);
+                LOG_DEBUG("Connected ` host : ` ssl: ` `", ep, host, secure, sock);
                 is_new_connection = true;
                 return new PooledSocketStream(ep, sock, this);
             }
-            LOG_INFO("connect ssl : ` ep : `  host : ` failed, try others", secure, ep, host);
+            LOG_DEBUG("connect ssl : ` ep : `  host : ` failed, try others", secure, ep, host);
         }
         if (!lsock->empty()) {
             auto sock = lsock->release_back();
             if (sock) {
                 is_new_connection = false;
-                LOG_INFO("Get connection ` for request to `", sock, host);
+                LOG_DEBUG("Get connection ` for request to `", sock, host);
                 return new PooledSocketStream(ep, sock, this);
             }
         }
@@ -385,7 +385,7 @@ public:
         sock->timeout(tmo.timeout());
         if (op->req_body_writer(sock->sock) < 0)
             LOG_ERROR_RETURN(0, ROUNDTRIP_NEED_RETRY, "ReqBodyCallback failed");
-        LOG_INFO("Request sent, wait for response ` `,  Authorization: `", req.verb(), req.target(), req["Authorization"]);
+        LOG_DEBUG("Request sent, wait for response ` `,  Authorization: `", req.verb(), req.target(), req["Authorization"]);
         auto space = req.get_remain_space();
         auto &resp = op->resp;
         if (space.second > kMinimalHeadersSize) {
@@ -407,7 +407,7 @@ public:
             if (ret == 0) break;
         }
         op->status_code = resp.status_code();
-        LOG_INFO("Got response ` ` code=` || content_length=` || Authorization : `",
+        LOG_DEBUG("Got response ` ` code=` || content_length=` || Authorization : `",
                     req.verb(), req.target(), op->status_code,
                     resp["Content-Length"], req["Authorization"]);
         if (m_cookie_jar) m_cookie_jar->get_cookies_from_headers(req.host(), &resp);
