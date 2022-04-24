@@ -14,7 +14,7 @@ public:
         memcpy(_log_buf, begin, _log_len);
         _log_buf[ --_log_len ] = '\0';
     }
-    char* log_start() {
+    const char* log_start() const {
         auto ls = _log_buf;
         for (int i = 0; i < 4; i++) 
             ls = strchr(ls, '|') + 1;
