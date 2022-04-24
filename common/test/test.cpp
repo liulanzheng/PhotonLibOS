@@ -48,6 +48,13 @@ public:
         memcpy(_log_buf, begin, _log_len);
         _log_buf[ --_log_len ] = '\0';
     }
+    char* log_start() {
+        auto ls = _log_buf;
+        for (int i = 0; i < 4; i++) 
+            ls = strchr(ls, '|') + 1;
+        ls = strchr(ls, ':') + 1;
+        return ls;
+    }
     int get_log_file_fd() override {
         return -1;
     }
@@ -59,14 +66,14 @@ auto &_log_len=log_output_test._log_len;
 TEST(ALog, DEC) {
     log_output = &log_output_test;
     DEFER(log_output = log_output_stdout);
-    LOG_DEBUG(' ');
-    auto log_start = _log_buf + _log_len - 1;
+    // LOG_DEBUG(' ');
+    // auto log_start = _log_buf + _log_len - 1;
     LOG_DEBUG(DEC(16));
     puts(_log_buf);
-    EXPECT_EQ(string("16"), log_start);
+    EXPECT_EQ(string("16"), log_output_test.log_start());
     LOG_DEBUG(HEX(16));
     puts(_log_buf);
-    EXPECT_EQ(string("10"), log_start);
+    EXPECT_EQ(string("10"), log_output_test.log_start());
 }
 
 TEST(ALog, DoubleLogger) {
@@ -74,22 +81,22 @@ TEST(ALog, DoubleLogger) {
     ALogLogger l2(0, &lo2);
     log_output = &log_output_test;
     DEFER(log_output = log_output_stdout);
-    LOG_DEBUG(' ');
-    l2 << LOG_DEBUG(' ');
-    auto ls2 = lo2._log_buf + lo2._log_len - 1;
-    auto log_start = _log_buf + _log_len - 1;
+    // LOG_DEBUG(' ');
+    // l2 << LOG_DEBUG(' ');
+    // auto ls2 = lo2._log_buf + lo2._log_len - 1;
+    // auto log_start = _log_buf + _log_len - 1;
     LOG_DEBUG(DEC(16));
     puts(_log_buf);
-    EXPECT_EQ(string("16"), log_start);
+    EXPECT_EQ(string("16"), log_output_test.log_start());
     l2 << LOG_DEBUG(DEC(32));
-    EXPECT_EQ(string("32"), ls2);
+    EXPECT_EQ(string("32"), lo2.log_start());
     puts(lo2._log_buf);
     LOG_DEBUG(HEX(16));
     l2 << LOG_DEBUG(HEX(32));
     puts(_log_buf);
     puts(lo2._log_buf);
-    EXPECT_EQ(string("10"), log_start);
-    EXPECT_EQ(string("20"), ls2);
+    EXPECT_EQ(string("10"), log_output_test.log_start());
+    EXPECT_EQ(string("20"), lo2.log_start());
 }
 
 TEST(ALog, log_to_file) {
@@ -119,17 +126,17 @@ TEST(ALog, float_point)
 {
     log_output = &log_output_test;
     LOG_DEBUG(' ');
-    auto log_start = _log_buf + _log_len - 1;
+    // auto log_start = _log_buf + _log_len - 1;
     auto fp = 5203.14159265352L;
     LOG_DEBUG(FP(fp).width(10).precision(3));
     puts(_log_buf);
-    EXPECT_EQ(log_start, string("  5203.142"));
+    EXPECT_EQ(log_output_test.log_start(), string("  5203.142"));
     LOG_DEBUG(FP(fp).width(8).precision(3).scientific(true));
     puts(_log_buf);
-    EXPECT_EQ(log_start, string("5.203e+03"));
+    EXPECT_EQ(log_output_test.log_start(), string("5.203e+03"));
     LOG_DEBUG(FP(fp).precision(3).scientific(false));
     puts(_log_buf);
-    EXPECT_EQ(log_start, string("5203.142"));
+    EXPECT_EQ(log_output_test.log_start(), string("5203.142"));
     log_output = log_output_stdout;
 }
 
@@ -263,54 +270,54 @@ TEST(ALog, ALog)
     test_LOG_ERRNO_RETURN();
 
     log_output = &log_output_test;
-    LOG_DEBUG(' ');
-    auto log_start = _log_buf + _log_len - 1;
+    // LOG_DEBUG(' ');
+    // auto log_start = _log_buf + _log_len - 1;
 
     char buf[100];
     memset(buf, '?', sizeof(buf));
     strcpy(buf, "char buf[100]");
     LOG_DEBUG(buf);
     puts(_log_buf);
-    EXPECT_TRUE(strcmp(log_start, buf) == 0);
+    EXPECT_TRUE(strcmp(log_output_test.log_start(), buf) == 0);
 
     LOG_DEBUG("as`df``jkl`as`df``jkl`", 1, 2, 3, 4, 5);
-    EXPECT_EQ(log_start, string("as1df`jkl2as3df`jkl45"));
+    EXPECT_EQ(log_output_test.log_start(), string("as1df`jkl2as3df`jkl45"));
     puts(_log_buf);
 
     LOG_DEBUG(2, buf, "asdf");
-    EXPECT_EQ(log_start, string("2") + buf + "asdf");
+    EXPECT_EQ(log_output_test.log_start(), string("2") + buf + "asdf");
     puts(_log_buf);
 
     enum { ENUM = 32 };
     LOG_DEBUG("NNNNN`", 1999);
-    EXPECT_EQ(log_start, string("NNNNN1999"));
+    EXPECT_EQ(log_output_test.log_start(), string("NNNNN1999"));
     puts(_log_buf);
 
     LOG_DEBUG("Negative: ", -1, foobarasdf(), ERRNO(24));
-    EXPECT_EQ(log_start, string("Negative: -1(0x12345678)errno=24(Too many open files)"));
+    EXPECT_EQ(log_output_test.log_start(), string("Negative: -1(0x12345678)errno=24(Too many open files)"));
     puts(_log_buf);
 
     LOG_DEBUG("My name is `, and my nickname is `.", "Huiba Li", "Lu7", " This is a test of standard formatting.");
-    EXPECT_EQ(log_start, string("My name is Huiba Li, and my nickname is Lu7. This is a test of standard formatting."));
+    EXPECT_EQ(log_output_test.log_start(), string("My name is Huiba Li, and my nickname is Lu7. This is a test of standard formatting."));
     puts(_log_buf);
 
     const char* xs = " a char* string! ";
     // auto vxs = VALUE(xs);
     LOG_DEBUG(234, "laskdjf", VALUE(xs));
-    EXPECT_EQ(log_start, string("234laskdjf[xs= a char* string! ]"));
+    EXPECT_EQ(log_output_test.log_start(), string("234laskdjf[xs= a char* string! ]"));
     puts(_log_buf);
 
     LOG_DEBUG(DEC(298345723731234).comma(true), std::string(" asdf"), xs);
-    EXPECT_EQ(log_start, string("298,345,723,731,234 asdf a char* string! "));
+    EXPECT_EQ(log_output_test.log_start(), string("298,345,723,731,234 asdf a char* string! "));
     puts(_log_buf);
 
     int v = 255;
     LOG_DEBUG("asdf:`", 255);
-    EXPECT_EQ(log_start, string("asdf:255"));
+    EXPECT_EQ(log_output_test.log_start(), string("asdf:255"));
     puts(_log_buf);
 
     LOG_DEBUG('a', v);
-    EXPECT_EQ(log_start, string("a255"));
+    EXPECT_EQ(log_output_test.log_start(), string("a255"));
     puts(_log_buf);
 
     LOG_DEBUG(32, "   ",
@@ -318,7 +325,7 @@ TEST(ALog, ALog)
               DEC(678).comma(true).width(10),
               DEC(8).comma(true).width(10),
               DEC(5678).comma(true).width(10));
-    EXPECT_EQ(log_start, string("32    2,345,678       678         8     5,678"));
+    EXPECT_EQ(log_output_test.log_start(), string("32    2,345,678       678         8     5,678"));
     puts(_log_buf);
 }
 
