@@ -13,7 +13,7 @@ includes = {
     #'../cluster/nuwa/test/TARGETS',
     #'../vrbd/test/TARGETS',
     #'../executor/test/TARGETS',
-    #'../net/http/test/TARGETS',
+    '../net/http/test/TARGETS',
     #'../security-context/test/TARGETS',
 }
 
