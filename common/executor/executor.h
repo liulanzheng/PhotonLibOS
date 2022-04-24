@@ -19,25 +19,27 @@ public:
     ExecutorImpl *e = new_ease_executor();
     ~Executor() { delete_ease_executor(e); }
 
-    template <typename Context = StdContext, typename Func,
-              typename R = typename std::result_of<Func()>::type,
-              typename _ = typename std::enable_if<!std::is_void<R>::value, R>::type>
+    template <
+        typename Context = StdContext, typename Func,
+        typename R = typename std::result_of<Func()>::type,
+        typename _ = typename std::enable_if<!std::is_void<R>::value, R>::type>
     R perform(Func &&act) {
         R result;
         AsyncOp<Context> aop;
-        aop.call(e, [&]{
+        aop.call(e, [&] {
             result = act();
             aop.done();
         });
         return result;
     }
 
-    template <typename Context = StdContext, typename Func,
-              typename R = typename std::result_of<Func()>::type,
-              typename _ = typename std::enable_if<std::is_void<R>::value, R>::type>
+    template <
+        typename Context = StdContext, typename Func,
+        typename R = typename std::result_of<Func()>::type,
+        typename _ = typename std::enable_if<std::is_void<R>::value, R>::type>
     void perform(Func &&act) {
         AsyncOp<Context> aop;
-        aop.call(e, [&]{
+        aop.call(e, [&] {
             act();
             aop.done();
         });
@@ -46,11 +48,15 @@ public:
     template <typename Context = StdContext, typename Func>
     void async_perform(Func &&act) {
         AsyncOp<Context> aop;
-        aop.call(e, [&]{
-            // copy the work, so when context 
-            auto captured_act = std::forward<Func>(act); 
+        aop.call(e, [&] {
+            // copy the work, so when context is dropped
+            // still able to call
+            typename std::remove_reference<Func>::type copy_act(
+                std::forward<Func>(act));
             aop.done();
-            captured_act();
+            // till here, `act` may be destructed
+            // call the copied `copy_act`
+            copy_act();
         });
     }
 
@@ -77,13 +83,11 @@ protected:
             gotit.store(true, std::memory_order_release);
             cond.notify_all();
         }
-        template<typename Func>
-        void call(ExecutorImpl* e, Func&& act) {
-            auto work = std::forward<Func>(act);
-            issue(e, work);
+        template <typename Func>
+        void call(ExecutorImpl *e, Func &&act) {
+            issue(e, act);
             wait_for_completion();
         }
-
     };
 };
 
