@@ -45,5 +45,21 @@ targets={
         ldflags = [
             '-lphoton'
         ]
+    ),
+    'testasync': cpp_fast_test(
+        testing=['async perform',],
+        incs = ['../'],
+        srcs = ['test_async.cpp'],
+        deps = [
+            'gtest-1.7.0:gtest',
+            'gtest-1.7.0:gtest_main',
+            'liberpc-devel-17.1.0:erpc',
+            'zlib-1.2.8:z',
+            'apsara-protobuf-2.4.1:protobuf',
+            'boost-1.69.0'
+        ],
+        ldflags = [
+            '-lphoton'
+        ]
     )
 }

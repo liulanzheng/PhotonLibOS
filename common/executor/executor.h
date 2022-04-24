@@ -43,6 +43,17 @@ public:
         });
     }
 
+    template <typename Context = StdContext, typename Func>
+    void async_perform(Func &&act) {
+        AsyncOp<Context> aop;
+        aop.call(e, [&]{
+            // copy the work, so when context 
+            auto captured_act = std::forward<Func>(act); 
+            aop.done();
+            captured_act();
+        });
+    }
+
 protected:
     static constexpr int64_t kCondWaitMaxTime = 1000L * 1000;
 
@@ -72,6 +83,7 @@ protected:
             issue(e, work);
             wait_for_completion();
         }
+
     };
 };
 
