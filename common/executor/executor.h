@@ -10,14 +10,14 @@ namespace photon {
 
 class ExecutorImpl;
 
-ExecutorImpl *new_ease_executor();
-void delete_ease_executor(ExecutorImpl *e);
+ExecutorImpl *new_executor();
+void delete_executor(ExecutorImpl *e);
 void issue(ExecutorImpl *e, Delegate<void> cb);
 
 class Executor {
 public:
-    ExecutorImpl *e = new_ease_executor();
-    ~Executor() { delete_ease_executor(e); }
+    ExecutorImpl *e = new_executor();
+    ~Executor() { delete_executor(e); }
 
     template <
         typename Context = StdContext, typename Func,

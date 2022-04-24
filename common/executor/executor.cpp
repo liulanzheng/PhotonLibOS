@@ -97,9 +97,9 @@ public:
     }
 };
 
-ExecutorImpl *new_ease_executor() { return new ExecutorImpl(); }
+ExecutorImpl *new_executor() { return new ExecutorImpl(); }
 
-void delete_ease_executor(ExecutorImpl *e) { delete e; }
+void delete_executor(ExecutorImpl *e) { delete e; }
 
 void issue(ExecutorImpl *e, Delegate<void> act) {
     {
