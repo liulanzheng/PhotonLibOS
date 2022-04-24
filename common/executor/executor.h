@@ -25,11 +25,10 @@ public:
     R perform(Func &&act) {
         R result;
         AsyncOp<Context> aop;
-        auto op = [&]{
+        aop.call(e, [&]{
             result = act();
             aop.done();
-        };
-        aop.call(e, op);
+        });
         return result;
     }
 
@@ -38,11 +37,10 @@ public:
               typename _ = typename std::enable_if<std::is_void<R>::value, R>::type>
     void perform(Func &&act) {
         AsyncOp<Context> aop;
-        auto op = [&]{
+        aop.call(e, [&]{
             act();
             aop.done();
-        };
-        aop.call(e, op);
+        });
     }
 
 protected:
@@ -68,7 +66,9 @@ protected:
             gotit.store(true, std::memory_order_release);
             cond.notify_all();
         }
-        void call(ExecutorImpl* e, Delegate<void> work) {
+        template<typename Func>
+        void call(ExecutorImpl* e, Func&& act) {
+            auto work = std::forward<Func>(act);
             issue(e, work);
             wait_for_completion();
         }
