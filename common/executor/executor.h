@@ -51,8 +51,7 @@ public:
         aop.call(e, [&] {
             // copy the work, so when context is dropped
             // still able to call
-            typename std::remove_reference<Func>::type copy_act(
-                std::forward<Func>(act));
+            auto copy_act = std::forward<Func>(act);
             aop.done();
             // till here, `act` may be destructed
             // call the copied `copy_act`
