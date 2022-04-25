@@ -45,6 +45,7 @@ targets = {
         ],
         custom_flags = {
             'whole_archive_static_deps': 1,
+            'deps_extends': 'shared',
         },
         ccflags = [
             '-D_FILE_OFFSET_BITS=64',
@@ -57,7 +58,7 @@ targets = {
 	),
     'liburing-2.2' : pre_http_archive(
         url = 'http://test-xunyi.oss-cn-hangzhou-zmf.aliyuncs.com/release/liburing-2.2.tar.gz => liburing-2.2',
-        md5 = 'def6df8ac7e5e866e13fdabbdfff89d1',
+        md5 = '52eb2a814cf962347915992d12f602ad',
     ),
     'gsasl-1.8.0' : pre_http_archive(
         url = 'http://test-xunyi.oss-cn-hangzhou-zmf.aliyuncs.com/release/gsasl-1.8.0.tar.gz => gsasl-1.8.0',
