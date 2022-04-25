@@ -645,11 +645,11 @@ public:
 
 class FsHandler : public HTTPHandler {
 public:
-    FileSystem::IFileSystem* m_fs;
+    fs::IFileSystem* m_fs;
     estring m_ignore_prefix = "";
-    ObjectCache<std::string, FileSystem::IFile*> m_files;
+    ObjectCache<std::string, fs::IFile*> m_files;
     bool running = true;
-    FsHandler(FileSystem::IFileSystem* fs, std::string_view prefix)
+    FsHandler(fs::IFileSystem* fs, std::string_view prefix)
               : m_fs(fs), m_files(KminFileLife) {
         if (!prefix.empty()) m_ignore_prefix = prefix;
         if (!m_ignore_prefix.starts_with("/"))
@@ -729,7 +729,7 @@ public:
         size_t buf_size = 65536;
         char seg_buf[buf_size + 4096];
         char *aligned_buf = (char*) (((uint64_t)(&seg_buf[0]) + 4095) / 4096 * 4096);
-        FileSystem::range_split_power2 rs(range.first, range.second +1 -range.first, buf_size);
+        fs::range_split_power2 rs(range.first, range.second +1 -range.first, buf_size);
         for (auto r : rs.all_parts()) {
             auto offset = rs.multiply(r.i, r.offset);
             auto read_offset = rs.multiply(r.i);
@@ -857,7 +857,7 @@ public:
 HTTPServer* new_http_server(uint16_t port) {
     return new HTTPServerImpl(port);
 }
-HTTPHandler* new_fs_handler(FileSystem::IFileSystem* fs,
+HTTPHandler* new_fs_handler(fs::IFileSystem* fs,
                             std::string_view prefix) {
     return new FsHandler(fs, prefix);
 }

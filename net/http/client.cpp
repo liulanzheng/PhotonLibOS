@@ -40,14 +40,14 @@ static constexpr size_t LINE_BUFFER_SIZE = 4 * 1024;
 class PooledSocketStream;
 class StreamList {
 public:
-    std::queue<std::unique_ptr<Net::ISocketStream>> m_list;
-    Net::ISocketStream* release_back(){
+    std::queue<std::unique_ptr<ISocketStream>> m_list;
+    ISocketStream* release_back(){
         auto sock = m_list.front().release();
         m_list.pop();
         return sock;
     }
     bool empty() { return m_list.empty(); }
-    void emplace_back(Net::ISocketStream* sock) {
+    void emplace_back(ISocketStream* sock) {
         m_list.emplace(sock);
     }
     size_t size() { return m_list.size(); }
@@ -58,14 +58,14 @@ static StreamList* StreamList_ctor(){
         };
 class PooledDialer {
 public:
-    std::unique_ptr<net::ISocketClient> tcpsock;
-    std::unique_ptr<net::ISocketClient> tlssock;
+    std::unique_ptr<ISocketClient> tcpsock;
+    std::unique_ptr<ISocketClient> tlssock;
 
-    ObjectCache<net::EndPoint, StreamList*> pool;
+    ObjectCache<EndPoint, StreamList*> pool;
     //etsocket seems not support multi thread very well, use tcp_socket now. need to find out why
     PooledDialer()
-        : tcpsock(Net::new_tcp_socket_client()),
-          tlssock(Net::new_tls_socket_client()),
+        : tcpsock(new_tcp_socket_client()),
+          tlssock(new_tls_socket_client()),
           pool(kMinimalStreamLife) {
           }
     PooledSocketStream* dial(std::string_view host, uint16_t port, bool secure,
@@ -76,7 +76,7 @@ public:
         return dial(x.host(), x.port(), x.secure(), is_new_connection, timeout);
     }
 
-    void release(const net::EndPoint& ep, net::ISocketStream* sock) {
+    void release(const EndPoint& ep, ISocketStream* sock) {
         auto lsock = pool.acquire(ep, StreamList_ctor);
         lsock->emplace_back(sock);
         pool.release(ep);
@@ -85,11 +85,11 @@ public:
 
 class PooledSocketStream {
 public:
-    net::EndPoint ep;
-    net::ISocketStream* sock;
+    EndPoint ep;
+    ISocketStream* sock;
     PooledDialer* dialer;
     bool closed = false;
-    explicit PooledSocketStream(net::EndPoint ep, net::ISocketStream* sock,
+    explicit PooledSocketStream(EndPoint ep, ISocketStream* sock,
                                 PooledDialer* pool)
         : ep(ep), sock(sock), dialer(pool) {}
     ~PooledSocketStream() {
@@ -271,18 +271,18 @@ public:
 PooledSocketStream* PooledDialer::dial(std::string_view host, uint16_t port, bool secure, bool &is_new_connection, uint64_t timeout) {
     LOG_DEBUG("Dial to `", host);
     std::string strhost(host);
-    std::vector<net::IPAddr> hosts;
-    net::gethostbyname(strhost.c_str(), hosts);
+    std::vector<IPAddr> hosts;
+    gethostbyname(strhost.c_str(), hosts);
     auto hosts_size = hosts.size();
     for (size_t _time = 0; _time < hosts_size; _time++) {
         auto idx= rand() % hosts_size;
         auto h = hosts[idx];
-        net::EndPoint ep(h, port);
+        EndPoint ep(h, port);
         LOG_DEBUG("Connecting ` ssl: `", ep, secure);
         auto lsock = pool.acquire(ep, StreamList_ctor);
         DEFER(pool.release(ep));
         if (lsock->empty()) {
-            net::ISocketStream* sock = nullptr;
+            ISocketStream* sock = nullptr;
             if (secure) {
                 tlssock->timeout(timeout);
                 sock = tlssock->connect(ep);

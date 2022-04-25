@@ -41,6 +41,7 @@ limitations under the License.
 #include <photon/thread/thread11.h>
 #include <photon/common/stream.h>
 #include <photon/fs/localfs.h>
+using namespace photon::net;
 static char socket_buf[] =
     "this is a http_client post request body text for socket stream";
 
@@ -64,7 +65,7 @@ TEST(http_client, post) {
     system("echo \"this is a http_client post request body text for socket stream\" > /tmp/ease_ut/http_test/ease-httpclient-posttestfile");
     auto server = new_http_server(18731);
     DEFER(delete server);
-    auto fs = FileSystem::new_localfs_adaptor("/tmp/ease_ut/http_test/");
+    auto fs = photon::fs::new_localfs_adaptor("/tmp/ease_ut/http_test/");
     DEFER(delete fs);
     auto fs_handler = new_fs_handler(fs);
     DEFER(delete fs_handler);
@@ -132,7 +133,7 @@ constexpr char http_response_data[] = "HTTP/1.1 200 4TEST\r\n"
                                       "second chunk \r\n"
                                       "0\r\n"
                                       "\r\n";
-int chunked_handler(void*, net::ISocketStream* sock) {
+int chunked_handler(void*, ISocketStream* sock) {
     EXPECT_NE(nullptr, sock);
     LOG_DEBUG("Accepted");
     char recv[4096];
@@ -145,7 +146,7 @@ int chunked_handler(void*, net::ISocketStream* sock) {
 constexpr char header_data[] = "HTTP/1.1 200 ok\r\n"
                                "Transfer-Encoding: chunked\r\n"
                                "\r\n";
-int chunked_handler_complict(void*, net::ISocketStream* sock) {
+int chunked_handler_complict(void*, ISocketStream* sock) {
     EXPECT_NE(nullptr, sock);
     LOG_DEBUG("Accepted");
     char recv[4096];
@@ -175,7 +176,7 @@ int chunked_handler_complict(void*, net::ISocketStream* sock) {
     return 0;
 }
 
-net::EndPoint ep{net::IPAddr("127.0.0.1"), 19731};
+EndPoint ep{IPAddr("127.0.0.1"), 19731};
 std::string std_data;
 const size_t std_data_size = 64 * 1024;
 static int digtal_num(int n) {
@@ -186,7 +187,7 @@ static int digtal_num(int n) {
     } while (n);
     return ret;
 }
-void chunked_send(int offset, int size, net::ISocketStream* sock) {
+void chunked_send(int offset, int size, ISocketStream* sock) {
     auto s = std::to_string(size) + "\r\n";
     sock->write(s.data(), 2 + digtal_num(size));
     auto ret = sock->write(std_data.data() + offset, size);
@@ -194,7 +195,7 @@ void chunked_send(int offset, int size, net::ISocketStream* sock) {
     sock->write("\r\n", 2);
 }
 std::vector<int> rec;
-int chunked_handler_pt(void*, net::ISocketStream* sock) {
+int chunked_handler_pt(void*, ISocketStream* sock) {
     EXPECT_NE(nullptr, sock);
     LOG_DEBUG("Accepted");
     char recv[4096];
@@ -222,7 +223,7 @@ int chunked_handler_pt(void*, net::ISocketStream* sock) {
 }
 
 TEST(http_client, chunked) {
-    auto server = net::new_tcp_socket_server();
+    auto server = new_tcp_socket_server();
     DEFER({ delete server; });
     server->setsockopt(SOL_SOCKET, SO_REUSEPORT, 1);
     server->set_handler({nullptr, &chunked_handler});
@@ -302,7 +303,7 @@ int wa_test[] = {5265,
 4487,
 2195,
 292};
-int chunked_handler_debug(void*, net::ISocketStream* sock) {
+int chunked_handler_debug(void*, ISocketStream* sock) {
     EXPECT_NE(nullptr, sock);
     LOG_DEBUG("Accepted");
     char recv[4096];
@@ -320,7 +321,7 @@ int chunked_handler_debug(void*, net::ISocketStream* sock) {
 }
 
 TEST(http_client, debug) {
-    auto server = net::new_tcp_socket_server();
+    auto server = new_tcp_socket_server();
     DEFER({ delete server; });
     server->setsockopt(SOL_SOCKET, SO_REUSEPORT, 1);
     server->set_handler({nullptr, &chunked_handler_debug});
@@ -358,17 +359,17 @@ TEST(http_client, debug) {
     }
     std::cout << "new" << std::endl;
 }
-int sleep_handler(void*, net::ISocketStream* sock) {
+int sleep_handler(void*, ISocketStream* sock) {
     photon::thread_sleep(3);
     return 0;
 }
 int dummy_body_writer(void* self, IStream* stream) { return 0; }
 
 TEST(http_client, server_no_resp) {
-    auto server = net::new_tcp_socket_server();
+    auto server = new_tcp_socket_server();
     DEFER(delete server);
     server->set_handler({nullptr, &sleep_handler});
-    server->bind(38812, net::IPAddr());
+    server->bind(38812, IPAddr());
     server->listen();
     server->start_loop();
 
@@ -385,7 +386,7 @@ TEST(http_client, partial_body) {
     system("echo \"this is a http_client post request body text for socket stream\" > /tmp/ease_ut/http_test/ease-httpclient-posttestfile");
     auto server = new_http_server(18731);
     DEFER(delete server);
-    auto fs = FileSystem::new_localfs_adaptor("/tmp/ease_ut/http_test/");
+    auto fs = photon::fs::new_localfs_adaptor("/tmp/ease_ut/http_test/");
     DEFER(delete fs);
     auto fs_handler = new_fs_handler(fs);
     DEFER(delete fs_handler);
@@ -429,11 +430,11 @@ int main(int argc, char** arg) {
     DEFER(photon::fini());
     photon::fd_events_init();
     DEFER(photon::fd_events_fini());
-    if (net::et_poller_init() < 0) {
-        LOG_ERROR("net::et_poller_init failed");
+    if (et_poller_init() < 0) {
+        LOG_ERROR("et_poller_init failed");
         exit(EAGAIN);
     }
-    DEFER(net::et_poller_fini());
+    DEFER(et_poller_fini());
     set_log_output_level(ALOG_DEBUG);
     ::testing::InitGoogleTest(&argc, arg);
     LOG_DEBUG("test result:`", RUN_ALL_TESTS());
