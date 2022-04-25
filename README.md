@@ -3,6 +3,7 @@
 ## Overview
 
 Photon is a high-efficiency app framework, based on a set of carefully selected C++ libs.
+
 Our goal is to make programs run as fast and lightweight as the photon particle, which exactly is the name came from.
 
 ## Key Features
@@ -13,30 +14,55 @@ Our goal is to make programs run as fast and lightweight as the photon particle,
 * A full functionality HTTP client/server (even faster than Nginx)
 * A simple RPC client/server
 * A POSIX-like filesystem abstraction and some implementations: local fs, http fs, fuse fs, etc.
-* A bunch of useful tools: io-vector manipulation, resource pool, object cache, mem allocator, callback delegator, pre-compiled logging, ring buffer, etc.
+* A bunch of useful tools: io-vector manipulation, resource pool, object cache, mem allocator, callback delegator,
+  pre-compiled logging, ring buffer, etc.
 
 While Photon has already encapsulated many mature OS functionalities, it remains keen to the latest kernel features,
 and prepared to wrap them into the framework. It is a real killer in the low level programing field.
 
 ## Build
 
-### alimake
+### Install dependencies
 
-Ensure your alimake version is greater than 2.0.9-20220117. If alimake is upgraded, first remove ~/.dep_create_cache/ and .dep_create/ to make a clean environment.
+#### io_uring >= 2.2
+```shell
+git clone https://github.com/axboe/liburing.git
+cd liburing && ./configure
+make -j && make install
+```
+Note that compiling liburing doesn't require latest kernel, but in order run it successfully with photon,
+your kernel version has to be greater than 5.8.
 
-```bash
-./build.sh -b release -j 8 -c
+#### CentOS 8.5
+```shell
+dnf install gcc-c++ epel-release cmake
+dnf install openssl-devel libcurl-devel boost-devel libaio-devel fuse-devel libgsasl-devel krb5-devel
 ```
 
-### cmake
+#### Ubuntu 18.04
+```shell
+apt install cmake
+apt install libssl-dev libcurl4-openssl-dev libboost-all-dev libaio-dev libfuse-dev libgsasl7-dev libkrb5-dev
+```
 
-```bash
-yum config-manager --set-enabled PowerTools
-yum insall epel-release
-yum install openssl-devel libcurl-devel boost-devel libaio-devel fuse-devel gflags-devel libgsasl-devel krb5-devel
+### Build from source
+```shell
 mkdir build && cd build
 cmake ..
 make -j
+```
+All the libs and executables will be saved in `build/output`.
+
+### Testing
+```shell
+# CentOS
+dnf config-manager --set-enabled PowerTools
+dnf install gtest-devel gmock-devel gflags-devel
+# Ubuntu
+apt install libgtest-dev libgmock-dev libgflags-dev
+
+cmake -D BUILD_TESTING=1 ..
+ctest
 ```
 
 ## Contributing

@@ -1,3 +1,5 @@
+# $$PHOTON_UNPUBLISHED_FILE$$
+
 targets = {
     'uring_lib' : cpp_library (
         incs = [

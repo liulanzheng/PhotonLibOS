@@ -1,28 +1,42 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #include <fcntl.h>
 #include <gtest/gtest.h>
 #include <sys/stat.h>
 
-#include "common/alog.h"
-#include "io/fd-events.h"
-#include "thread/thread11.h"
-#include "net/socket.h"
-#include "net/tlssocket.h"
-#include "net/etsocket.h"
+#include <photon/common/alog.h>
+#include <photon/io/fd-events.h>
+#include <photon/thread/thread11.h>
+#include <photon/net/socket.h>
+#include <photon/net/tlssocket.h>
+#include <photon/net/etsocket.h>
+#include <photon/net/curl.h>
+#include <photon/net/utils.h>
+
 #define protected public
 #define private public
-
-#define NET_UNIT_TEST
-
-#include "net/socket.cpp"
-#include "net/tlssocket.cpp"
-#include "net/etsocket.cpp"
-#include "net/utils.cpp"
-
+#include "../socket.cpp"
+#include "../tlssocket.cpp"
+#include "../etsocket.cpp"
 #undef protected
 #undef private
-#include "net/curl.h"
 
-using namespace Net;
+using namespace photon;
+using namespace net;
 
 char uds_path[] = "/tmp/udstest.sock";
 
@@ -211,9 +225,9 @@ TEST(Socket, sockopt) {
 }
 
 TEST(ETServer, listen_twice) {
-    auto server = Net::new_et_tcp_socket_server();
+    auto server = net::new_et_tcp_socket_server();
     DEFER(delete server);
-    server->bind(5432, Net::IPAddr());
+    server->bind(5432, net::IPAddr());
     server->listen();
     int ret, err;
     ret = server->start_loop();
@@ -262,9 +276,9 @@ TEST(Socket, endpoint) {
 
     log_output = &log_output_test;
     LOG_DEBUG(ep);
-    EXPECT_STREQ("12.34.56.78:4321", &log_output_test._log_buf[77]);
+    EXPECT_NE(nullptr, strstr(log_output_test._log_buf, "12.34.56.78:4321"));
     LOG_DEBUG(ep.addr);
-    EXPECT_STREQ("12.34.56.78", &log_output_test._log_buf[77]);
+    EXPECT_NE(nullptr, strstr(log_output_test._log_buf, "12.34.56.78"));
     log_output = log_output_stdout;
 }
 
@@ -456,9 +470,9 @@ TEST(Socket, faults) {
 }
 
 TEST(TCPServer, listen_twice) {
-    auto server = Net::new_tcp_socket_server();
+    auto server = net::new_tcp_socket_server();
     DEFER(delete server);
-    server->bind(5432, Net::IPAddr());
+    server->bind(5432, net::IPAddr());
     server->listen();
     int ret, err;
     ret = server->start_loop();
@@ -473,16 +487,18 @@ TEST(TCPServer, listen_twice) {
 }
 
 TEST(TLSSocket, basic) {
-    Net::ssl_init("net/test/cert.pem", "net/test/key.pem", "Just4Test");
-    DEFER({ Net::ssl_fini(); });
+    int ret;
+    ret = net::ssl_init("net/test/cert.pem", "net/test/key.pem", "Just4Test");
+    ASSERT_EQ(ret, 0);
+    DEFER({ net::ssl_fini(); });
 
     photon::condition_variable recved;
 
-    auto server = Net::new_tls_socket_server();
+    auto server = net::new_tls_socket_server();
     DEFER(delete server);
-    server->bind(31524, Net::IPAddr());
+    server->bind(31524, net::IPAddr());
     server->timeout(10UL * 1024 * 1024);
-    int ret;
+
     auto logHandle = [&](ISocketStream* sock) {
         char buff[4096];
         ssize_t len;
@@ -500,7 +516,7 @@ TEST(TLSSocket, basic) {
     auto cli = new_tls_socket_client();
     DEFER(delete cli);
     cli->timeout(10 * 1024 * 1024);
-    auto sock = cli->connect(Net::EndPoint{Net::IPAddr("127.0.0.1"), 31524});
+    auto sock = cli->connect(net::EndPoint{net::IPAddr("127.0.0.1"), 31524});
     DEFER(delete sock);
     EXPECT_EQ(0, ret);
     LOG_DEBUG(ERRNO());
@@ -536,10 +552,10 @@ void* serve_connection(void* arg) {
     auto fd = (int&)arg;
     while (true) {
         char buf[1024];
-        auto ret = Net::read(fd, buf, sizeof(buf));
+        auto ret = net::read(fd, buf, sizeof(buf));
         if (ret <= 0) LOG_ERRNO_RETURN(0, nullptr, "failed to photon::read()");
 
-        auto retw = Net::write_n(fd, buf, ret);
+        auto retw = net::write_n(fd, buf, ret);
         if (retw < ret) {
             LOG_ERRNO_RETURN(0, nullptr, "failed to photon::write_n()");
         } else {
@@ -556,7 +572,7 @@ void* serve_connection(void* arg) {
 
 int test_socket_server() {
     server_thread = photon::CURRENT;
-    int fd = Net::socket(AF_INET, SOCK_STREAM, 0);
+    int fd = net::socket(AF_INET, SOCK_STREAM, 0);
     if (fd < 0) LOG_ERRNO_RETURN(0, -1, "failed to photon::socket()");
 
     int state = 1;
@@ -577,7 +593,7 @@ int test_socket_server() {
         struct sockaddr_in addr;
         socklen_t len = sizeof(addr);
         puts("before accept");
-        int64_t cfd = Net::accept(fd, (sockaddr*)&addr, &len);
+        int64_t cfd = net::accept(fd, (sockaddr*)&addr, &len);
         puts("after accept");
         if (cfd < 0) LOG_ERRNO_RETURN(0, -1, "failed to photon::accept()");
 
@@ -598,26 +614,26 @@ TEST(ConnectTest, HandleNoneZeroInput) {
     addr.sin_port = htons(12888);
     addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
-    int fd = Net::socket(AF_INET, SOCK_STREAM, 0);
+    int fd = net::socket(AF_INET, SOCK_STREAM, 0);
 
     photon::thread_usleep(1000 * 200);
     puts("before connect()");
     int ret =
-        Net::connect(fd, (struct sockaddr*)(&addr), sizeof(struct sockaddr));
+        net::connect(fd, (struct sockaddr*)(&addr), sizeof(struct sockaddr));
     puts("after connect()");
     EXPECT_EQ(ret, 0);
     if (ret < 0) return;
 
     char buf[] = "oqi3njsdy9314l;kdsfvk23;ie";
-    ret = Net::write_n(fd, buf, sizeof(buf));
+    ret = net::write_n(fd, buf, sizeof(buf));
     EXPECT_EQ((size_t)ret, sizeof(buf));
 
     char buf2[sizeof(buf)]{};
-    ret = Net::read_n(fd, buf2, sizeof(buf2));
+    ret = net::read_n(fd, buf2, sizeof(buf2));
     EXPECT_EQ((size_t)ret, sizeof(buf2));
     EXPECT_TRUE(memcmp(buf, buf2, sizeof(buf)) == 0);
 
-    ret = Net::write_n(fd, "quit", 4);
+    ret = net::write_n(fd, "quit", 4);
     EXPECT_EQ(ret, 4);
     photon::thread_usleep(1000 * 200);
     close(fd);
@@ -649,15 +665,15 @@ void* start_server(void*) {
 }
 
 TEST(utils, gethostbyname) {
-    Net::IPAddr localhost("127.0.0.1");
-    Net::IPAddr addr;
-    Net::gethostbyname("localhost", &addr);
+    net::IPAddr localhost("127.0.0.1");
+    net::IPAddr addr;
+    net::gethostbyname("localhost", &addr);
     EXPECT_EQ(localhost.to_nl(), addr.to_nl());
-    std::vector<Net::IPAddr> addrs;
-    Net::gethostbyname("localhost", addrs);
+    std::vector<net::IPAddr> addrs;
+    net::gethostbyname("localhost", addrs);
     EXPECT_GT((int)addrs.size(), 0);
     EXPECT_EQ(localhost.to_nl(), addrs[0].to_nl());
-    Net::IPAddr host = Net::gethostbypeer("localhost");
+    net::IPAddr host = net::gethostbypeer("localhost");
     EXPECT_EQ(localhost.to_nl(), host.to_nl());
     for (auto &x : addrs) {
         LOG_INFO(VALUE(x));
@@ -669,11 +685,11 @@ int main(int argc, char** arg) {
     DEFER(photon::fini());
     photon::fd_events_init();
     DEFER(photon::fd_events_fini());
-    if (Net::et_poller_init() < 0) {
-        LOG_ERROR("Net::et_poller_init failed");
+    if (net::et_poller_init() < 0) {
+        LOG_ERROR("net::et_poller_init failed");
         exit(EAGAIN);
     }
-    DEFER(Net::et_poller_fini());
+    DEFER(net::et_poller_fini());
     ::testing::InitGoogleTest(&argc, arg);
 
     test_log_sockaddr_in();

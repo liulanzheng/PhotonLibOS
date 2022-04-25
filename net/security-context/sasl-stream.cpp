@@ -1,12 +1,29 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #include "sasl-stream.h"
 
-#include "common/alog.h"
-#include "common/iovector.h"
-#include "net/socket.h"
+#include <photon/common/alog.h>
+#include <photon/common/iovector.h>
+#include <photon/net/socket.h>
 
 #include <error.h>
 
-namespace Security {
+namespace photon {
+namespace net {
 
 enum class SecurityRole {
     Client = 1,
@@ -95,10 +112,10 @@ void gsasl_property_set_session(SaslSession *session, Gsasl_property prop, const
 
 void delete_sasl_context(SaslSession *session) { delete session; }
 
-class SaslStream : public Net::ISocketStream {
+class SaslStream : public net::ISocketStream {
   private:
     SaslSession *sasl_session;
-    Net::ISocketStream *underlay_stream;
+    net::ISocketStream *underlay_stream;
     bool m_ownership;
     Gsasl_qop qop = Gsasl_qop::GSASL_QOP_AUTH;
     char *saslmsg;
@@ -108,7 +125,7 @@ class SaslStream : public Net::ISocketStream {
     size_t decodebuf_finish = 0;
 
   public:
-    SaslStream(SaslSession *session, Net::ISocketStream *stream, bool ownership)
+    SaslStream(SaslSession *session, net::ISocketStream *stream, bool ownership)
         : sasl_session(session), underlay_stream(stream), m_ownership(ownership) {
         saslmsg = (char *)malloc(TOKEN_SIZE);
         saslmsg_size = TOKEN_SIZE;
@@ -199,10 +216,10 @@ class SaslStream : public Net::ISocketStream {
             return 0;
     }
 
-    virtual int getsockname(Net::EndPoint &addr) override {
+    virtual int getsockname(net::EndPoint &addr) override {
         return underlay_stream->getsockname(addr);
     }
-    virtual int getpeername(Net::EndPoint &addr) override {
+    virtual int getpeername(net::EndPoint &addr) override {
         return underlay_stream->getpeername(addr);
     }
     virtual int getsockname(char *path, size_t count) override {
@@ -308,20 +325,20 @@ class SaslStream : public Net::ISocketStream {
     }
 };
 
-Net::ISocketStream *new_sasl_stream(SaslSession *session, Net::ISocketStream *stream,
+ISocketStream *new_sasl_stream(SaslSession *session, net::ISocketStream *stream,
                                     bool ownership) {
     auto ret = new SaslStream(session, stream, ownership);
     if (ret->initSasl()) return ret;
     return nullptr;
 }
 
-class SaslClient : public Net::ISocketClient {
+class SaslClient : public net::ISocketClient {
   public:
     SaslSession *session;
-    Net::ISocketClient *underlay;
+    net::ISocketClient *underlay;
     bool ownership;
 
-    SaslClient(SaslSession *session, Net::ISocketClient *underlay, bool ownership)
+    SaslClient(SaslSession *session, net::ISocketClient *underlay, bool ownership)
         : session(session), underlay(underlay), ownership(ownership) {}
 
     ~SaslClient() {
@@ -329,14 +346,14 @@ class SaslClient : public Net::ISocketClient {
             delete underlay;
         }
     }
-    virtual Net::ISocketStream *connect(const Net::EndPoint &ep) override {
+    virtual net::ISocketStream *connect(const net::EndPoint &ep) override {
         return new_sasl_stream(session, underlay->connect(ep), true);
     }
-    virtual Net::ISocketStream *connect(const char *path, size_t count) override {
+    virtual net::ISocketStream *connect(const char *path, size_t count) override {
         return new_sasl_stream(session, underlay->connect(path, count), true);
     }
-    virtual int getsockname(Net::EndPoint &addr) override { return underlay->getsockname(addr); }
-    virtual int getpeername(Net::EndPoint &addr) override { return underlay->getpeername(addr); }
+    virtual int getsockname(net::EndPoint &addr) override { return underlay->getsockname(addr); }
+    virtual int getpeername(net::EndPoint &addr) override { return underlay->getpeername(addr); }
     virtual int getsockname(char *path, size_t count) override {
         return underlay->getsockname(path, count);
     }
@@ -355,21 +372,21 @@ class SaslClient : public Net::ISocketClient {
     virtual void timeout(uint64_t tm) override { underlay->timeout(tm); }
 };
 
-Net::ISocketClient *new_sasl_client(SaslSession *session, Net::ISocketClient *base,
+ISocketClient *new_sasl_client(SaslSession *session, net::ISocketClient *base,
                                     bool ownership) {
     if (!session || !base || session->role != SecurityRole::Client)
         LOG_ERROR_RETURN(EINVAL, nullptr, "invalid parameters, ", VALUE(session), VALUE(base));
     return new SaslClient(session, base, ownership);
 }
 
-class SaslServer : public Net::ISocketServer {
+class SaslServer : public net::ISocketServer {
   public:
     SaslSession *session;
-    Net::ISocketServer *underlay;
+    net::ISocketServer *underlay;
     Handler m_handler;
     bool ownership;
 
-    SaslServer(SaslSession *session, Net::ISocketServer *underlay, bool ownership)
+    SaslServer(SaslSession *session, net::ISocketServer *underlay, bool ownership)
         : session(session), underlay(underlay), ownership(ownership) {}
 
     ~SaslServer() {
@@ -377,30 +394,30 @@ class SaslServer : public Net::ISocketServer {
             delete underlay;
         }
     }
-    virtual Net::ISocketStream *accept() override {
+    virtual net::ISocketStream *accept() override {
         return new_sasl_stream(session, underlay->accept(), true);
     }
-    virtual Net::ISocketStream *accept(Net::EndPoint *remote_endpoint) override {
+    virtual net::ISocketStream *accept(net::EndPoint *remote_endpoint) override {
         return new_sasl_stream(session, underlay->accept(remote_endpoint), true);
     }
-    virtual int bind(uint16_t port, Net::IPAddr addr) override {
+    virtual int bind(uint16_t port, net::IPAddr addr) override {
         return underlay->bind(port, addr);
     }
     virtual int bind(const char *path, size_t count) override {
         return underlay->bind(path, count);
     }
     virtual int listen(int backlog = 1024) override { return underlay->listen(backlog); }
-    int forwarding_handler(Net::ISocketStream *stream) {
+    int forwarding_handler(net::ISocketStream *stream) {
         return m_handler(new_sasl_stream(session, stream, true));
     }
-    virtual Net::ISocketServer *set_handler(Handler handler) override {
+    virtual net::ISocketServer *set_handler(Handler handler) override {
         m_handler = handler;
         return underlay->set_handler({this, &SaslServer::forwarding_handler});
     }
     virtual int start_loop(bool block = false) override { return underlay->start_loop(block); }
     virtual void terminate() override { return underlay->terminate(); }
-    virtual int getsockname(Net::EndPoint &addr) override { return underlay->getsockname(addr); }
-    virtual int getpeername(Net::EndPoint &addr) override { return underlay->getpeername(addr); }
+    virtual int getsockname(net::EndPoint &addr) override { return underlay->getsockname(addr); }
+    virtual int getpeername(net::EndPoint &addr) override { return underlay->getpeername(addr); }
     virtual int getsockname(char *path, size_t count) override {
         return underlay->getsockname(path, count);
     }
@@ -419,11 +436,12 @@ class SaslServer : public Net::ISocketServer {
     virtual void timeout(uint64_t tm) override { underlay->timeout(tm); }
 };
 
-Net::ISocketServer *new_sasl_server(SaslSession *session, Net::ISocketServer *base,
+ISocketServer *new_sasl_server(SaslSession *session, net::ISocketServer *base,
                                     bool ownership) {
     if (!session || !base || session->role != SecurityRole::Server)
         LOG_ERROR_RETURN(EINVAL, nullptr, "invalid parameters, ", VALUE(session), VALUE(base));
     return new SaslServer(session, base, ownership);
 }
 
-} // namespace Security
+}
+}

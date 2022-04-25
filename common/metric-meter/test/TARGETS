@@ -1,3 +1,5 @@
+# $$PHOTON_UNPUBLISHED_FILE$$
+
 targets={
     'example_metric': cpp_program(
         incs=['./'],

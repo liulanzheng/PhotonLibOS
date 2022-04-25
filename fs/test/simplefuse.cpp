@@ -1,3 +1,19 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #include <fcntl.h>
 #include <fuse/fuse_opt.h>
 #include <sys/stat.h>
@@ -5,16 +21,19 @@
 #include <cstdio>
 #include <thread>
 
-#include "common/alog.h"
-#include "common/executor/executor.h"
-#include "io/aio-wrapper.h"
-#include "io/fd-events.h"
-#include "thread/thread.h"
+#include <photon/common/alog.h>
+#include <photon/common/executor/executor.h>
+#include <photon/io/aio-wrapper.h>
+#include <photon/io/fd-events.h>
+#include <photon/thread/thread.h>
 #include "../aligned-file.h"
 #include "../async_filesystem.h"
 #include "../exportfs.h"
 #include "../fuse_adaptor.h"
 #include "../localfs.h"
+#include "photon/common/executor/executor.h"
+
+using namespace photon;
 
 enum { KEY_SRC, KEY_IOENGINE };
 
@@ -37,17 +56,17 @@ int main(int argc, char *argv[]) {
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
     struct localfs_config cfg;
     fuse_opt_parse(&args, &cfg, localfs_opts, NULL);
-    int ioengine = FileSystem::ioengine_libaio;
+    int ioengine = fs::ioengine_libaio;
     if (cfg.ioengine) {
         switch (*cfg.ioengine) {
             case 'p':
-                ioengine = FileSystem::ioengine_psync;
+                ioengine = fs::ioengine_psync;
                 break;
             case 'l':
-                ioengine = FileSystem::ioengine_libaio;
+                ioengine = fs::ioengine_libaio;
                 break;
             case 'a':
-                ioengine = FileSystem::ioengine_posixaio;
+                ioengine = fs::ioengine_posixaio;
                 break;
             default:
                 LOG_ERROR_RETURN(EINVAL, -1, "Invalid ioengine ", cfg.ioengine);
@@ -58,24 +77,24 @@ int main(int argc, char *argv[]) {
     LOG_DEBUG(VALUE(cfg.ioengine));
     LOG_DEBUG(VALUE(cfg.exportfs));
     if (cfg.exportfs && *cfg.exportfs == 't') {
-        auto fs = FileSystem::new_localfs_adaptor(cfg.src, ioengine);
-        auto wfs = FileSystem::new_aligned_fs_adaptor(fs, 4096, true, true);
+        auto fs = fs::new_localfs_adaptor(cfg.src, ioengine);
+        auto wfs = fs::new_aligned_fs_adaptor(fs, 4096, true, true);
         return fuser_go_exportfs(wfs, args.argc, args.argv);
     } else if (cfg.exportfs && *cfg.exportfs == 'c') {
-        Executor::HybridEaseExecutor eth;
+        photon::Executor eth;
         auto afs = eth.perform([&]() {
-            auto fs = FileSystem::new_localfs_adaptor(cfg.src, ioengine);
-            auto wfs = FileSystem::new_aligned_fs_adaptor(fs, 4096, true, true);
-            FileSystem::exportfs_init();
+            auto fs = fs::new_localfs_adaptor(cfg.src, ioengine);
+            auto wfs = fs::new_aligned_fs_adaptor(fs, 4096, true, true);
+            fs::exportfs_init();
             return export_as_sync_fs(wfs);
         });
         umask(0);
         set_fuse_fs(afs);
-        auto oper = get_fuse_xmp_oper();
+        auto oper = photon::fs::get_fuse_xmp_oper();
         return fuse_main(args.argc, args.argv, oper, NULL);
     } else {
-        auto fs = FileSystem::new_localfs_adaptor(cfg.src, ioengine);
-        auto wfs = FileSystem::new_aligned_fs_adaptor(fs, 4096, true, true);
+        auto fs = fs::new_localfs_adaptor(cfg.src, ioengine);
+        auto wfs = fs::new_aligned_fs_adaptor(fs, 4096, true, true);
         return fuser_go(wfs, args.argc, args.argv);
     }
 }

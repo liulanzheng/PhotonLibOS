@@ -1,3 +1,19 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #define protected public
 #define private public
 
@@ -14,15 +30,16 @@
 #include <gtest/gtest-spi.h>
 
 
-#include "common/alog.h"
-#include "fs/filesystem.h"
-#include "thread/thread11.h"
-#include "thread/thread.h"
-#include "fs/localfs.h"
+#include <photon/common/alog.h>
+#include <photon/fs/filesystem.h>
+#include <photon/thread/thread11.h>
+#include <photon/thread/thread.h>
+#include <photon/fs/localfs.h>
 
 #include "mock.h"
 
-using namespace FileSystem;
+using namespace photon;
+using namespace fs;
 
 void push_in_another_thread(StatisticsQueue &queue) {
     photon::thread_sleep(1);
@@ -37,7 +54,7 @@ void pop_in_another_thread(StatisticsQueue &queue) {
 }
 
 TEST(ThrottledFile, statistics_queue) {
-    using namespace FileSystem;
+    using namespace fs;
     photon::init();
     StatisticsQueue queue(50*4096, 128);
     EXPECT_EQ(0UL, queue.sum());
@@ -60,7 +77,7 @@ TEST(ThrottledFile, statistics_queue) {
 }
 
 TEST(ThrottledFile, scoped_queue) {
-    using namespace FileSystem;
+    using namespace fs;
     photon::init();
     StatisticsQueue queue(4096, 128);
 
@@ -79,7 +96,7 @@ TEST(ThrottledFile, scoped_queue) {
 }
 
 TEST(ThrottledFile, scoped_semaphore) {
-    using namespace FileSystem;
+    using namespace fs;
     photon::semaphore sem(8);
     {
         scoped_semaphore ss(sem, 5);
@@ -89,7 +106,7 @@ TEST(ThrottledFile, scoped_semaphore) {
 }
 
 TEST(ThrottledFile, split_iovector_view) {
-    using namespace FileSystem;
+    using namespace fs;
     iovec iov[10];
     for (int i=0;i < 10; i++) {
         iov[i].iov_base = (void*)(i * 4096UL);
@@ -160,7 +177,7 @@ TEST(ThrottledFile, basic_throttled) {
 }
 
 TEST(ThrottledFile, huge_enque) {
-    using namespace FileSystem;
+    using namespace fs;
     StatisticsQueue q(1024, 128);
     q.push_back(4096);
     EXPECT_EQ(3UL*1024*1024, q.min_duration());
@@ -171,7 +188,7 @@ void enq_thread(StatisticsQueue &q) {
 }
 
 TEST(ThrottledFile, huge_scope_que) {
-    using namespace FileSystem;
+    using namespace fs;
     StatisticsQueue q(1024, 128);
     auto start = photon::now;
     photon::thread_create11(enq_thread, q);
@@ -182,7 +199,7 @@ TEST(ThrottledFile, huge_scope_que) {
 }
 
 TEST(ThrottledFile, split_io) {
-    using namespace FileSystem;
+    using namespace fs;
     auto _o_output = log_output;
     log_output = log_output_null;
     DEFER({ log_output = _o_output; });
@@ -212,7 +229,7 @@ void large_pulse_write(IFile* tf, uint64_t slt) {
 }
 
 TEST(ThrottledFile, large_pulse) {
-    using namespace FileSystem;
+    using namespace fs;
     using namespace testing;
     ThrottleLimits limit;
     limit.RW.block_size = 1024;
@@ -239,7 +256,7 @@ TEST(ThrottledFile, large_pulse) {
 }
 
 TEST(ThrottledFile, limit_cover) {
-    using namespace FileSystem;
+    using namespace fs;
     using namespace testing;
     ThrottleLimits limit;
     limit.RW.block_size = 0;

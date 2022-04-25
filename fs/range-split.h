@@ -1,14 +1,31 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #pragma once
 #include <cinttypes>
 #include <cassert>
-#include "photon/common/utility.h"
+#include <photon/common/utility.h>
 
 // 本文件主打（文件偏移量）区间的分解操作，支持固定间隔（struct range_split）,
 // 以及2的幂次固定间隔（struct range_split_power2）
 
 // 变长间隔在range-split-vi.h中支持(struct range_split_vi)
 
-namespace FileSystem
+namespace photon {
+namespace fs
 {
     struct sub_range
     {
@@ -357,4 +374,5 @@ namespace FileSystem
                 process _(rs.postface);
         }
     }
+}
 }

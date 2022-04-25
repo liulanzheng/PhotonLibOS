@@ -1,3 +1,19 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #include <string>
 #include <unistd.h>
 #include <cerrno>
@@ -10,22 +26,23 @@
 #include <fcntl.h>
 #include <gflags/gflags.h>
 
-#include "io/aio-wrapper.h"
-#include "io/fd-events.h"
-#include "thread/thread11.h"
-#include "io/signalfd.h"
-#include "net/socket.h"
-#include "net/zerocopy.h"
-#include "common/alog.h"
-#include "common/alog-stdstring.h"
-#include "common/alog-functionptr.h"
-#include "common/utility.h"
-#include "common/callback.h"
-#include "rpc/rpc.h"
-#include "common/checksum/crc32c.h"
+#include <photon/io/aio-wrapper.h>
+#include <photon/io/fd-events.h>
+#include <photon/thread/thread11.h>
+#include <photon/io/signalfd.h>
+#include <photon/net/socket.h>
+#include <photon/net/zerocopy.h>
+#include <photon/common/alog.h>
+#include <photon/common/alog-stdstring.h>
+#include <photon/common/alog-functionptr.h>
+#include <photon/common/utility.h>
+#include <photon/common/callback.h>
+#include <photon/rpc/rpc.h>
+#include <photon/common/checksum/crc32c.h>
 #include "zerocopy-common.h"
 
 using namespace std;
+using namespace photon;
 
 DEFINE_int32(socket_type, 0, "0: tcp socket, 1: zerocopy socket, 2: iouring socket");
 DEFINE_string(dir_name, "zerocopy", "dir_name");
@@ -53,7 +70,7 @@ void write_checksum_worker(int index) {
 
     // Calculate checksum and save it into padding
     char* checksum_buf = (char*) fileDesc.buf + fLU64::FLAGS_buf_size;
-    uint32_t crc32_sum = FileSystem::crc32::crc32c_extend(fileDesc.buf, FLAGS_buf_size, 0);
+    uint32_t crc32_sum = crc32c_extend(fileDesc.buf, FLAGS_buf_size, 0);
     memcpy(checksum_buf, &crc32_sum, sizeof(crc32_sum));
 
     // Write file
@@ -95,7 +112,7 @@ void prepare_read_files() {
 class TestRPCServer : public Object {
 public:
     explicit TestRPCServer(IOAlloc alloc) {
-        m_skeleton = RPC::new_skeleton();
+        m_skeleton = rpc::new_skeleton();
         m_skeleton->set_allocator(alloc);
         m_skeleton->register_service<TestReadProto>(this);
         m_skeleton->register_service<TestWriteProto>(this);
@@ -108,7 +125,7 @@ public:
         delete m_skeleton;
     }
 
-    int serve(Net::ISocketStream* socket) {
+    int serve(net::ISocketStream* socket) {
         int ret = m_skeleton->serve(socket, false);
 
         return ret;
@@ -160,7 +177,7 @@ private:
         }
     }
 
-    RPC::Skeleton* m_skeleton;
+    rpc::Skeleton* m_skeleton;
     uint64_t m_qps;
     photon::thread* m_statis_thread;
 };
@@ -183,8 +200,8 @@ int main(int argc, char** argv) {
     DEFER(photon::fd_events_fini());
     photon::libaio_wrapper_init();
     DEFER(photon::libaio_wrapper_fini());
-    Net::zerocopy_init();
-    DEFER(Net::zerocopy_fini());
+    net::zerocopy_init();
+    DEFER(net::zerocopy_fini());
 
     photon::sync_signal_init();
     DEFER(photon::sync_signal_fini());
@@ -206,18 +223,18 @@ int main(int argc, char** argv) {
         }
     }
 
-    Net::ISocketServer* socket_srv = nullptr;
+    net::ISocketServer* socket_srv = nullptr;
     if (SocketType(FLAGS_socket_type) == SocketType::TCP) {
-        socket_srv = Net::new_tcp_socket_server();
+        socket_srv = net::new_tcp_socket_server();
         LOG_INFO("New tcp socket server");
     } else if (SocketType(FLAGS_socket_type) == SocketType::ZEROCOPY) {
-        if (!Net::zerocopy_available()) {
+        if (!net::zerocopy_available()) {
             LOG_ERROR_RETURN(0, -1, "zerocopy is not supported");
         }
-        socket_srv = Net::new_tcp_socket_server_0c();
+        socket_srv = net::new_tcp_socket_server_0c();
         LOG_INFO("New zerocopy socket server");
     } else if (SocketType(FLAGS_socket_type) == SocketType::IOURING) {
-        socket_srv = Net::new_socket_server_iouring();
+        socket_srv = net::new_socket_server_iouring();
         LOG_INFO("New iouring socket server");
     }
     if (!socket_srv) {
@@ -229,7 +246,7 @@ int main(int argc, char** argv) {
     DEFER(delete handler_srv);
 
     socket_srv->set_handler({handler_srv, &TestRPCServer::serve});
-    socket_srv->bind((uint16_t) FLAGS_port, Net::IPAddr("0.0.0.0"));
+    socket_srv->bind((uint16_t) FLAGS_port, net::IPAddr("0.0.0.0"));
     socket_srv->listen(1024);
     socket_srv->start_loop(false);
     while (!g_stop_test) {

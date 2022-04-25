@@ -1,12 +1,31 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #include <fcntl.h>
 #include <gtest/gtest.h>
 
-#include "common/alog.h"
-#include "fs/filesystem.h"
-#include "fs/localfs.h"
-#include "common/utility.h"
-#include "common/executor/executor.h"
-#include "common/executor/easylock.h"
+#include <photon/common/alog.h>
+#include <photon/fs/filesystem.h>
+#include <photon/fs/localfs.h>
+#include <photon/common/utility.h>
+#include <photon/common/executor/executor.h>
+#include <photon/common/executor/easylock.h>
+#include <photon/thread/thread.h>
+
+using namespace photon;
 
 class EasyCoroutinePool {
     easy_uthread_control_t euc;
@@ -47,11 +66,11 @@ easy_atomic_t count;
 photon::semaphore sem(128);
 
 int ftask(easy_baseth_t *, easy_task_t *task) {
-    auto eth = (Executor::HybridEaseExecutor *)task->user_data;
-    auto ret = eth->perform<Executor::EasyContext>([] {
+    auto eth = (photon::Executor *)task->user_data;
+    auto ret = eth->perform<photon::EasyContext>([] {
         sem.wait(1);
         DEFER(sem.signal(1));
-        auto fs = FileSystem::new_localfs_adaptor();
+        auto fs = fs::new_localfs_adaptor();
         if (!fs) return -1;
         DEFER(delete fs);
         auto file = fs->open("/etc/hosts", O_RDONLY);
@@ -68,7 +87,7 @@ int ftask(easy_baseth_t *, easy_task_t *task) {
 
 TEST(easy_executor, test) {
     EasyCoroutinePool ecp;
-    Executor::HybridEaseExecutor eth;
+    photon::Executor eth;
 
     printf("Task applied, wait for loop\n");
 

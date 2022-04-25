@@ -1,3 +1,20 @@
+// $$PHOTON_UNPUBLISHED_FILE$$
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #include <fcntl.h>
 #include <gtest/gtest.h>
 
@@ -10,15 +27,17 @@
 #include "../../curl.h"
 #include "../../socket.h"
 #include "../../etsocket.h"
-#include "common/alog-stdstring.h"
+#include <photon/common/alog-stdstring.h>
 #include "../client.cpp"
-#include "io/fd-events.h"
-#include "thread/thread11.h"
-#include "common/stream.h"
+#include <photon/io/fd-events.h>
+#include <photon/thread/thread11.h>
+#include <photon/common/stream.h>
 #include "../headers.cpp"
 
-using namespace Net::HTTP;
 using namespace std;
+using namespace photon;
+using namespace photon::net;
+
 template<uint16_t BUF_CAPACITY = 64*1024 - 1>
 class RequestHeadersStored : public RequestHeaders
 {
@@ -56,7 +75,7 @@ TEST(headers, req_header) {
     EXPECT_EQ(true, req_header_proxy.target() == "http://HostName/targetName");
 }
 
-class test_stream : public Net::ISocketStream {
+class test_stream : public net::ISocketStream {
 public:
     string rand_stream;
     size_t remain;
@@ -121,8 +140,8 @@ public:
                 void* option_value, socklen_t* option_len) override);
 
 
-    UNIMPLEMENTED(int getsockname(Net::EndPoint& addr) override);
-    UNIMPLEMENTED(int getpeername(Net::EndPoint& addr) override);
+    UNIMPLEMENTED(int getsockname(net::EndPoint& addr) override);
+    UNIMPLEMENTED(int getpeername(net::EndPoint& addr) override);
     UNIMPLEMENTED(int getsockname(char* path, size_t count) override);
     UNIMPLEMENTED(int getpeername(char* path, size_t count) override);
     UNIMPLEMENTED(uint64_t timeout() override);
@@ -253,11 +272,11 @@ int main(int argc, char** arg) {
     DEFER(photon::fini());
     photon::fd_events_init();
     DEFER(photon::fd_events_fini());
-    if (Net::et_poller_init() < 0) {
-        LOG_ERROR("Net::et_poller_init failed");
+    if (net::et_poller_init() < 0) {
+        LOG_ERROR("net::et_poller_init failed");
         exit(EAGAIN);
     }
-    DEFER(Net::et_poller_fini());
+    DEFER(net::et_poller_fini());
     set_log_output_level(ALOG_DEBUG);
     ::testing::InitGoogleTest(&argc, arg);
     LOG_DEBUG("test result:`", RUN_ALL_TESTS());

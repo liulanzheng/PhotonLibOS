@@ -1,9 +1,25 @@
-#pragma once
-#include "photon/common/string_view.h"
-#include "photon/common/estring.h"
+/*
+Copyright 2022 The Photon Authors
 
-namespace Net {
-namespace HTTP {
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+#pragma once
+#include <photon/common/string_view.h>
+#include <photon/common/estring.h>
+
+namespace photon {
+namespace net {
 
 constexpr char http_url_scheme[] = "http://";
 constexpr char https_url_scheme[] = "https://";
@@ -11,14 +27,14 @@ constexpr char https_url_scheme[] = "https://";
 inline std::string_view http_or_s(bool cond)
 {
     return cond ?
-        std::string_view(Net::HTTP::http_url_scheme) :
-        std::string_view(Net::HTTP::https_url_scheme);
+        std::string_view(net::http_url_scheme) :
+        std::string_view(net::https_url_scheme);
 }
 
 inline int what_protocol(estring_view url)
 {
-    if (url.istarts_with(Net::HTTP::http_url_scheme)) return 1;
-    if (url.istarts_with(Net::HTTP::https_url_scheme)) return 2;
+    if (url.istarts_with(net::http_url_scheme)) return 1;
+    if (url.istarts_with(net::https_url_scheme)) return 2;
     return 0;
 }
 
@@ -88,5 +104,4 @@ inline bool need_optional_port(const URL& u) {
 }
 
 }
-
 }

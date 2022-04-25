@@ -1,17 +1,33 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #pragma once
 
-#include "photon/common/callback.h"
+#include <photon/common/callback.h>
 #include <gsasl.h>
 
-namespace Net {
+namespace photon {
+namespace net {
+
 class ISocketStream;
 class ISocketServer;
 class ISocketClient;
-} // namespace Net
-namespace Security {
 class SaslSession;
 
-using Gsasl_auth_cb = Callback<Gsasl_session *, Net::ISocketStream *>;
+using Gsasl_auth_cb = Callback<Gsasl_session *, net::ISocketStream *>;
 using Gsasl_prep_cb = Callback<Gsasl *, Gsasl_session *, Gsasl_property>;
 
 /**
@@ -71,7 +87,7 @@ void delete_sasl_context(SaslSession *session);
  * @param ownership if new socket stream owns @base socket.
  * @return Return sasl stream handle or nullptr if authentification failed.
  */
-Net::ISocketStream *new_sasl_stream(SaslSession *session, Net::ISocketStream *base, bool ownership);
+ISocketStream *new_sasl_stream(SaslSession *session, net::ISocketStream *base, bool ownership);
 
 /**
  * @brief Create sasl client. Act as a client socket factory.
@@ -82,7 +98,7 @@ Net::ISocketStream *new_sasl_stream(SaslSession *session, Net::ISocketStream *ba
  * @param ownership if new socket stream owns @base socket.
  * @return Return sasl client handle or nullptr if parameters are invalid.
  */
-Net::ISocketClient *new_sasl_client(SaslSession *session, Net::ISocketClient *base, bool ownership);
+ISocketClient *new_sasl_client(SaslSession *session, net::ISocketClient *base, bool ownership);
 
 /**
  * @brief Create sasl server. Act as a server socket factory.
@@ -93,5 +109,7 @@ Net::ISocketClient *new_sasl_client(SaslSession *session, Net::ISocketClient *ba
  * @param ownership if new socket stream owns @base socket.
  * @return Return sasl server handle or nullptr if parameters are invalid.
  */
-Net::ISocketServer *new_sasl_server(SaslSession *session, Net::ISocketServer *base, bool ownership);
-} // namespace Security
+ISocketServer *new_sasl_server(SaslSession *session, net::ISocketServer *base, bool ownership);
+
+}
+}

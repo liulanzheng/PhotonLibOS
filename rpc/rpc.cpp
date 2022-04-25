@@ -1,21 +1,37 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #include "rpc.h"
 #include "out-of-order-execution.h"
 #include <unordered_map>
 #include <netinet/tcp.h>
-#include "thread/thread11.h"
-#include "thread/thread-pool.h"
-#include "thread/list.h"
-#include "common/utility.h"
-#include "common/alog.h"
-#include "common/timeout.h"
-#include "common/expirecontainer.h"
-#include "net/socket.h"
-#include "net/tlssocket.h"
+#include <photon/thread/thread11.h>
+#include <photon/thread/thread-pool.h>
+#include <photon/thread/list.h>
+#include <photon/common/utility.h>
+#include <photon/common/alog.h>
+#include <photon/common/timeout.h>
+#include <photon/common/expirecontainer.h>
+#include <photon/net/socket.h>
+#include <photon/net/tlssocket.h>
 
 using namespace std;
-using namespace photon;
 
-namespace RPC
+namespace photon {
+namespace rpc
 {
     class StubImpl : public Stub
     {
@@ -87,7 +103,7 @@ namespace RPC
                 m_stream->shutdown(ShutdownHow::ReadWrite);
                 LOG_ERROR_RETURN(ECONNRESET, -1, "Failed to read header ", err);
             }
-            if ((m_header.magic != RPC::Header::MAGIC) || (m_header.version != RPC::Header::VERSION)) {
+            if ((m_header.magic != rpc::Header::MAGIC) || (m_header.version != rpc::Header::VERSION)) {
                 // this cannot be a RPC header
                 // client is not RPC Client or data has been corrupt
                 m_stream->shutdown(ShutdownHow::ReadWrite);
@@ -404,11 +420,11 @@ namespace RPC
     class StubPoolImpl : public StubPool {
     public:
         explicit StubPoolImpl(uint64_t expiration, uint64_t connect_timeout, uint64_t rpc_timeout) {
-            tcpclient = Net::new_tcp_socket_client();
-            tlsclient = Net::new_tls_socket_client();
+            tcpclient = net::new_tcp_socket_client();
+            tlsclient = net::new_tls_socket_client();
             tcpclient->timeout(connect_timeout);
             tlsclient->timeout(connect_timeout);
-            m_pool = new ObjectCache<Net::EndPoint, RPC::Stub*>(expiration);
+            m_pool = new ObjectCache<net::EndPoint, rpc::Stub*>(expiration);
             m_rpc_timeout = rpc_timeout;
         }
 
@@ -418,23 +434,23 @@ namespace RPC
             delete m_pool;
         }
 
-        Stub* get_stub(const Net::EndPoint& endpoint, bool tls) override {
-            auto stub_ctor = [&]() -> RPC::Stub* {
+        Stub* get_stub(const net::EndPoint& endpoint, bool tls) override {
+            auto stub_ctor = [&]() -> rpc::Stub* {
                 auto socket_ctor = tls ? tlsclient : tcpclient;
                 auto socket = get_socket(socket_ctor, endpoint);
                 if (socket == nullptr) {
                     return nullptr;
                 }
-                return RPC::new_rpc_stub(socket, true);
+                return rpc::new_rpc_stub(socket, true);
             };
             return m_pool->acquire(endpoint, stub_ctor);
         }
 
-        int put_stub(const Net::EndPoint& endpoint, bool immediately) override {
+        int put_stub(const net::EndPoint& endpoint, bool immediately) override {
             return m_pool->release(endpoint, immediately);
         }
 
-        Stub* acquire(const Net::EndPoint& endpoint) override {
+        Stub* acquire(const net::EndPoint& endpoint) override {
             auto ctor = [&]() { return nullptr; };
             return m_pool->acquire(endpoint, ctor);
         }
@@ -444,7 +460,7 @@ namespace RPC
         }
 
     protected:
-        Net::ISocketStream* get_socket(Net::ISocketClient* client, const Net::EndPoint& ep) const {
+        net::ISocketStream* get_socket(net::ISocketClient* client, const net::EndPoint& ep) const {
             LOG_INFO("Connect to ", ep);
             auto sock = client->connect(ep);
             if (!sock) return nullptr;
@@ -452,8 +468,8 @@ namespace RPC
             return sock;
         }
 
-        ObjectCache<Net::EndPoint, RPC::Stub*>* m_pool;
-        Net::ISocketClient *tcpclient, *tlsclient;
+        ObjectCache<net::EndPoint, rpc::Stub*>* m_pool;
+        net::ISocketClient *tcpclient, *tlsclient;
         uint64_t m_rpc_timeout;
     };
 
@@ -464,7 +480,7 @@ namespace RPC
         explicit UDSStubPoolImpl(const char* path, uint64_t expiration,
                                  uint64_t connect_timeout, uint64_t rpc_timeout)
             : StubPoolImpl(expiration, connect_timeout, rpc_timeout),
-              m_path(path), m_client(Net::new_uds_client()) {
+              m_path(path), m_client(net::new_uds_client()) {
                   m_client->timeout(connect_timeout);
               }
 
@@ -472,7 +488,7 @@ namespace RPC
             delete m_client;
         }
 
-        Stub* get_stub(const Net::EndPoint& endpoint, bool) override {
+        Stub* get_stub(const net::EndPoint& endpoint, bool) override {
             return m_pool->acquire(endpoint, [&]() -> Stub* {
                 auto sock = m_client->connect(m_path.c_str());
                 if (!sock) {
@@ -486,7 +502,7 @@ namespace RPC
 
     protected:
         std::string m_path;
-        Net::ISocketClient * m_client;
+        net::ISocketClient * m_client;
     };
 
     StubPool* new_stub_pool(uint64_t expiration, uint64_t connect_timeout, uint64_t rpc_timeout) {
@@ -499,4 +515,5 @@ namespace RPC
         return new UDSStubPoolImpl(path, expiration, connect_timeout,
                                    rpc_timeout);
     }
-    }  // namespace RPC
+    }  // namespace rpc
+}

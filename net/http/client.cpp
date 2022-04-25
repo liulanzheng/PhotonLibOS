@@ -1,19 +1,37 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #include "client.h"
 #include <bitset>
 #include <algorithm>
 #include <random>
 #include <queue>
-#include "common/alog-stdstring.h"
-#include "common/expirecontainer.h"
-#include "common/iovector.h"
-#include "common/string_view.h"
-#include "fs/filesystem.h"
-#include "net/etsocket.h"
-#include "net/socket.h"
-#include "net/tlssocket.h"
-#include "net/utils.h"
-namespace Net {
-namespace HTTP {
+#include <photon/common/alog-stdstring.h>
+#include <photon/common/expirecontainer.h>
+#include <photon/common/iovector.h>
+#include <photon/common/string_view.h>
+#include <photon/fs/filesystem.h>
+#include <photon/net/etsocket.h>
+#include <photon/net/socket.h>
+#include <photon/net/tlssocket.h>
+#include <photon/net/utils.h>
+
+namespace photon {
+namespace net {
+
 static const uint64_t kMinimalStreamLife = 300UL * 1000 * 1000;
 static constexpr char USERAGENT[] = "EASE/0.21.6";
 static constexpr size_t SKIP_LIMIT = 4 * 1024;
@@ -40,10 +58,10 @@ static StreamList* StreamList_ctor(){
         };
 class PooledDialer {
 public:
-    std::unique_ptr<Net::ISocketClient> tcpsock;
-    std::unique_ptr<Net::ISocketClient> tlssock;
+    std::unique_ptr<net::ISocketClient> tcpsock;
+    std::unique_ptr<net::ISocketClient> tlssock;
 
-    ObjectCache<Net::EndPoint, StreamList*> pool;
+    ObjectCache<net::EndPoint, StreamList*> pool;
     //etsocket seems not support multi thread very well, use tcp_socket now. need to find out why
     PooledDialer()
         : tcpsock(Net::new_tcp_socket_client()),
@@ -58,7 +76,7 @@ public:
         return dial(x.host(), x.port(), x.secure(), is_new_connection, timeout);
     }
 
-    void release(const Net::EndPoint& ep, Net::ISocketStream* sock) {
+    void release(const net::EndPoint& ep, net::ISocketStream* sock) {
         auto lsock = pool.acquire(ep, StreamList_ctor);
         lsock->emplace_back(sock);
         pool.release(ep);
@@ -67,11 +85,11 @@ public:
 
 class PooledSocketStream {
 public:
-    Net::EndPoint ep;
-    Net::ISocketStream* sock;
+    net::EndPoint ep;
+    net::ISocketStream* sock;
     PooledDialer* dialer;
     bool closed = false;
-    explicit PooledSocketStream(Net::EndPoint ep, Net::ISocketStream* sock,
+    explicit PooledSocketStream(net::EndPoint ep, net::ISocketStream* sock,
                                 PooledDialer* pool)
         : ep(ep), sock(sock), dialer(pool) {}
     ~PooledSocketStream() {
@@ -253,18 +271,18 @@ public:
 PooledSocketStream* PooledDialer::dial(std::string_view host, uint16_t port, bool secure, bool &is_new_connection, uint64_t timeout) {
     LOG_DEBUG("Dial to `", host);
     std::string strhost(host);
-    std::vector<Net::IPAddr> hosts;
-    Net::gethostbyname(strhost.c_str(), hosts);
+    std::vector<net::IPAddr> hosts;
+    net::gethostbyname(strhost.c_str(), hosts);
     auto hosts_size = hosts.size();
     for (size_t _time = 0; _time < hosts_size; _time++) {
         auto idx= rand() % hosts_size;
         auto h = hosts[idx];
-        Net::EndPoint ep(h, port);
+        net::EndPoint ep(h, port);
         LOG_DEBUG("Connecting ` ssl: `", ep, secure);
         auto lsock = pool.acquire(ep, StreamList_ctor);
         DEFER(pool.release(ep));
         if (lsock->empty()) {
-            Net::ISocketStream* sock = nullptr;
+            net::ISocketStream* sock = nullptr;
             if (secure) {
                 tlssock->timeout(timeout);
                 sock = tlssock->connect(ep);
@@ -484,6 +502,5 @@ public:
 
 Client* new_http_client(ICookieJar *cookie_jar) { return new Client_impl(cookie_jar); }
 
-}  // namespace HTTP
-
-}  // namespace Net
+}  // namespace net
+}

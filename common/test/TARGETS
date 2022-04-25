@@ -1,3 +1,5 @@
+# $$PHOTON_UNPUBLISHED_FILE$$
+
 includes = {
     '../executor/test/TARGETS',
     '../memory-stream/test/TARGETS',
@@ -21,6 +23,21 @@ targets = {
             '-lphoton',
         ],
     ),
+    'test_alog': cpp_fast_test(
+        testing = [':test'],
+        incs = [ './' ],
+        srcs = [ './test_alog.cpp'],
+        static_deps = [
+            'gtest-1.7.0:gtest',
+            'gmock-1.7.0:gmock',
+        ],
+        cxxflags = [
+            '-DLOGCURRENT'
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+    ), 
     'test_scalepool' : cpp_fast_test(
         testing = [':test_scalepool'],
         incs = [ './' ],

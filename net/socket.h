@@ -1,3 +1,19 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #pragma once
 #include <cinttypes>
 #include <sys/socket.h>
@@ -6,12 +22,13 @@
 #include <arpa/inet.h>
 #include <cstring>
 
-#include "photon/common/stream.h"
-#include "photon/common/callback.h"
-#include "photon/common/object.h"
+#include <photon/common/stream.h>
+#include <photon/common/callback.h>
+#include <photon/common/object.h>
 
 struct LogBuffer;
-namespace Net
+namespace photon {
+namespace net
 {
     union IPAddr
     {
@@ -176,12 +193,13 @@ namespace Net
     extern "C" ISocketClient* new_uds_client();
     extern "C" ISocketServer* new_uds_server(bool autoremove = false);
 }
+}
 
 namespace std {
 template<>
-struct hash<Net::EndPoint> {
+struct hash<photon::net::EndPoint> {
     hash<uint64_t> hasher;
-    size_t operator()(const Net::EndPoint& x) const {
+    size_t operator()(const photon::net::EndPoint& x) const {
         return hasher((x.addr.to_nl() << 16) | x.port);
     }
 };

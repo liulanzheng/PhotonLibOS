@@ -1,3 +1,4 @@
+<!--$$PHOTON_UNPUBLISHED_FILE$$-->
 # 通用资源池（ease/identity-pool.h）
 
 ## 资源池接口定义，与堆构造

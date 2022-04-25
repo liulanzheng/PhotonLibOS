@@ -1,8 +1,24 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #include <thread>
-#include "common/alog.h"
+#include <photon/common/alog.h>
 #include "exportfs.h"
-#include "io/fd-events.h"
-#include "thread/thread.h"
+#include <photon/io/fd-events.h>
+#include <photon/thread/thread.h>
 #include "fuse_adaptor.h"
 
 #ifndef FUSE_USE_VERSION
@@ -40,9 +56,9 @@
 #include <sys/file.h> /* flock(2) */
 
 #include "filesystem.h"
-#include "common/utility.h"
-#include "io/fuse-adaptor.h"
-#include "common/perf_counter.h"
+#include <photon/common/utility.h>
+#include <photon/io/fuse-adaptor.h>
+#include <photon/common/perf_counter.h>
 
 REGISTER_PERF(xmp_getattr, TOTAL)
 REGISTER_PERF(xmp_open, TOTAL)
@@ -60,7 +76,8 @@ REGISTER_PERF(xmp_destroy, TOTAL)
 REGISTER_PERF(xmp_access, TOTAL)
 REGISTER_PERF(xmp_create, TOTAL)
 
-using namespace FileSystem;
+namespace photon {
+namespace fs{
 
 static IFileSystem* fs = nullptr;
 
@@ -131,16 +148,16 @@ static int xmp_opendir(const char *path, struct fuse_file_info *fi)
     return 0;
 }
 
-static inline FileSystem::DIR* get_dirp(struct fuse_file_info *fi)
+static inline fs::DIR* get_dirp(struct fuse_file_info *fi)
 {
-    auto dirp = (FileSystem::DIR*)fi->fh;
+    auto dirp = (fs::DIR*)fi->fh;
     LOG_DEBUG(VALUE(dirp));
     return dirp;
 }
 
-static inline FileSystem::IFile* get_file(struct fuse_file_info *fi)
+static inline fs::IFile* get_file(struct fuse_file_info *fi)
 {
-    auto file = (FileSystem::IFile*)fi->fh;
+    auto file = (fs::IFile*)fi->fh;
     LOG_DEBUG(VALUE(file));
     return file;
 }
@@ -630,20 +647,20 @@ static void fuse_logger(enum fuse_log_level level, const char *fmt, va_list ap)
     log_output(buf, buf + LEN + 1);
 }
 */
-int fuser_go(IFileSystem* fs, int argc, char* argv[])
+int fuser_go(IFileSystem* fs_, int argc, char* argv[])
 {
-    if (!fs)
+    if (!fs_)
         return 0;
 
     // fuse_set_log_func(&fuse_logger);
 
     umask(0);
-    ::fs = fs;
+    fs = fs_;
     return photon::run_fuse(argc, argv, &xmp_oper, NULL);
 }
 
-int fuser_go_exportfs(IFileSystem *fs, int argc, char *argv[]) {
-    if (!fs) return 0;
+int fuser_go_exportfs(IFileSystem *fs_, int argc, char *argv[]) {
+    if (!fs_) return 0;
     photon::init();
     DEFER(photon::fini());
     photon::fd_events_init();
@@ -652,12 +669,12 @@ int fuser_go_exportfs(IFileSystem *fs, int argc, char *argv[]) {
     exportfs_init();
     DEFER(exportfs_fini());
 
-    auto efs = export_as_sync_fs(fs);
+    auto efs = export_as_sync_fs(fs_);
 
     // fuse_set_log_func(&fuse_logger);
 
     umask(0);
-    ::fs = efs;
+    fs = efs;
     auto pth = photon::CURRENT;
     auto th = std::thread([&] {
         fuse_main(argc, argv, &xmp_oper, NULL);
@@ -667,6 +684,9 @@ int fuser_go_exportfs(IFileSystem *fs, int argc, char *argv[]) {
     return 0;
 }
 
-void set_fuse_fs(FileSystem::IFileSystem *fs_) { fs = fs_; }
+void set_fuse_fs(fs::IFileSystem *fs_) { fs = fs_; }
 
 fuse_operations *get_fuse_xmp_oper() { return &xmp_oper; }
+
+}
+}

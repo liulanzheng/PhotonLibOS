@@ -1,3 +1,19 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #include <errno.h>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
@@ -5,10 +21,10 @@
 
 #include <vector>
 
-#include "photon/common/alog.h"
-#include "photon/common/utility.h"
-#include "photon/thread/thread.h"
-#include "photon/io/fd-events.h"
+#include <photon/common/alog.h>
+#include <photon/common/utility.h>
+#include <photon/thread/thread.h>
+#include <photon/io/fd-events.h>
 
 namespace photon {
 #ifndef EPOLLRDHUP
@@ -125,12 +141,12 @@ public:
         if (e.fd < 0 || (size_t)e.fd >= _inflight_events.size())
             LOG_ERROR_RETURN(EINVAL, -1, "invalid file descriptor ", e.fd);
         auto& entry = _inflight_events[e.fd];
-        auto intersection = e.interests & entry.interests;
+        auto intersection = e.interests & entry.interests &
+                            (EVENT_READ | EVENT_WRITE | EVENT_ERROR);
         if (intersection == 0) return 0;
 
-        auto x = entry.interests ^ intersection;
-        x &= (EVENT_READ | EVENT_WRITE | EVENT_ERROR);
-        entry.interests ^= x;
+        auto x = (entry.interests ^= intersection) &
+                 (EVENT_READ | EVENT_WRITE | EVENT_ERROR);
         if (e.interests & EVENT_READ) entry.reader_data = nullptr;
         if (e.interests & EVENT_WRITE) entry.writer_data = nullptr;
         if (e.interests & EVENT_ERROR) entry.error_data = nullptr;
@@ -146,7 +162,10 @@ public:
     int do_epoll_wait(uint64_t timeout) {
         assert(_events_remain == 0);
         uint8_t cool_down_ms = 1;
-        timeout /= 1024;
+        // since timeout may less than 1ms
+        // in such condition, timeout_ms should be at least 1
+        // or it may call epoll_wait without any idle
+        timeout = (timeout && timeout < 1024) ? 1 : timeout / 1024;
         while (_engine_fd > 0) {
             int ret = epoll_wait(_engine_fd, _events, LEN(_events), timeout);
             if (ret < 0) {

@@ -1,13 +1,31 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #include <vector>
 #include <time.h>
 
 #include "client.h"
 #include "parser.h"
-#include "common/string-keyed.h"
-#include "thread/thread11.h"
-#include "common/estring.h"
-namespace Net {
-namespace HTTP {
+#include <photon/common/string-keyed.h>
+#include <photon/thread/thread11.h>
+#include <photon/common/estring.h>
+
+namespace photon {
+namespace net {
+
 using namespace std;
 
 static uint64_t local_gmt_gap_us = 0;
@@ -105,6 +123,7 @@ public:
 
 ICookieJar* new_simple_cookie_jar() {
     return new SimpleCookieJar();
+
 }
 }
 }

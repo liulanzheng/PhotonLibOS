@@ -1,3 +1,19 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #pragma once
 #include <cstdio>
 #include <cinttypes>
@@ -8,8 +24,8 @@
 #include <utility>
 #include <type_traits>
 
-#include "photon/common/utility.h"
-#include "photon/common/object.h"
+#include <photon/common/utility.h>
+#include <photon/common/object.h>
 
 class ILogOutput : public Object {
 public:
@@ -332,7 +348,7 @@ namespace alog_format
     struct parser : public S
     {
         static_assert(I > 0, "...");
-        static_assert(S::string()[I] != '\\', "'\\' in format string is illegal!");
+        // static_assert(S::string()[I] != '\\', "'\\' in format string is illegal!");
         using S::LEN;
         using typename S::type;
         using S::string;
@@ -578,38 +594,61 @@ struct LogBuilder {
         __LINE__, level                                     \
     };
 
+template <char HEAD, char TAIL, int LEN, int LEN2>
+typename std::enable_if<(LEN > LEN2 + 2) && HEAD == '"' && TAIL == '"',
+                        const char (&)[LEN - 2]>::type
+__first_format_forward(const char (&S)[LEN], const char (&s)[LEN2]) {
+    // for those first parameter is static format string
+    // but is multiline string or contains escape characters
+    // takes code as string literal, include quotas and other characters
+    // to prevent read out of range.
+    return (const char(&)[LEN - 2]) S[1];
+}
 
-#define PARSE_FMTSTR(S, thesequence)                        \
-    struct static_string {                                  \
-        enum { LEN = sizeof(#S) - 1 };                      \
-        typedef const char (&type)[LEN+1];                  \
-        constexpr static type string() { return #S; }       \
-    };                                                      \
-    typedef typename alog_format::parser<static_string,     \
-            static_string::LEN>::sequence thesequence;
+template <char HEAD, char TAIL, typename T, int LEN>
+T&& __first_format_forward(const char (&S)[LEN], T&& s) {
+    return std::forward<T>(s);
+}
 
-#define __LOG__(level, first, ...)                                       \
-    ({                                                                   \
-        DEFINE_PROLOGUE(level, prolog);                                  \
-        auto __build_lambda__ = [&](ILogOutput* __output_##__LINE__) {   \
-            PARSE_FMTSTR(first, sequence);                               \
-            __log__<sequence>(level, __output_##__LINE__, prolog, first, \
-                              ##__VA_ARGS__);                            \
-        };                                                               \
-        LogBuilder<decltype(__build_lambda__)>(                          \
-            level, std::move(__build_lambda__), &default_logger);        \
+#define PARSE_FMTSTR(S, thesequence)                  \
+    struct static_string {                            \
+        enum { LEN = sizeof(#S) - 1 };                \
+        typedef const char (&type)[LEN + 1];          \
+        constexpr static type string() { return #S; } \
+    };                                                \
+    typedef typename alog_format::parser<             \
+        static_string, static_string::LEN>::sequence thesequence;
+
+#define __LOG__(level, first, ...)                                        \
+    ({                                                                    \
+        DEFINE_PROLOGUE(level, prolog);                                   \
+        auto __build_lambda__ = [&](ILogOutput* __output_##__LINE__) {    \
+            PARSE_FMTSTR(first, sequence);                                \
+            __log__<sequence>(                                            \
+                level, __output_##__LINE__, prolog,                       \
+                __first_format_forward<(#first)[0],                       \
+                                       (#first)[static_string::LEN - 1]>( \
+                    #first, first),                                       \
+                ##__VA_ARGS__);                                           \
+        };                                                                \
+        LogBuilder<decltype(__build_lambda__)>(                           \
+            level, std::move(__build_lambda__), &default_logger);         \
     })
 
-#define __LOG_AUDIT__(level, first, ...)                                       \
-    ({                                                                         \
-        DEFINE_PROLOGUE(level, prolog);                                        \
-        auto __build_lambda__ = [&](ILogOutput* __output_##__LINE__) {         \
-            PARSE_FMTSTR(first, sequence);                                     \
-            __log_audit__<sequence>(level, __output_##__LINE__, prolog, first, \
-                                    ##__VA_ARGS__);                            \
-        };                                                                     \
-        LogBuilder<decltype(__build_lambda__)>(                                \
-            level, std::move(__build_lambda__), &default_audit_logger);        \
+#define __LOG_AUDIT__(level, first, ...)                                  \
+    ({                                                                    \
+        DEFINE_PROLOGUE(level, prolog);                                   \
+        auto __build_lambda__ = [&](ILogOutput* __output_##__LINE__) {    \
+            PARSE_FMTSTR(first, sequence);                                \
+            __log_audit__<sequence>(                                      \
+                level, __output_##__LINE__, prolog,                       \
+                __first_format_forward<(#first)[0],                       \
+                                       (#first)[static_string::LEN - 1]>( \
+                    #first, first),                                       \
+                ##__VA_ARGS__);                                           \
+        };                                                                \
+        LogBuilder<decltype(__build_lambda__)>(                           \
+            level, std::move(__build_lambda__), &default_audit_logger);   \
     })
 
 #define LOG_DEBUG(...) (__LOG__(ALOG_DEBUG, __VA_ARGS__))

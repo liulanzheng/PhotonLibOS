@@ -1,3 +1,19 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #include "exportfs.h"
 #include <inttypes.h>
 #include <functional>
@@ -8,14 +24,14 @@
 #include <sched.h>
 #include "filesystem.h"
 #include "async_filesystem.h"
-#include "thread/thread.h"
-#include "thread/thread-pool.h"
-#include "io/fd-events.h"
-#include "common/event-loop.h"
-#include "common/alog.h"
-using namespace photon;
+#include <photon/thread/thread.h>
+#include <photon/thread/thread-pool.h>
+#include <photon/io/fd-events.h>
+#include <photon/common/event-loop.h>
+#include <photon/common/alog.h>
 
-namespace FileSystem
+namespace photon {
+namespace fs
 {
     static EventLoop* evloop = nullptr;
     typedef boost::lockfree::spsc_queue<std::function<void()>, boost::lockfree::capacity<65536> > spsc;
@@ -459,4 +475,5 @@ namespace FileSystem
     {
         return new ExportAsAsyncDIR(dir);
     }
+}
 }

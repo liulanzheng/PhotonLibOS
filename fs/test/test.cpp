@@ -1,14 +1,29 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #define protected public
 #define private public
 
-#include "fs/subfs.cpp"
-#include "common/iovector.cpp"
-#include "fs/localfs.cpp"
-#include "fs/virtual-file.cpp"
-#include "fs/path.cpp"
-#include "fs/async_filesystem.cpp"
-#include "fs/xfile.cpp"
-#include "fs/aligned-file.cpp"
+#include "../subfs.cpp"
+#include "../localfs.cpp"
+#include "../virtual-file.cpp"
+#include "../path.cpp"
+#include "../async_filesystem.cpp"
+#include "../xfile.cpp"
+#include "../aligned-file.cpp"
 
 #undef private
 #undef protected
@@ -23,22 +38,24 @@
 #include <ctime>
 #include <random>
 
-#include "common/enumerable.h"
-#include "fs/path.h"
-#include "fs/localfs.h"
-#include "fs/range-split.h"
-#include "fs/range-split-vi.h"
-#include "fs/filesystem.h"
-#include "fs/xfile.h"
-#include "fs/aligned-file.h"
-#include "common/utility.h"
-#include "common/alog.h"
-#include "thread/thread11.h"
+#include <photon/common/iovector.h>
+#include <photon/common/enumerable.h>
+#include <photon/fs/path.h>
+#include <photon/fs/localfs.h>
+#include <photon/fs/range-split.h>
+#include <photon/fs/range-split-vi.h>
+#include <photon/fs/filesystem.h>
+#include <photon/fs/xfile.h>
+#include <photon/fs/aligned-file.h>
+#include <photon/common/utility.h>
+#include <photon/common/alog.h>
+#include <photon/thread/thread11.h>
 
 #include "mock.h"
 
 using namespace std;
-using namespace FileSystem;
+using namespace photon;
+using namespace photon::fs;
 
 TEST(Path, split)
 {
@@ -126,8 +143,8 @@ TEST(Path, level_valid_ness)
 
 TEST(string_view, equality) // dependented by `Path`
 {
-    FileSystem::string_view a(nullptr, 0UL);
-    FileSystem::string_view b((char*)234, 0UL);
+    fs::string_view a(nullptr, 0UL);
+    fs::string_view b((char*)234, 0UL);
     EXPECT_EQ(a, b);
 }
 
@@ -135,7 +152,7 @@ TEST(Tree, node)
 {
     static const char* items[] = {"asdf", "jkl", "qwer", "zxcv", };
     static const char* subnodes[] = {">asdf", ">jkl", ">qwer", ">zxcv", };
-    FileSystem::string_view k1234 = "1234";
+    fs::string_view k1234 = "1234";
     auto v1234 = (void*)23456;
     uint64_t F = 2314, f;
     Tree::Node node;
@@ -325,8 +342,8 @@ TEST(Tree, tree)
     }
 }
 
-
-namespace FileSystem
+namespace photon {
+namespace fs
 {
     class ExampleAsyncFile : public IAsyncFile
     {
@@ -500,6 +517,7 @@ namespace FileSystem
         return new ExampleAsyncFileSystem;
     }
 }
+}
 
 int async_callback(void* ptr, AsyncResult<ssize_t>* ar)
 {
@@ -514,7 +532,7 @@ int async_callback(void* ptr, AsyncResult<ssize_t>* ar)
 
 TEST(AsyncFS, AsyncFS)
 {
-    auto f = FileSystem::new_example_async_file();
+    auto f = fs::new_example_async_file();
     DEFER(delete f);
     f->pread(nullptr, 100, 200, {nullptr, &async_callback});
 
@@ -698,7 +716,7 @@ void my_free(void *ptr, const void *caller) {
 TEST(range_split, sub_range)
 {
     // EXPECT_FALSE(FileSystem::sub_range());
-    auto sr = FileSystem::sub_range(0, 0, 0);
+    auto sr = fs::sub_range(0, 0, 0);
     EXPECT_FALSE(sr);
     sr.assign(0, 233, 1024);
     EXPECT_TRUE(sr);
@@ -711,7 +729,7 @@ TEST(range_split, sub_range)
 
 TEST(range_split, range_split_simple_case)
 {
-    FileSystem::range_split split(42, 321, 32); // offset 42, length 321, interval 32
+    fs::range_split split(42, 321, 32); // offset 42, length 321, interval 32
     // it should be split into [begin, end) as [42, 64)+[64, 76) +... +[352,363)
     // with abegin, aend as 0, 11
     // 11 parts in total
@@ -737,7 +755,7 @@ TEST(range_split, range_split_simple_case)
             EXPECT_EQ(32, rs.end());
         }
     }
-    split = FileSystem::range_split(2, 12, 24);
+    split = fs::range_split(2, 12, 24);
     EXPECT_TRUE(split.small_note);
     EXPECT_FALSE(split.preface);
     EXPECT_FALSE(split.postface);
@@ -748,7 +766,7 @@ TEST(range_split, range_split_simple_case)
 
 TEST(range_split, range_split_aligned_case)
 {
-    FileSystem::range_split split(32, 321, 32); // offset 32, length 321, interval 32
+    fs::range_split split(32, 321, 32); // offset 32, length 321, interval 32
     // it should be split into [begin, end) as [32, 64)+[64, 76) +... +[352,353)
     // with abegin, aend as 0, 11
     // 11 parts in total
@@ -774,11 +792,11 @@ TEST(range_split, range_split_aligned_case)
         EXPECT_EQ(0, rs.begin());
         EXPECT_EQ(32, rs.end());
     }
-    split = FileSystem::range_split(0, 23, 24);
+    split = fs::range_split(0, 23, 24);
     EXPECT_TRUE(split.postface);
-    split = FileSystem::range_split(1, 23, 24);
+    split = fs::range_split(1, 23, 24);
     EXPECT_TRUE(split.preface);
-    split = FileSystem::range_split(0, 24, 24);
+    split = fs::range_split(0, 24, 24);
     EXPECT_FALSE(split.preface);
     EXPECT_FALSE(split.postface);
     EXPECT_FALSE(split.small_note);
@@ -788,7 +806,7 @@ TEST(range_split, range_split_aligned_case)
 TEST(range_split, random_test) {
     uint64_t begin=rand(), length=rand(), interval=rand();
     LOG_DEBUG("begin=", begin, " length=", length, " interval=", interval);
-    FileSystem::range_split split(begin, length, interval);
+    fs::range_split split(begin, length, interval);
     EXPECT_EQ(split.begin, begin);
     EXPECT_EQ(split.end, length + begin);
     EXPECT_EQ(split.interval, interval);
@@ -796,7 +814,7 @@ TEST(range_split, random_test) {
 
 
 TEST(range_split_power2, basic) {
-    FileSystem::range_split_power2 split(42, 321, 32);
+    fs::range_split_power2 split(42, 321, 32);
     for (auto &rs: split.all_parts()) {
         LOG_DEBUG(rs.i, ' ', rs.begin(), ' ', rs.end());
     }
@@ -830,7 +848,7 @@ TEST(range_split_power2, random_test) {
     length = rand();
     auto interval_shift = rand()%32 + 1;
     interval = 1<<interval_shift;
-    FileSystem::range_split_power2 split(offset, length, interval);
+    fs::range_split_power2 split(offset, length, interval);
     EXPECT_EQ(offset, split.begin);
     EXPECT_EQ(offset + length, split.end);
     EXPECT_EQ(interval, split.interval);
@@ -839,11 +857,11 @@ TEST(range_split_power2, random_test) {
 void not_ascend_death()
 {
     uint64_t kpfail[] = {0, 32, 796, 128, 256, 512, UINT64_MAX};
-    FileSystem::range_split_vi splitfail(12, 321, kpfail, 7);
+    fs::range_split_vi splitfail(12, 321, kpfail, 7);
 }
 TEST(range_split_vi, basic) {
     uint64_t kp[] = {0, 32, 64, 128, 256, 512, UINT64_MAX};
-    FileSystem::range_split_vi split(12, 321, kp, 7);
+    fs::range_split_vi split(12, 321, kp, 7);
     uint64_t *it = kp;
     EXPECT_EQ(12, split.begin);
     EXPECT_EQ(333, split.end);
@@ -860,13 +878,13 @@ TEST(range_split_vi, basic) {
     EXPECT_FALSE(split.ascending(kpfail, 7));
     EXPECT_DEATH(
         not_ascend_death(),
-        ".*FileSystem::range_split_vi::range_split_vi.*"
+        ".*fs::range_split_vi::range_split_vi.*"
     );
 }
 
 TEST(range_split_vi, left_side_aligned) {
     uint64_t kp[] = {0, 32, 64, 128, 256, 512, UINT64_MAX};
-    FileSystem::range_split_vi split(0, 256, kp, 7);
+    fs::range_split_vi split(0, 256, kp, 7);
     uint64_t *it = kp;
     EXPECT_EQ(0, split.begin);
     EXPECT_EQ(256, split.end);
@@ -882,7 +900,6 @@ TEST(range_split_vi, left_side_aligned) {
 }
 
 TEST(LocalFileSystem, basic) {
-    using namespace FileSystem;
     std::unique_ptr<IFileSystem> fs(new_localfs_adaptor("/tmp/"));
     std::unique_ptr<IFile> lf(fs->open("test_local_fs", O_RDWR | O_CREAT, 0755));
     DEFER(lf->close(););
@@ -899,7 +916,7 @@ std::unique_ptr<char[]> random_block(uint64_t size) {
     return std::move(buff);
 }
 
-void random_content_rw_test(uint64_t test_block_size, uint64_t test_block_num, FileSystem::IFile* file) {
+void random_content_rw_test(uint64_t test_block_size, uint64_t test_block_num, fs::IFile* file) {
     vector<std::unique_ptr<char[]>> rand_data;
     file->lseek(0, SEEK_SET);
     for (auto i = 0; i< test_block_num; i++) {
@@ -916,7 +933,7 @@ void random_content_rw_test(uint64_t test_block_size, uint64_t test_block_num, F
     }
 }
 
-void sequence_content_rw_test (uint64_t test_block_size, uint64_t test_block_num, const char* test_seq, FileSystem::IFile* file) {
+void sequence_content_rw_test (uint64_t test_block_size, uint64_t test_block_num, const char* test_seq, fs::IFile* file) {
     char data[test_block_size];
     file->lseek(0, SEEK_SET);
     for (auto i = 0; i< test_block_num; i++) {
@@ -933,13 +950,13 @@ void sequence_content_rw_test (uint64_t test_block_size, uint64_t test_block_num
     }
 }
 
-void xfile_fstat_test(uint64_t fsize, FileSystem::IFile* file) {
+void xfile_fstat_test(uint64_t fsize, fs::IFile* file) {
     struct stat st;
     file->fstat(&st);
     EXPECT_EQ(fsize, st.st_size);
 }
 
-void xfile_not_impl_test(FileSystem::IFile* file) {
+void xfile_not_impl_test(fs::IFile* file) {
     auto retp = file->filesystem();
     EXPECT_EQ(nullptr, retp);
     EXPECT_EQ(ENOSYS, errno);
@@ -956,7 +973,6 @@ void xfile_not_impl_test(FileSystem::IFile* file) {
 }
 
 TEST(XFile, fixed_size_linear_file_basic) {
-    using namespace FileSystem;
     const uint64_t test_file_num = 10;
     const uint64_t test_block_size = 3986;
     std::unique_ptr<IFileSystem> fs(new_localfs_adaptor("/tmp/"));
@@ -988,7 +1004,6 @@ TEST(XFile, fixed_size_linear_file_basic) {
 }
 
 TEST(XFile, linear_file_basic) {
-    using namespace FileSystem;
     errno = 0;
     const uint64_t test_file_num = 4;
     const uint64_t test_file_size[] = {4096, 10240, 32768, 65536};
@@ -1028,7 +1043,6 @@ TEST(XFile, linear_file_basic) {
 }
 
 TEST(XFile, stripe_file_basic) {
-    using namespace FileSystem;
     const uint64_t test_file_num = 10;
     const uint64_t test_file_size = 4096;
     const uint64_t test_block_size = 128;
@@ -1065,7 +1079,6 @@ TEST(XFile, error_stiuation) {
     DEFER({
         log_output = log_output_stdout;
     });
-    using namespace FileSystem;
     using namespace testing;
     std::unique_ptr<IFileSystem> fs(new_localfs_adaptor("/tmp/"));
     IFile* normal_file = fs->open("test_normal_file", O_RDWR | O_CREAT, 0666);

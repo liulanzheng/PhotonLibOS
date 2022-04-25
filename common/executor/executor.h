@@ -1,196 +1,109 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #pragma once
 
+#include <photon/common/callback.h>
+#include <photon/common/executor/stdlock.h>
+
 #include <atomic>
-#include <boost/lockfree/spsc_queue.hpp>
-#include <condition_variable>
-#include <mutex>
-#include <thread>
+#include <type_traits>
 
-#include "photon/common/alog.h"
-#include "photon/common/event-loop.h"
-#include "photon/io/fd-events.h"
-#include "photon/thread/thread-pool.h"
-#include "photon/thread/thread11.h"
-#include "photon/common/utility.h"
-#include "photon/common/executor/stdlock.h"
+namespace photon {
 
-namespace Executor {
+class ExecutorImpl;
 
-constexpr int64_t kCondWaitMaxTime = 1000L * 1000;
+ExecutorImpl *new_executor();
+void delete_executor(ExecutorImpl *e);
+void issue(ExecutorImpl *e, Delegate<void> cb);
 
-template <typename R, typename Context>
-struct AsyncReturn {
-    R result;
-    int err = 0;
-    std::atomic_bool gotit;
-    typename Context::Mutex mtx;
-    typename Context::Cond cond;
-    AsyncReturn() : gotit(false), cond(mtx) {}
-    R wait_for_result() {
-        typename Context::CondLock lock(mtx);
-        while (!gotit) {
-            cond.wait_for(lock, kCondWaitMaxTime);
-        }
-        if (err) errno = err;
+class Executor {
+public:
+    ExecutorImpl *e = new_executor();
+    ~Executor() { delete_executor(e); }
+
+    template <
+        typename Context = StdContext, typename Func,
+        typename R = typename std::result_of<Func()>::type,
+        typename _ = typename std::enable_if<!std::is_void<R>::value, R>::type>
+    R perform(Func &&act) {
+        R result;
+        AsyncOp<Context> aop;
+        aop.call(e, [&] {
+            result = act();
+            aop.done();
+        });
         return result;
     }
-    void set_result(R r) {
-        typename Context::CondLock lock(mtx);
-        err = errno;
-        result = std::forward<R>(r);
-        gotit = true;
-        cond.notify_all();
-    }
-};
-
-template <typename Context>
-struct AsyncReturn<void, Context> {
-    int err = 0;
-    std::atomic_bool gotit;
-    typename Context::Mutex mtx;
-    typename Context::Cond cond;
-    AsyncReturn() : gotit(false), cond(mtx) {}
-    void wait_for_result() {
-        typename Context::CondLock lock(mtx);
-        while (!gotit) {
-            cond.wait_for(lock, kCondWaitMaxTime);
-        }
-        if (err) errno = err;
-    }
-    void set_result() {
-        typename Context::CondLock lock(mtx);
-        err = errno;
-        gotit = true;
-        cond.notify_all();
-    }
-};
-
-struct YieldOp {
-    static void yield() { ::sched_yield(); }
-};
-
-class HybridEaseExecutor {
-public:
-    HybridEaseExecutor() {
-        loop = new_event_loop({this, &HybridEaseExecutor::wait_for_event},
-                              {this, &HybridEaseExecutor::on_event});
-        th = new std::thread(&HybridEaseExecutor::do_loop, this);
-        while (!loop || loop->state() != loop->WAITING) ::sched_yield();
-    }
-
-    ~HybridEaseExecutor() {
-        photon::thread_interrupt(pth);
-        th->join();
-        delete th;
-    }
 
     template <
         typename Context = StdContext, typename Func,
         typename R = typename std::result_of<Func()>::type,
-        typename = typename std::enable_if<!std::is_same<R, void>::value>::type>
-    R perform(Func &&act) {
-        auto aret = new AsyncReturn<R, Context>();
-        DEFER(delete aret);
-        auto work = [act, aret, this] {
-            if (!aret->gotit) {
-                aret->set_result(act());
-            }
-            return 0;
-        };
-        Callback<> cb(work);
-        issue(cb);
-        return aret->wait_for_result();
-    }
-
-    template <
-        typename Context = StdContext, typename Func,
-        typename R = typename std::result_of<Func()>::type,
-        typename = typename std::enable_if<std::is_same<R, void>::value>::type>
+        typename _ = typename std::enable_if<std::is_void<R>::value, R>::type>
     void perform(Func &&act) {
-        auto aret = new AsyncReturn<void, Context>();
-        DEFER(delete aret);
-        auto work = [act, aret, this] {
-            if (!aret->gotit) {
-                act();
-                aret->set_result();
-            }
-            return 0;
-        };
-        Callback<> cb(work);
-        issue(cb);
-        return aret->wait_for_result();
+        AsyncOp<Context> aop;
+        aop.call(e, [&] {
+            act();
+            aop.done();
+        });
+    }
+
+    template <typename Context = StdContext, typename Func>
+    void async_perform(Func &&act) {
+        AsyncOp<Context> aop;
+        aop.call(e, [&] {
+            // copy the work, so when context is dropped
+            // still able to call
+            auto copy_act = std::forward<Func>(act);
+            aop.done();
+            // till here, `act` may be destructed
+            // call the copied `copy_act`
+            copy_act();
+        });
     }
 
 protected:
-    using CBList =
-        typename boost::lockfree::spsc_queue<Callback<>,
-                                        boost::lockfree::capacity<32UL * 1024>>;
-    std::thread *th = nullptr;
-    photon::thread *pth = nullptr;
-    EventLoop *loop = nullptr;
-    CBList queue;
-    photon::ThreadPoolBase *pool;
-    std::mutex mutex;
+    static constexpr int64_t kCondWaitMaxTime = 1000L * 1000;
 
-    void issue(Callback<> act) {
-        {
-            std::lock_guard<std::mutex> lock(mutex);
-            while (!queue.push(act)) YieldOp::yield();
-        }
-        photon::thread_interrupt(loop->loop_thread(), EINPROGRESS);
-    }
-
-    int wait_for_event(EventLoop *) {
-        if (!queue.empty()) return 1;
-        auto th = photon::CURRENT;
-        int ret = photon::thread_usleep_defer(-1UL, [&] {
-            if (!queue.empty()) photon::thread_interrupt(th, EINPROGRESS);
-        });
-        if (ret < 0) {
-            ERRNO err;
-            if (err.no == EINPROGRESS)
-                return 1;
-            else if (err.no == EINTR)
-                return -1;
-        }
-        return 0;
-    }
-
-    static void *do_event(void *arg) {
-        auto a = (Callback<> *)arg;
-        auto task = *a;
-        delete a;
-        task();
-        return nullptr;
-    }
-
-    int on_event(EventLoop *) {
-        while (!queue.empty()) {
-            auto args = new Callback<>;
-            auto &task = *args;
-            if (queue.pop(task)) {
-                pool->thread_create(&HybridEaseExecutor::do_event,
-                                    (void *)args);
+    template <typename Context>
+    struct AsyncOp {
+        int err;
+        std::atomic_bool gotit;
+        typename Context::Mutex mtx;
+        typename Context::Cond cond;
+        AsyncOp() : gotit(false), cond(mtx) {}
+        void wait_for_completion() {
+            typename Context::CondLock lock(mtx);
+            while (!gotit.load(std::memory_order_acquire)) {
+                cond.wait_for(lock, kCondWaitMaxTime);
             }
+            if (err) errno = err;
         }
-        return 0;
-    }
-
-    void do_loop() {
-        photon::init();
-        photon::fd_events_init();
-        pth = photon::CURRENT;
-        LOG_INFO("worker start");
-        pool = photon::new_thread_pool(32);
-        loop->async_run();
-        photon::thread_usleep(-1);
-        LOG_INFO("worker finished");
-        while (!queue.empty()) photon::thread_usleep(1000);
-        delete loop;
-        photon::delete_thread_pool(pool);
-        pool = nullptr;
-        photon::fd_events_fini();
-        photon::fini();
-    }
+        void done(int error_number = 0) {
+            typename Context::CondLock lock(mtx);
+            err = error_number;
+            gotit.store(true, std::memory_order_release);
+            cond.notify_all();
+        }
+        template <typename Func>
+        void call(ExecutorImpl *e, Func &&act) {
+            issue(e, act);
+            wait_for_completion();
+        }
+    };
 };
-}  // namespace Executor
+
+}  // namespace photon

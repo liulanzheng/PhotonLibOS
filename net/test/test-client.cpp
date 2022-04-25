@@ -1,23 +1,41 @@
-#include "common/alog.h"
-#include "io/fd-events.h"
-#include "thread/thread.h"
-#include "common/timeout.h"
-#include "net/socket.h"
-#include "net/tlssocket.h"
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+#include <photon/common/alog.h>
+#include <photon/io/fd-events.h>
+#include <photon/thread/thread.h>
+#include <photon/common/timeout.h>
+#include <photon/net/socket.h>
+#include <photon/net/tlssocket.h>
+
+using namespace photon;
 
 int main(int argc, char** argv) {
     photon::init();
     photon::fd_events_init();
-    Net::ssl_init("net/test/cert.pem", "net/test/key.pem", "Just4Test");
+    net::ssl_init("net/test/cert.pem", "net/test/key.pem", "Just4Test");
     DEFER({
-        Net::ssl_fini();
+        net::ssl_fini();
         photon::fd_events_fini();
         photon::fini();
     });
-    auto cli = Net::new_tls_socket_client();
+    auto cli = net::new_tls_socket_client();
     DEFER(delete cli);
     char buff[4096];
-    auto tls = cli->connect(Net::EndPoint{Net::IPAddr("127.0.0.1"), 31526});
+    auto tls = cli->connect(net::EndPoint{net::IPAddr("127.0.0.1"), 31526});
     if (!tls) {
         LOG_ERRNO_RETURN(0, -1, "failed to connect");
     }

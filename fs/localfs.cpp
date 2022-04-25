@@ -1,3 +1,19 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #include "localfs.h"
 #include <string.h>
 #include <stdio.h>
@@ -26,12 +42,11 @@
 #include "virtual-file.h"
 #include "fiemap.h"
 #include "subfs.h"
-#include "io/aio-wrapper.h"
-#include "common/alog.h"
-#include "thread/thread.h"
-#include "io/iouring-wrapper.h"
+#include <photon/io/aio-wrapper.h>
+#include <photon/common/alog.h>
+#include <photon/thread/thread.h>
+#include <photon/io/iouring-wrapper.h>
 
-using namespace photon;
 
 // UN-interrupted syscall
 #define UISysCall(call) ([&](){     \
@@ -52,7 +67,8 @@ using namespace photon;
 #undef UISysCall    // no longer needed
 #define UISysCall(call) call
 
-namespace FileSystem
+namespace photon {
+namespace fs
 {
     class BaseFileAdaptor : public VirtualFile, public IFileXAttr
     {
@@ -555,4 +571,5 @@ namespace FileSystem
 
         return new_localfile_adaptor(fd, io_engine_type);
     }
+}
 }

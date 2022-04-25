@@ -1,23 +1,42 @@
-#define protected public
-#include "thread.h"
-#include "timer.h"
-#include "../io/fd-events.h"
-#undef protected
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+#include <unistd.h>
+#include <sys/time.h>
+#include <sys/mman.h>
 #include <memory.h>
-#include <assert.h>
-#include <errno.h>
+
+#include <cstddef>
+#include <cassert>
+#include <cerrno>
 #include <vector>
 #include <new>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
-#include <unistd.h>
-#include <sys/time.h>
-#include <sys/mman.h>
-#include <stddef.h>
+
+#define protected public
+#include "thread.h"
+#include "timer.h"
 #include "list.h"
-#include "../common/timeout.h"
-#include "../common/alog.h"
+#undef protected
+
+#include <photon/io/fd-events.h>
+#include <photon/common/timeout.h>
+#include <photon/common/alog.h>
 
 /* notes on the scheduler:
 
@@ -322,7 +341,7 @@ namespace photon
     inline void thread::dequeue_run_atomic(thread* current) // invoked by this vcpu
     {
         assert("this->lock is locked");
-        assert(state == states::WAITING);
+        assert(state == states::SLEEPING);
         assert(current->vcpu == this->vcpu);
         dequeue_ready_atomic();
         current->insert_tail(this);
@@ -330,7 +349,7 @@ namespace photon
     inline void thread::dequeue_standby_atomic()   // invoked by other vcpu
     {
         assert("this->lock is locked");
-        assert(state == states::WAITING);
+        assert(state == states::SLEEPING);
         dequeue_ready_atomic(states::STANDBY);
         vcpu->move_to_standbyq_atomic(this);
     }
@@ -519,7 +538,7 @@ namespace photon
             if (th->ts_wakeup > now) break;
             SCOPED_LOCK(th->lock);
             sleepq.pop_front();
-            if (th->state == states::WAITING)
+            if (th->state == states::SLEEPING)
             {
                 th->dequeue_run_atomic(current);
                 count++;
@@ -584,7 +603,7 @@ namespace photon
         prefetch_context(t0, next);
         t0->ts_wakeup = sat_add(now, useconds);
         t0->vcpu->sleepq.push(t0);
-        t0->state = states::WAITING;
+        t0->state = states::SLEEPING;
         return {t0, next};
     }
 
@@ -670,7 +689,7 @@ namespace photon
         int error_number, thread* current = CURRENT)
     {
         vcpu_t* vcpu;
-        assert(th && th->state == states::WAITING);
+        assert(th && th->state == states::SLEEPING);
         assert("th->lock is locked");
         assert(th != current);
         th->error_number = error_number;
@@ -685,9 +704,9 @@ namespace photon
     {
         if (!th)
             LOG_ERROR_RETURN(EINVAL, , "invalid parameter");
-        if (th->state != states::WAITING) return;
+        if (th->state != states::SLEEPING) return;
         SCOPED_LOCK(th->lock);
-        if (th->state != states::WAITING) return;
+        if (th->state != states::SLEEPING) return;
 
         prelocked_thread_interrupt(th, error_number);
     }
@@ -876,7 +895,7 @@ namespace photon
             LOG_ERROR_RETURN(EINVAL, -1, "invalid thread");
 
         th->shutting_down = flag;
-        if (th->state == states::WAITING)
+        if (th->state == states::SLEEPING)
             thread_interrupt(th, EPERM);
         return 0;
     }

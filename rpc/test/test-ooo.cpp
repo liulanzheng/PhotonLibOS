@@ -1,21 +1,38 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #include <vector>
 #include <random>
 #include <queue>
+#include <thread>
 #include <algorithm>
 
 #include <gtest/gtest.h>
 #include <gflags/gflags.h>
+#include <photon/common/alog.h>
 
 #define private public
 #define protected public
+#include "../out-of-order-execution.cpp"
+#include "../../thread/thread.cpp"
+#include <photon/thread/thread11.h>
 
-#include "rpc/out-of-order-execution.cpp"
-#include "common/alog.h"
-#include "thread/thread11.h"
-#include "thread/thread.cpp"
-
-using namespace photon;
 using namespace std;
+using namespace photon;
+using namespace photon::rpc;
 
 DEFINE_int32(vcpus, 1, "total # of vCPUs");
 
@@ -279,7 +296,7 @@ void twice_issue(OutOfOrder_Execution_Engine *engine) {
     ooo_wait_completion(args);
 }
 
-void auto_gen_tag_overwhelm(photon::OutOfOrder_Execution_Engine *engine) {
+void auto_gen_tag_overwhelm(OutOfOrder_Execution_Engine *engine) {
     OutOfOrderContext args;
     args.engine = engine;
     args.do_issue.bind(nullptr, null_op);

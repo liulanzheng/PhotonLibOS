@@ -1,3 +1,19 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #pragma once
 
 #include <sys/ioctl.h>
@@ -6,10 +22,11 @@
 #include <string>
 #include <utility>
 
-#include "photon/common/callback.h"
-#include "photon/fs/filesystem.h"
+#include <photon/common/callback.h>
+#include <photon/fs/filesystem.h>
 
-namespace FileSystem {
+namespace photon {
+namespace fs {
 enum HTTPFileFlags {
     HTTP_HEADER = 0xF01,  // (const char*, const char*) ... for header
     HTTP_URL_PARAM =
@@ -56,4 +73,5 @@ IFileSystem* new_httpfs_v2(bool default_https = false,
 IFile* new_httpfile_v2(const char* url, IFileSystem* httpfs = nullptr,
                        uint64_t conn_timeout = -1UL,
                        uint64_t stat_expire = -1UL);
-}  // namespace FileSystem
+}  // namespace fs
+}

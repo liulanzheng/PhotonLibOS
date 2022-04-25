@@ -1,3 +1,5 @@
+# $$PHOTON_UNPUBLISHED_FILE$$
+
 targets = {
     'test-stream-messenger' : cpp_fast_test(
         testing = [':test-stream-messenger'],

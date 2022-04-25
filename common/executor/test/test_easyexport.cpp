@@ -1,14 +1,32 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #include <fcntl.h>
 #include <gtest/gtest.h>
 
-#include "fs/async_filesystem.h"
-#include "fs/exportfs.h"
-#include "fs/filesystem.h"
-#include "fs/localfs.h"
-#include "io/fd-events.h"
-#include "thread/thread.h"
-#include "common/executor/executor.h"
-#include "common/executor/easylock.h"
+#include <photon/fs/async_filesystem.h>
+#include <photon/fs/exportfs.h>
+#include <photon/fs/filesystem.h>
+#include <photon/fs/localfs.h>
+#include <photon/io/fd-events.h>
+#include <photon/thread/thread.h>
+#include <photon/common/executor/executor.h>
+#include <photon/common/executor/easylock.h>
+
+using namespace photon;
 
 class EasyCoroutinePool {
     easy_uthread_control_t euc;
@@ -47,7 +65,7 @@ public:
 easy_atomic_t count;
 
 int ftask(easy_baseth_t *, easy_task_t *task) {
-    auto fs = (FileSystem::IFileSystem *)(task->user_data);
+    auto fs = (fs::IFileSystem *)(task->user_data);
     auto file = fs->open("/etc/hosts", O_RDONLY);
     if (file == nullptr) {
         return EASY_ABORT;
@@ -60,7 +78,7 @@ int ftask(easy_baseth_t *, easy_task_t *task) {
     return EASY_OK;
 }
 
-static FileSystem::IFileSystem *fs = nullptr;
+static fs::IFileSystem *g_fs = nullptr;
 
 TEST(easy_performer, test) {
     easy_atomic_set(count, 10000);
@@ -68,23 +86,23 @@ TEST(easy_performer, test) {
     std::thread([]() {
         photon::init();
         photon::fd_events_init();
-        FileSystem::exportfs_init();
+        fs::exportfs_init();
 
-        fs = FileSystem::export_as_easy_sync_fs(
-            FileSystem::new_localfs_adaptor());
-        DEFER(delete fs);
+        g_fs = fs::export_as_easy_sync_fs(
+            fs::new_localfs_adaptor());
+        DEFER(delete g_fs);
 
         while (count) {
             photon::thread_usleep(100UL);
         }
 
-        FileSystem::exportfs_fini();
+        fs::exportfs_fini();
         photon::fd_events_fini();
     }).detach();
 
     EasyCoroutinePool ecp;
 
-    while (fs == nullptr) {
+    while (g_fs == nullptr) {
         std::this_thread::sleep_for(std::chrono::microseconds(100));
     }
 
@@ -92,7 +110,7 @@ TEST(easy_performer, test) {
 
     auto start = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < 10000; i++) {
-        ecp.runtask(&ftask, (void *)fs, i);
+        ecp.runtask(&ftask, (void *)g_fs, i);
     }
     while (count) {
         std::this_thread::sleep_for(std::chrono::microseconds(100));

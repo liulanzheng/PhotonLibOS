@@ -1,3 +1,19 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #include "server.h"
 #include <netinet/tcp.h>
 #include <chrono>
@@ -6,17 +22,17 @@
 #include <sys/statvfs.h>
 #include <sys/vfs.h>
 #include <queue>
-#include "thread/thread11.h"
-#include "io/signalfd.h"
-#include "net/socket.h"
-#include "common/alog-stdstring.h"
-#include "io/fd-events.h"
-#include "common/iovector.h"
-#include "common/estring.h"
-#include "fs/filesystem.h"
-#include "fs/httpfs/httpfs.h"
-#include "fs/range-split.h"
-#include "common/expirecontainer.h"
+#include <photon/thread/thread11.h>
+#include <photon/io/signalfd.h>
+#include <photon/net/socket.h>
+#include <photon/common/alog-stdstring.h>
+#include <photon/io/fd-events.h>
+#include <photon/common/iovector.h>
+#include <photon/common/estring.h>
+#include <photon/fs/filesystem.h>
+#include <photon/fs/httpfs/httpfs.h>
+#include <photon/fs/range-split.h>
+#include <photon/common/expirecontainer.h>
 #include "client.h"
 #include <boost/beast/http/buffer_body.hpp>
 #include <boost/beast/http/dynamic_body.hpp>
@@ -30,8 +46,9 @@
 #include <boost/beast/http/error.hpp>
 #include <boost/beast/http/read.hpp>
 
-namespace Net {
-namespace HTTP {
+namespace photon {
+namespace net {
+
 constexpr static uint64_t KminFileLife = 30 * 1000UL * 1000UL;
 using beast_string_view =
     boost::basic_string_view<char, struct std::char_traits<char>>;
@@ -220,9 +237,9 @@ public:
 
 class EaseTCPStream {
 public:
-    Net::ISocketStream* sock;
+    net::ISocketStream* sock;
 
-    explicit EaseTCPStream(Net::ISocketStream* sock) : sock(sock) {}
+    explicit EaseTCPStream(net::ISocketStream* sock) : sock(sock) {}
 
     template <class MutableBufferSequence>
     typename std::enable_if<!has_data<MutableBufferSequence>::value,
@@ -536,24 +553,24 @@ public:
     photon::join_handle* th = nullptr;
     HTTPServerHandler m_handler;
     uint64_t connection_idx = 0, working_thread_cnt = 0;
-    std::map<uint64_t, Net::ISocketStream*> connection_map;
+    std::map<uint64_t, net::ISocketStream*> connection_map;
     HTTPServerImpl(uint16_t port) : m_port(port) {}
     ~HTTPServerImpl() {
         Stop();
     }
 
-    void run(uint16_t port, Net::IPAddr ip) {
+    void run(uint16_t port, net::IPAddr ip) {
         working_thread_cnt++;
         DEFER(working_thread_cnt--);
         if (status != Status::ready) {
             return;
         }
-        auto sock = Net::new_tcp_socket_server();
+        auto sock = net::new_tcp_socket_server();
         DEFER(delete (sock));
         sock->timeout(1000UL * 1000);
         RETURN_IF_FAILED(sock->setsockopt(IPPROTO_TCP, TCP_NODELAY, 1L));
         RETURN_IF_FAILED(sock->setsockopt(SOL_SOCKET, SO_REUSEPORT, 1));
-        RETURN_IF_FAILED(sock->bind(m_port, Net::IPAddr {}));
+        RETURN_IF_FAILED(sock->bind(m_port, net::IPAddr {}));
         RETURN_IF_FAILED(sock->listen(1024));
         status = Status::running;
         sock->set_handler({this, &HTTPServerImpl::control_handler});
@@ -565,7 +582,7 @@ public:
         status = Status::ready;
     }
 
-    int control_handler(Net::ISocketStream* sock) {
+    int control_handler(net::ISocketStream* sock) {
 
         auto idx = connection_idx++;
         LOG_DEBUG("enter control handler `", idx);
@@ -600,7 +617,7 @@ public:
 
     bool Launch() override{
         th = photon::thread_enable_join(photon::thread_create11(
-            &HTTPServerImpl::run, this, m_port, Net::IPAddr()));
+            &HTTPServerImpl::run, this, m_port, net::IPAddr()));
         while (status == Status::ready) photon::thread_usleep(1000);
         return status != Status::failure;
     }
@@ -671,7 +688,7 @@ public:
             FailedResp(resp);
             LOG_ERROR_RETURN(0, RetType::failed, "open file ` failed", target);
         }
-        if (!query.empty()) file->ioctl(FileSystem::HTTP_URL_PARAM, query.c_str());
+        if (!query.empty()) file->ioctl(fs::HTTP_URL_PARAM, query.c_str());
         auto range = req.Range();
         struct stat buf;
         if (file->fstat(&buf) < 0) {

@@ -1,4 +1,5 @@
 #!/bin/bash
+# $$PHOTON_UNPUBLISHED_FILE$$
 
 set -x
 

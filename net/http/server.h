@@ -1,17 +1,36 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #pragma once
 #include <cinttypes>
 #include <vector>
-#include "photon/common/object.h"
-#include "photon/common/callback.h"
-#include "photon/common/string_view.h"
-#include "photon/common/iovector.h"
-#include "photon/net/http/verb.h"
-namespace FileSystem {
+#include <photon/common/object.h>
+#include <photon/common/callback.h>
+#include <photon/common/string_view.h>
+#include <photon/common/iovector.h>
+#include <photon/net/http/verb.h>
+
+namespace photon {
+namespace fs {
     class IFileSystem;
 }
-namespace Net {
+}
 
-namespace HTTP {
+namespace photon {
+namespace net {
 
 using HeaderLists = std::vector<std::pair<std::string_view, std::string_view>>;
 enum class Protocol {
@@ -100,6 +119,5 @@ HTTPHandler* new_reverse_proxy_handler(Director cb_Director,
 MuxHandler* new_mux_handler();
 HTTPServer* new_http_server(uint16_t port);
 
-} // end of namespace HTTP
-
-} // end of namespace Net
+} // end of namespace net
+}

@@ -1,3 +1,19 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #include "socket.h"
 
 #include <inttypes.h>
@@ -10,22 +26,23 @@
 #include <unistd.h>
 #include <memory>
 
-#include "photon/common/alog.h"
-#include "photon/common/iovector.h"
-#include "photon/io/fd-events.h"
-#include "photon/thread/thread11.h"
-#include "photon/common/utility.h"
-#include "photon/net/abstract_socket.h"
-#include "photon/net/basic_socket.h"
-#include "photon/net/tlssocket.h"
-#include "photon/net/utils.h"
-#include "photon/net/zerocopy.h"
+#include <photon/common/alog.h>
+#include <photon/common/iovector.h>
+#include <photon/io/fd-events.h>
+#include <photon/thread/thread11.h>
+#include <photon/common/utility.h>
+#include <photon/net/abstract_socket.h>
+#include <photon/net/basic_socket.h>
+#include <photon/net/tlssocket.h>
+#include <photon/net/utils.h>
+#include <photon/net/zerocopy.h>
 
 #ifndef SO_ZEROCOPY
 #define SO_ZEROCOPY 60
 #endif
 
-namespace Net {
+namespace photon {
+namespace net {
 
 bool ISocketStream::skip_read(size_t count) {
     if (!count) return true;
@@ -65,7 +82,7 @@ public:
     KernelSocket(int socket_family, bool autoremove, bool nonblocking = true)
         : m_socket_family(socket_family), m_autoremove(autoremove) {
         if (nonblocking) {
-            fd = Net::socket(socket_family, SOCK_STREAM, 0);
+            fd = net::socket(socket_family, SOCK_STREAM, 0);
         } else {
             fd = ::socket(socket_family, SOCK_STREAM, 0);
         }
@@ -144,11 +161,11 @@ public:
     }
     virtual ssize_t read(void* buf, size_t count) override {
         photon::scoped_lock lock(m_rmutex);
-        return Net::read_n(fd, buf, count, m_timeout);
+        return net::read_n(fd, buf, count, m_timeout);
     }
     virtual ssize_t write(const void* buf, size_t count) override {
         photon::scoped_lock lock(m_wmutex);
-        return Net::write_n(fd, buf, count, m_timeout);
+        return net::write_n(fd, buf, count, m_timeout);
     }
     virtual ssize_t readv(const struct iovec* iov, int iovcnt) override {
         SmartCloneIOV<32> ciov(iov, iovcnt);
@@ -156,7 +173,7 @@ public:
     }
     virtual ssize_t readv_mutable(struct iovec* iov, int iovcnt) override {
         photon::scoped_lock lock(m_rmutex);
-        return Net::readv_n(fd, iov, iovcnt, m_timeout);
+        return net::readv_n(fd, iov, iovcnt, m_timeout);
     }
     virtual ssize_t writev(const struct iovec* iov, int iovcnt) override {
         SmartCloneIOV<32> ciov(iov, iovcnt);
@@ -164,37 +181,37 @@ public:
     }
     virtual ssize_t writev_mutable(struct iovec* iov, int iovcnt) override {
         photon::scoped_lock lock(m_wmutex);
-        return Net::writev_n(fd, iov, iovcnt, m_timeout);
+        return net::writev_n(fd, iov, iovcnt, m_timeout);
     }
     virtual ssize_t recv(void* buf, size_t count) override {
         photon::scoped_lock lock(m_rmutex);
-        return Net::read(fd, buf, count, m_timeout);
+        return net::read(fd, buf, count, m_timeout);
     }
     virtual ssize_t recv(const struct iovec* iov, int iovcnt) override {
         photon::scoped_lock lock(m_rmutex);
-        return Net::readv(fd, iov, iovcnt, m_timeout);
+        return net::readv(fd, iov, iovcnt, m_timeout);
     }
     virtual ssize_t send(const void* buf, size_t count) override {
         photon::scoped_lock lock(m_wmutex);
-        return Net::write(fd, buf, count, m_timeout);
+        return net::write(fd, buf, count, m_timeout);
     }
     virtual ssize_t send(const struct iovec* iov, int iovcnt) override {
         photon::scoped_lock lock(m_wmutex);
-        return Net::writev(fd, iov, iovcnt, m_timeout);
+        return net::writev(fd, iov, iovcnt, m_timeout);
     }
 
     virtual ssize_t send2(const void* buf, size_t count, int flag) override {
         photon::scoped_lock lock(m_wmutex);
-        return Net::send2_n(fd, (void*)buf, (size_t)count, flag, m_timeout);
+        return net::send2_n(fd, (void*)buf, (size_t)count, flag, m_timeout);
     }
     virtual ssize_t send2(const struct iovec* iov, int iovcnt, int flag) override {
         photon::scoped_lock lock(m_wmutex);
-        return Net::sendv2_n(fd, (struct iovec*)iov, (int)iovcnt, flag, m_timeout);
+        return net::sendv2_n(fd, (struct iovec*)iov, (int)iovcnt, flag, m_timeout);
     }
 
     virtual ssize_t sendfile(int in_fd, off_t offset, size_t count) override {
         photon::scoped_lock lock(m_wmutex);
-        return Net::sendfile_n(fd, in_fd, &offset, count);
+        return net::sendfile_n(fd, in_fd, &offset, count);
     }
     virtual uint64_t timeout() override { return m_timeout; }
     virtual void timeout(uint64_t tm) override { m_timeout = tm; }
@@ -213,7 +230,7 @@ public:
     using KernelSocket::KernelSocket;
 
     int (*_do_connect)(int fd, const struct sockaddr*,
-        socklen_t addrlen, uint64_t timeout) = &Net::connect;
+        socklen_t addrlen, uint64_t timeout) = &net::connect;
 
     KernelSocketStream* (*_ctor2)(int socket_family, bool autoremove) =
         &socket_ctor<KernelSocketStream>;
@@ -275,7 +292,7 @@ public:
 
 class ZeroCopySocketStream : public KernelSocketStream {
 protected:
-    Net::ZerocopyEventEntry* m_event_entry;
+    net::ZerocopyEventEntry* m_event_entry;
     uint32_t m_num_calls;
     bool m_socket_error;
 
@@ -347,7 +364,7 @@ protected:
 public:
     using KernelSocket::KernelSocket;
     int (*_do_accept)(int fd, struct sockaddr *addr,
-        socklen_t *addrlen, uint64_t timeout) = &Net::accept;
+        socklen_t *addrlen, uint64_t timeout) = &net::accept;
 
     KernelSocketStream* (*_ctor1)(int fd) =
         &socket_ctor<KernelSocketStream>;
@@ -441,14 +458,14 @@ public:
         photon::scoped_lock lock(m_rmutex);
         uint64_t timeout = m_timeout;
         auto cb = LAMBDA_TIMEOUT(photon::iouring_pread(fd, buf, count, 0, timeout));
-        return Net::doio_n(buf, count, cb);
+        return net::doio_n(buf, count, cb);
     }
 
     ssize_t write(const void* buf, size_t count) override {
         photon::scoped_lock lock(m_wmutex);
         uint64_t timeout = m_timeout;
         auto cb = LAMBDA_TIMEOUT(photon::iouring_pwrite(fd, buf, count, 0, timeout));
-        return Net::doio_n((void*&) buf, count, cb);
+        return net::doio_n((void*&) buf, count, cb);
     }
 
     ssize_t readv(const iovec* iov, int iovcnt) override {
@@ -457,7 +474,7 @@ public:
         iovector_view view(clone.ptr, iovcnt);
         uint64_t timeout = m_timeout;
         auto cb = LAMBDA_TIMEOUT(photon::iouring_preadv(fd, view.iov, view.iovcnt, 0, timeout));
-        return Net::doiov_n(view, cb);
+        return net::doiov_n(view, cb);
     }
 
     ssize_t writev(const iovec* iov, int iovcnt) override {
@@ -466,7 +483,7 @@ public:
         iovector_view view(clone.ptr, iovcnt);
         uint64_t timeout = m_timeout;
         auto cb = LAMBDA_TIMEOUT(photon::iouring_pwritev(fd, view.iov, view.iovcnt, 0, timeout));
-        return Net::doiov_n(view, cb);
+        return net::doiov_n(view, cb);
     }
 
     ssize_t recv(void* buf, size_t count) override {
@@ -489,7 +506,7 @@ public:
         photon::scoped_lock lock(m_wmutex);
         uint64_t timeout = m_timeout;
         auto cb = LAMBDA_TIMEOUT(photon::iouring_send(fd, buf, count, flag, timeout));
-        return Net::doio_n((void*&) buf, count, cb);
+        return net::doio_n((void*&) buf, count, cb);
     }
 
     // fully sendmsg
@@ -498,7 +515,7 @@ public:
         iovector_view view((iovec*) iov, iovcnt);
         uint64_t timeout = m_timeout;
         auto cb = LAMBDA_TIMEOUT(do_sendmsg(fd, view.iov, view.iovcnt, flag, timeout));
-        return Net::doiov_n(view, cb);
+        return net::doiov_n(view, cb);
     }
 
 private:
@@ -539,11 +556,11 @@ LogBuffer& operator<<(LogBuffer& log, const EndPoint ep) {
 }
 
 LogBuffer& operator<<(LogBuffer& log, const in_addr& iaddr) {
-    return log << Net::IPAddr(ntohl(iaddr.s_addr));
+    return log << net::IPAddr(ntohl(iaddr.s_addr));
 }
 
 LogBuffer& operator<<(LogBuffer& log, const sockaddr_in& addr) {
-    return log << Net::EndPoint(addr);
+    return log << net::EndPoint(addr);
 }
 
 LogBuffer& operator<<(LogBuffer& log, const sockaddr& addr) {
@@ -588,4 +605,5 @@ extern "C" ISocketServer* new_uds_server(bool autoremove) {
     return new_socketcs<KernelSocketServer>(AF_UNIX, autoremove, "UNIX domain socket server");
 }
 
-}  // namespace Net
+}  // namespace net
+}

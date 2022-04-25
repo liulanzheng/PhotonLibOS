@@ -1,3 +1,19 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #include <sys/time.h>
 #include <cstdlib>
 #include <fcntl.h>
@@ -6,16 +22,18 @@
 #include <gtest/gtest.h>
 #include <gflags/gflags.h>
 
-#include "io/fd-events.h"
-#include "io/aio-wrapper.h"
-#include "io/signalfd.h"
-#include "fs/localfs.h"
-#include "fs/filesystem.h"
-#include "common/checksum/crc32c.h"
-#include "common/io-alloc.h"
-#include "thread/thread11.h"
-#include "common/alog.h"
-#include "net/socket.h"
+#include <photon/io/fd-events.h>
+#include <photon/io/aio-wrapper.h>
+#include <photon/io/signalfd.h>
+#include <photon/fs/localfs.h>
+#include <photon/fs/filesystem.h>
+#include <photon/common/checksum/crc32c.h>
+#include <photon/common/io-alloc.h>
+#include <photon/thread/thread11.h>
+#include <photon/common/alog.h>
+#include <photon/net/socket.h>
+
+using namespace photon;
 
 // Common parameters
 bool stop_test = false;
@@ -86,7 +104,7 @@ static uint64_t random64() {
     return (r1 << 32) + r2;
 }
 
-static void read_integrity(const off_t max_offset, FileSystem::IFile* src_file, FileSystem::IFile* dst_file,
+static void read_integrity(const off_t max_offset, fs::IFile* src_file, fs::IFile* dst_file,
                            IOAlloc* io_alloc) {
     void* buf_src = io_alloc->alloc(max_io_size);
     DEFER(io_alloc->dealloc(buf_src));
@@ -109,8 +127,8 @@ static void read_integrity(const off_t max_offset, FileSystem::IFile* src_file, 
             FAIL();
         }
 
-        auto crc_src = FileSystem::crc32::crc32c(buf_src, count);
-        auto crc_dst = FileSystem::crc32::crc32c(buf_dst, count);
+        auto crc_src = crc32c(buf_src, count);
+        auto crc_dst = crc32c(buf_dst, count);
         if (crc_src != crc_dst) {
             FAIL() << "crc mismatch";
         }
@@ -118,12 +136,12 @@ static void read_integrity(const off_t max_offset, FileSystem::IFile* src_file, 
     }
 }
 
-static void write_integrity(const off_t max_offset, FileSystem::IFile* src_file, FileSystem::IFile* dst_file,
+static void write_integrity(const off_t max_offset, fs::IFile* src_file, fs::IFile* dst_file,
                             IOAlloc* io_alloc) {
     void* buf = io_alloc->alloc(max_io_size);
     DEFER(io_alloc->dealloc(buf));
 
-    auto rand_file = FileSystem::open_localfile_adaptor("/dev/urandom", O_RDONLY);
+    auto rand_file = fs::open_localfile_adaptor("/dev/urandom", O_RDONLY);
     DEFER(delete rand_file);
 
     while (!stop_test) {
@@ -142,7 +160,7 @@ static void write_integrity(const off_t max_offset, FileSystem::IFile* src_file,
     }
 }
 
-static void copy_integrity(const off_t max_offset, FileSystem::IFile* src_file, FileSystem::IFile* dst_file,
+static void copy_integrity(const off_t max_offset, fs::IFile* src_file, fs::IFile* dst_file,
                            IOAlloc* io_alloc) {
     void* buf = io_alloc->alloc(max_io_size);
     DEFER(io_alloc->dealloc(buf));
@@ -163,7 +181,7 @@ static void copy_integrity(const off_t max_offset, FileSystem::IFile* src_file, 
     }
 }
 
-static void write_perf(const off_t max_offset, FileSystem::IFile* src_file, IOAlloc* io_alloc) {
+static void write_perf(const off_t max_offset, fs::IFile* src_file, IOAlloc* io_alloc) {
     void* buf = io_alloc->alloc(max_io_size);
     DEFER(io_alloc->dealloc(buf));
 
@@ -179,7 +197,7 @@ static void write_perf(const off_t max_offset, FileSystem::IFile* src_file, IOAl
     }
 }
 
-static void read_perf(const off_t max_offset, FileSystem::IFile* src_file, IOAlloc* io_alloc) {
+static void read_perf(const off_t max_offset, fs::IFile* src_file, IOAlloc* io_alloc) {
     void* buf = io_alloc->alloc(max_io_size);
     DEFER(io_alloc->dealloc(buf));
 
@@ -210,14 +228,14 @@ static void do_io_test(IOTestType type) {
     if (type == IOTestType::RAND_READ || type == IOTestType::RAND_COPY || type == IOTestType::RAND_READ_PERF) {
         flags = O_RDONLY;
     }
-    auto src_file = FileSystem::open_localfile_adaptor(FLAGS_src.c_str(), flags, 0644, FileSystem::ioengine_iouring);
+    auto src_file = fs::open_localfile_adaptor(FLAGS_src.c_str(), flags, 0644, fs::ioengine_iouring);
     ASSERT_NE(src_file, nullptr);
     DEFER(delete src_file);
 
-    auto dst_engine = (type == IOTestType::RAND_COPY) ? FileSystem::ioengine_iouring : FileSystem::ioengine_psync;
-    FileSystem::IFile* dst_file = nullptr;
+    auto dst_engine = (type == IOTestType::RAND_COPY) ? fs::ioengine_iouring : fs::ioengine_psync;
+    fs::IFile* dst_file = nullptr;
     if (type != IOTestType::RAND_READ_PERF && type != IOTestType::RAND_WRITE_PERF) {
-        dst_file = FileSystem::open_localfile_adaptor(FLAGS_dst.c_str(), O_RDWR, 0644, dst_engine);
+        dst_file = fs::open_localfile_adaptor(FLAGS_dst.c_str(), O_RDWR, 0644, dst_engine);
         ASSERT_NE(dst_file, nullptr);
     }
     DEFER(delete dst_file);
@@ -281,7 +299,7 @@ TEST(integrity, DISABLED_copy) {
 // fsync and fdatasync
 TEST(integrity, DISABLED_fsync) {
     const char* str = "1234";
-    auto file = FileSystem::open_localfile_adaptor(FLAGS_dst.c_str(), O_RDWR, 0644, FileSystem::ioengine_iouring);
+    auto file = fs::open_localfile_adaptor(FLAGS_dst.c_str(), O_RDWR, 0644, fs::ioengine_iouring);
     ASSERT_NE(file, nullptr);
     auto ret = file->write(str, strlen(str));
     ASSERT_EQ(ret, (int) strlen(str));
@@ -294,7 +312,7 @@ TEST(integrity, DISABLED_fsync) {
 }
 
 TEST(integrity, DISABLED_open_close_mkdir) {
-    auto fs = FileSystem::new_localfs_adaptor("", FileSystem::ioengine_iouring);
+    auto fs = fs::new_localfs_adaptor("", fs::ioengine_iouring);
     ASSERT_NE(fs, nullptr);
     DEFER(delete fs);
 
@@ -565,8 +583,8 @@ TEST(echo_server, DISABLED_client) {
     auto qps_th = photon::thread_create11(show_latency_loop);
     photon::thread_enable_join(qps_th);
 
-    Net::EndPoint ep{Net::IPAddr(FLAGS_ip.c_str()), (uint16_t) FLAGS_port};
-    auto cli = Net::new_socket_client_iouring();
+    net::EndPoint ep{net::IPAddr(FLAGS_ip.c_str()), (uint16_t) FLAGS_port};
+    auto cli = net::new_socket_client_iouring();
     auto conn = cli->connect(ep);
     ASSERT_NE(conn, nullptr);
 
@@ -612,7 +630,7 @@ TEST(echo_server, DISABLED_client) {
     LOG_INFO("qps thread joined");
 }
 
-void run_echo_server(Net::ISocketServer* server) {
+void run_echo_server(net::ISocketServer* server) {
     photon::sync_signal_init();
     DEFER(photon::sync_signal_fini());
     photon::sync_signal(SIGTERM, &handle_signal);
@@ -633,10 +651,10 @@ void run_echo_server(Net::ISocketServer* server) {
     photon::thread_create11(show_qps_loop);
     photon::thread_create11(&decltype(stop_watcher)::operator(), &stop_watcher);
 
-    auto handle = [&](Net::ISocketStream* arg) -> int {
+    auto handle = [&](net::ISocketStream* arg) -> int {
         LOG_TEMP("Connection established");
         DEFER(LOG_TEMP("Connection shutdown"));
-        auto sock = (Net::ISocketStream*) arg;
+        auto sock = (net::ISocketStream*) arg;
         void* buf = malloc(FLAGS_buf_size);
         DEFER(free(buf));
 
@@ -655,18 +673,18 @@ void run_echo_server(Net::ISocketServer* server) {
         return 0;
     };
     server->set_handler(handle);
-    server->bind(9527, Net::IPAddr());
+    server->bind(9527, net::IPAddr());
     server->listen(1024);
     server->start_loop(true);
 }
 
 TEST(echo_server, DISABLED_iouring) {
-    auto server = Net::new_socket_server_iouring();
+    auto server = net::new_socket_server_iouring();
     run_echo_server(server);
 }
 
 TEST(echo_server, DISABLED_epoll) {
-    auto server = Net::new_tcp_socket_server();
+    auto server = net::new_tcp_socket_server();
     run_echo_server(server);
 }
 

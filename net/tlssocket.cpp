@@ -1,3 +1,19 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #include "tlssocket.h"
 
 #include <netinet/tcp.h>
@@ -11,18 +27,19 @@
 #include <fcntl.h>
 #include <vector>
 
-#include "common/alog.h"
-#include "common/iovector.h"
-#include "io/fd-events.h"
-#include "thread/thread.h"
-#include "thread/thread11.h"
-#include "common/timeout.h"
-#include "common/utility.h"
+#include <photon/common/alog.h>
+#include <photon/common/iovector.h>
+#include <photon/io/fd-events.h>
+#include <photon/thread/thread.h>
+#include <photon/thread/thread11.h>
+#include <photon/common/timeout.h>
+#include <photon/common/utility.h>
 #include "abstract_socket.h"
 #include "basic_socket.h"
 #include "socket.h"
 
-namespace Net {
+namespace photon {
+namespace net {
 
 static SSL_CTX* g_ctx = nullptr;
 static photon::mutex g_mtx;
@@ -274,7 +291,7 @@ public:
         if (m_ssl) SSL_set_fd(m_ssl, fd);
     }
     TLSSocketImpl()
-        : fd(Net::socket(AF_INET, SOCK_STREAM, 0)), m_ssl(SSL_new(g_ctx)) {
+        : fd(net::socket(AF_INET, SOCK_STREAM, 0)), m_ssl(SSL_new(g_ctx)) {
         if (fd > 0) {
             int val = 1;
             ::setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &val, sizeof(val));
@@ -297,18 +314,18 @@ public:
     }
     int fdconnect(const EndPoint& ep) {
         auto addr_in = ep.to_sockaddr_in();
-        auto ret = Net::connect(fd, (struct sockaddr*)&addr_in, sizeof(addr_in),
+        auto ret = net::connect(fd, (struct sockaddr*)&addr_in, sizeof(addr_in),
                                 m_timeout);
         if (ret != 0) return ret;
         SSL_set_fd(m_ssl, fd);
         return ssl_connect(m_ssl, m_timeout);
     }
     int do_ssl_accept() { return ssl_accept(m_ssl, m_timeout); }
-    int do_accept() { return Net::accept(fd, nullptr, nullptr, m_timeout); }
+    int do_accept() { return net::accept(fd, nullptr, nullptr, m_timeout); }
     int do_accept(EndPoint& remote_endpoint) {
         struct sockaddr_in addr_in;
         socklen_t len = sizeof(addr_in);
-        int cfd = Net::accept(fd, (struct sockaddr*)&addr_in, &len, m_timeout);
+        int cfd = net::accept(fd, (struct sockaddr*)&addr_in, &len, m_timeout);
         if (cfd < 0 || len != sizeof(addr_in)) return -1;
 
         remote_endpoint.from_sockaddr_in(addr_in);
@@ -584,9 +601,9 @@ public:
     virtual void timeout(uint64_t tm) override { m_timeout = tm; }
 };
 
-Net::ISocketClient* new_tls_socket_client() { return new TLSSocketClient(); }
+net::ISocketClient* new_tls_socket_client() { return new TLSSocketClient(); }
 
-Net::ISocketServer* new_tls_socket_server() {
+net::ISocketServer* new_tls_socket_server() {
     if (g_ctx == nullptr)
         LOG_ERROR_RETURN(ENXIO, nullptr, "libssl have not initialized");
     auto ret = new TLSSocketServer();
@@ -597,4 +614,5 @@ Net::ISocketServer* new_tls_socket_server() {
     return ret;
 }
 
-}  // namespace Net
+}  // namespace net
+}

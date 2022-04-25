@@ -1,3 +1,4 @@
+<!--$$PHOTON_UNPUBLISHED_FILE$$-->
 # I/O向量表征与操作模块
 
 This is a module for iovec , which features:

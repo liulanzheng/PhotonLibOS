@@ -1,3 +1,19 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #include "tls-stream.h"
 
 #include <openssl/bio.h>
@@ -6,12 +22,14 @@
 
 #include <vector>
 
-#include "common/alog-stdstring.h"
-#include "common/iovector.h"
-#include "net/abstract_socket.h"
-#include "net/socket.h"
-#include "thread/thread.h"
-namespace Security {
+#include <photon/common/alog-stdstring.h>
+#include <photon/common/iovector.h>
+#include <photon/net/abstract_socket.h>
+#include <photon/net/socket.h>
+#include <photon/thread/thread.h>
+
+namespace photon {
+namespace net {
 
 constexpr size_t BUFFER_SIZE = 4 * 1024;
 constexpr size_t MAX_PASSPHASE_SIZE = 4 * 1024;
@@ -162,10 +180,10 @@ TLSContext* new_tls_context(const char* cert_str, const char* key_str,
 
 void delete_tls_context(TLSContext* ctx) { delete ctx; }
 
-class TLSStream : public Net::ISocketStream {
+class TLSStream : public net::ISocketStream {
 public:
     SecurityRole role;
-    Net::ISocketStream* underlay_stream;
+    net::ISocketStream* underlay_stream;
     bool ownership;
     photon::mutex rmtx, wmtx;
 
@@ -366,10 +384,10 @@ public:
             return 0;
     }
 
-    virtual int getsockname(Net::EndPoint& addr) override {
+    virtual int getsockname(net::EndPoint& addr) override {
         return underlay_stream->getsockname(addr);
     }
-    virtual int getpeername(Net::EndPoint& addr) override {
+    virtual int getpeername(net::EndPoint& addr) override {
         return underlay_stream->getpeername(addr);
     }
     virtual int getsockname(char* path, size_t count) override {
@@ -392,7 +410,7 @@ public:
     virtual void timeout(uint64_t tm) override { underlay_stream->timeout(tm); }
 };
 
-Net::ISocketStream* new_tls_stream(TLSContext* ctx, Net::ISocketStream* base,
+net::ISocketStream* new_tls_stream(TLSContext* ctx, net::ISocketStream* base,
                                    SecurityRole role, bool ownership) {
     if (!ctx || !base)
         LOG_ERROR_RETURN(EINVAL, nullptr, "invalid parameters, ", VALUE(ctx),
@@ -401,13 +419,13 @@ Net::ISocketStream* new_tls_stream(TLSContext* ctx, Net::ISocketStream* base,
     return new TLSStream(ctx, base, role, ownership);
 };
 
-class TLSClient : public Net::ISocketClient {
+class TLSClient : public net::ISocketClient {
 public:
     TLSContext* ctx;
-    Net::ISocketClient* underlay;
+    net::ISocketClient* underlay;
     bool ownership;
 
-    TLSClient(TLSContext* ctx, Net::ISocketClient* underlay, bool ownership)
+    TLSClient(TLSContext* ctx, net::ISocketClient* underlay, bool ownership)
         : ctx(ctx), underlay(underlay), ownership(ownership) {}
 
     ~TLSClient() {
@@ -415,19 +433,19 @@ public:
             delete underlay;
         }
     }
-    virtual Net::ISocketStream* connect(const Net::EndPoint& ep) override {
+    virtual net::ISocketStream* connect(const net::EndPoint& ep) override {
         return new_tls_stream(ctx, underlay->connect(ep), SecurityRole::Client,
                               true);
     }
-    virtual Net::ISocketStream* connect(const char* path,
+    virtual net::ISocketStream* connect(const char* path,
                                         size_t count) override {
         return new_tls_stream(ctx, underlay->connect(path, count),
                               SecurityRole::Client, true);
     }
-    virtual int getsockname(Net::EndPoint& addr) override {
+    virtual int getsockname(net::EndPoint& addr) override {
         return underlay->getsockname(addr);
     }
-    virtual int getpeername(Net::EndPoint& addr) override {
+    virtual int getpeername(net::EndPoint& addr) override {
         return underlay->getpeername(addr);
     }
     virtual int getsockname(char* path, size_t count) override {
@@ -450,7 +468,7 @@ public:
     virtual void timeout(uint64_t tm) override { underlay->timeout(tm); }
 };
 
-Net::ISocketClient* new_tls_client(TLSContext* ctx, Net::ISocketClient* base,
+net::ISocketClient* new_tls_client(TLSContext* ctx, net::ISocketClient* base,
                                    bool ownership) {
     if (!ctx || !base)
         LOG_ERROR_RETURN(EINVAL, nullptr, "invalid parameters, ", VALUE(ctx),
@@ -458,14 +476,14 @@ Net::ISocketClient* new_tls_client(TLSContext* ctx, Net::ISocketClient* base,
     return new TLSClient(ctx, base, ownership);
 }
 
-class TLSServer : public Net::ISocketServer {
+class TLSServer : public net::ISocketServer {
 public:
     TLSContext* ctx;
-    Net::ISocketServer* underlay;
+    net::ISocketServer* underlay;
     Handler m_handler;
     bool ownership;
 
-    TLSServer(TLSContext* ctx, Net::ISocketServer* underlay, bool ownership)
+    TLSServer(TLSContext* ctx, net::ISocketServer* underlay, bool ownership)
         : ctx(ctx), underlay(underlay), ownership(ownership) {}
 
     ~TLSServer() {
@@ -473,16 +491,16 @@ public:
             delete underlay;
         }
     }
-    virtual Net::ISocketStream* accept() override {
+    virtual net::ISocketStream* accept() override {
         return new_tls_stream(ctx, underlay->accept(), SecurityRole::Server,
                               true);
     }
-    virtual Net::ISocketStream* accept(
-        Net::EndPoint* remote_endpoint) override {
+    virtual net::ISocketStream* accept(
+        net::EndPoint* remote_endpoint) override {
         return new_tls_stream(ctx, underlay->accept(remote_endpoint),
                               SecurityRole::Server, true);
     }
-    virtual int bind(uint16_t port, Net::IPAddr addr) override {
+    virtual int bind(uint16_t port, net::IPAddr addr) override {
         return underlay->bind(port, addr);
     }
     virtual int bind(const char* path, size_t count) override {
@@ -491,12 +509,12 @@ public:
     virtual int listen(int backlog = 1024) override {
         return underlay->listen(backlog);
     }
-    int forwarding_handler(Net::ISocketStream* stream) {
+    int forwarding_handler(net::ISocketStream* stream) {
         auto s = new_tls_stream(ctx, stream, SecurityRole::Server, false);
         DEFER(delete s);
         return m_handler(s);
     }
-    virtual Net::ISocketServer* set_handler(Handler handler) override {
+    virtual net::ISocketServer* set_handler(Handler handler) override {
         m_handler = handler;
         return underlay->set_handler({this, &TLSServer::forwarding_handler});
     }
@@ -504,10 +522,10 @@ public:
         return underlay->start_loop(block);
     }
     virtual void terminate() override { return underlay->terminate(); }
-    virtual int getsockname(Net::EndPoint& addr) override {
+    virtual int getsockname(net::EndPoint& addr) override {
         return underlay->getsockname(addr);
     }
-    virtual int getpeername(Net::EndPoint& addr) override {
+    virtual int getpeername(net::EndPoint& addr) override {
         return underlay->getpeername(addr);
     }
     virtual int getsockname(char* path, size_t count) override {
@@ -530,7 +548,7 @@ public:
     virtual void timeout(uint64_t tm) override { underlay->timeout(tm); }
 };
 
-Net::ISocketServer* new_tls_server(TLSContext* ctx, Net::ISocketServer* base,
+net::ISocketServer* new_tls_server(TLSContext* ctx, net::ISocketServer* base,
                                    bool ownership) {
     if (!ctx || !base)
         LOG_ERROR_RETURN(EINVAL, nullptr, "invalid parameters, ", VALUE(ctx),
@@ -539,3 +557,4 @@ Net::ISocketServer* new_tls_server(TLSContext* ctx, Net::ISocketServer* base,
 }
 
 }  // namespace Security
+}

@@ -1,13 +1,29 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #pragma once
 
-#include "photon/common/object.h"
+#include <photon/common/object.h>
 
-namespace Net {
+namespace photon {
+namespace net {
+
 class ISocketStream;
 class ISocketServer;
 class ISocketClient;
-}  // namespace Net
-namespace Security {
 
 enum class SecurityRole {
     Client = 1,
@@ -42,9 +58,9 @@ void delete_tls_context(TLSContext* ctx);
  * @param base base socket, as underlay socket using for data transport
  * @param role should act as client or server during TLS handshake
  * @param ownership if new socket stream owns base socket.
- * @return Net::ISocketStream*
+ * @return net::ISocketStream*
  */
-Net::ISocketStream* new_tls_stream(TLSContext* ctx, Net::ISocketStream* base,
+ISocketStream* new_tls_stream(TLSContext* ctx, net::ISocketStream* base,
                                    SecurityRole role, bool ownership = false);
 /**
  * @brief Create socket server on TLS. as a client socket factory.
@@ -53,9 +69,9 @@ Net::ISocketStream* new_tls_stream(TLSContext* ctx, Net::ISocketStream* base,
  *            keep it accessable during whole life time.
  * @param base base socket, as underlay socket using for data transport.
  * @param ownership if new socket stream owns base socket.
- * @return Net::ISocketServer* server factory
+ * @return net::ISocketServer* server factory
  */
-Net::ISocketServer* new_tls_server(TLSContext* ctx, Net::ISocketServer* base,
+ISocketServer* new_tls_server(TLSContext* ctx, net::ISocketServer* base,
                                    bool ownership = false);
 
 /**
@@ -65,9 +81,10 @@ Net::ISocketServer* new_tls_server(TLSContext* ctx, Net::ISocketServer* base,
  *            keep it accessable during whole life time.
  * @param base base socket, as underlay socket using for data transport.
  * @param ownership if new socket stream owns base socket.
- * @return Net::ISocketClient* client factory
+ * @return net::ISocketClient* client factory
  */
-Net::ISocketClient* new_tls_client(TLSContext* ctx, Net::ISocketClient* base,
+ISocketClient* new_tls_client(TLSContext* ctx, net::ISocketClient* base,
                                    bool ownership = false);
 
-}  // namespace Security
+}
+}

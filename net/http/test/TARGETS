@@ -1,3 +1,5 @@
+# $$PHOTON_UNPUBLISHED_FILE$$
+
 targets = {
     'client_test': cpp_fast_test (
        testing = [ 'http_client' ],
@@ -19,8 +21,6 @@ targets = {
     'server_test': cpp_fast_test (
         testing = [ 'http_server' ],
         incs = [
-            '../../../third_party/aliyun-oss-cpp-sdk/sdk/include',
-            '../../../third_party/aliyun-oss-cpp-sdk/sdk/src',
         ],
         srcs = [
             'server_test.cpp',
@@ -57,8 +57,6 @@ targets = {
     'cookie_jar_test': cpp_fast_test (
         testing = [ 'cookie_jar' ],
         incs = [
-            '../../../third_party/aliyun-oss-cpp-sdk/sdk/include',
-            '../../../third_party/aliyun-oss-cpp-sdk/sdk/src',
         ],
         srcs = [
             'cookie_jar_test.cpp',

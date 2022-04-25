@@ -1,12 +1,28 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #include <netinet/tcp.h>
 #include <chrono>
 #include <gflags/gflags.h>
-#include "thread/thread11.h"
-#include "io/signalfd.h"
-#include "net/socket.h"
-#include "common/alog-stdstring.h"
-#include "io/fd-events.h"
-#include "common/iovector.h"
+#include <photon/thread/thread11.h>
+#include <photon/io/signalfd.h>
+#include <photon/net/socket.h>
+#include <photon/common/alog-stdstring.h>
+#include <photon/io/fd-events.h>
+#include <photon/common/iovector.h>
 #include "../parser.h"
 #include "boost/beast/http/buffer_body.hpp"
 #include "boost/beast/http/dynamic_body.hpp"
@@ -19,6 +35,8 @@
 #include "boost/beast/core/static_buffer.hpp"
 #include "boost/beast/http/error.hpp"
 #include "boost/beast/http/read.hpp"
+
+using namespace photon;
 
 DEFINE_int32(body_size, 4, "filesize in KB");
 using beast_string_view =
@@ -208,9 +226,9 @@ public:
 
 class EaseTCPStream {
 public:
-    Net::ISocketStream* sock;
+    net::ISocketStream* sock;
 
-    explicit EaseTCPStream(Net::ISocketStream* sock) : sock(sock) {}
+    explicit EaseTCPStream(net::ISocketStream* sock) : sock(sock) {}
 
     template <class MutableBufferSequence>
     typename std::enable_if<!has_data<MutableBufferSequence>::value,
@@ -342,11 +360,11 @@ public:
         }
     }
 
-    void run(uint16_t port, Net::IPAddr ip) {
+    void run(uint16_t port, net::IPAddr ip) {
         if (status != Status::ready) {
             return;
         }
-        auto sock = Net::new_tcp_socket_server();
+        auto sock = net::new_tcp_socket_server();
         DEFER(delete (sock));
         sock->timeout(1000UL * 1000);
         RETURN_IF_FAILED(sock->setsockopt(IPPROTO_TCP, TCP_NODELAY, 1L));
@@ -364,7 +382,7 @@ public:
         status = Status::ready;
     }
 
-    int control_handler(Net::ISocketStream* sock) {
+    int control_handler(net::ISocketStream* sock) {
         LOG_DEBUG("enter control handler");
         bool flag_keep_alive = true;
         while (flag_keep_alive) {
@@ -449,7 +467,7 @@ public:
 
     bool launch() {
         th = photon::thread_enable_join(photon::thread_create11(
-            &TestServer::run, this, m_port, Net::IPAddr()));
+            &TestServer::run, this, m_port, net::IPAddr()));
         while (status == Status::ready) photon::thread_usleep(1000);
         return status != Status::failure;
     }

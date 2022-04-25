@@ -1,12 +1,30 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #include <gtest/gtest.h>
 
-#include "common/alog-stdstring.h"
-#include "net/socket.h"
-#include "io/fd-events.h"
-#include "thread/thread.h"
-#include "common/utility.h"
-#include "net/security-context/sasl-stream.h"
-#include "common/string_view.h"
+#include <photon/common/alog-stdstring.h>
+#include <photon/net/socket.h>
+#include <photon/io/fd-events.h>
+#include <photon/thread/thread.h>
+#include <photon/common/utility.h>
+#include <photon/net/security-context/sasl-stream.h>
+#include <photon/common/string_view.h>
+
+using namespace photon;
 
 #define TOKEN_SIZE (8 * 1024)
 
@@ -280,7 +298,7 @@ static int server_callback(void *, Gsasl *ctx, Gsasl_session *sctx, Gsasl_proper
     return rc;
 }
 
-static int auth_cb_send(void *data, Gsasl_session *session, Net::ISocketStream *stream) {
+static int auth_cb_send(void *data, Gsasl_session *session, net::ISocketStream *stream) {
     int rc = 0;
     ssize_t ret = 0;
     char *output = nullptr;
@@ -319,7 +337,7 @@ static int auth_cb_send(void *data, Gsasl_session *session, Net::ISocketStream *
     return rc;
 }
 
-static int auth_cb_recv(void *data, Gsasl_session *session, Net::ISocketStream *stream) {
+static int auth_cb_recv(void *data, Gsasl_session *session, net::ISocketStream *stream) {
     int rc = 0;
     ssize_t ret = 0;
     char *output = nullptr;
@@ -347,15 +365,15 @@ static int auth_cb_recv(void *data, Gsasl_session *session, Net::ISocketStream *
     return rc;
 }
 
-int handler(void *, Net::ISocketStream *stream) {
-    auto auth_cb = sasltvs[testId].client_first ? Security::Gsasl_auth_cb(nullptr, &auth_cb_recv)
-                                                : Security::Gsasl_auth_cb(nullptr, &auth_cb_send);
-    auto prep_cb = Security::Gsasl_prep_cb(nullptr, &server_callback);
-    auto session = Security::new_sasl_server_session(sasltvs[testId].mech.data(), auth_cb, prep_cb);
+int handler(void *, net::ISocketStream *stream) {
+    auto auth_cb = sasltvs[testId].client_first ? net::Gsasl_auth_cb(nullptr, &auth_cb_recv)
+                                                : net::Gsasl_auth_cb(nullptr, &auth_cb_send);
+    auto prep_cb = net::Gsasl_prep_cb(nullptr, &server_callback);
+    auto session = net::new_sasl_server_session(sasltvs[testId].mech.data(), auth_cb, prep_cb);
     DEFER(delete_sasl_context(session));
     char buf[6];
     char buffer[1048576];
-    auto ss = Security::new_sasl_stream(session, stream, false);
+    auto ss = net::new_sasl_stream(session, stream, false);
     DEFER(delete ss);
     LOG_INFO("BEFORE READ");
     auto ret = ss->read(buf, 6);
@@ -370,13 +388,13 @@ int handler(void *, Net::ISocketStream *stream) {
     return 0;
 }
 
-void client_test(Net::ISocketStream *stream) {
-    auto auth_cb = sasltvs[testId].client_first ? Security::Gsasl_auth_cb(nullptr, &auth_cb_send)
-                                                : Security::Gsasl_auth_cb(nullptr, &auth_cb_recv);
-    auto prep_cb = Security::Gsasl_prep_cb(nullptr, &client_callback);
-    auto session = Security::new_sasl_client_session(sasltvs[testId].mech.data(), auth_cb, prep_cb);
+void client_test(net::ISocketStream *stream) {
+    auto auth_cb = sasltvs[testId].client_first ? net::Gsasl_auth_cb(nullptr, &auth_cb_send)
+                                                : net::Gsasl_auth_cb(nullptr, &auth_cb_recv);
+    auto prep_cb = net::Gsasl_prep_cb(nullptr, &client_callback);
+    auto session = net::new_sasl_client_session(sasltvs[testId].mech.data(), auth_cb, prep_cb);
     DEFER(delete_sasl_context(session));
-    auto ss = Security::new_sasl_stream(session, stream, false);
+    auto ss = net::new_sasl_stream(session, stream, false);
     DEFER(delete ss);
     char buf[] = "Hello";
     auto ret = ss->write(buf, 6);
@@ -394,11 +412,11 @@ TEST(basic, test) {
     for (testId = 0; testId < sizeof(sasltvs) / sizeof(sasltvs[0]); testId++) {
         LOG_INFO("------------mechnism: `-------------", sasltvs[testId].mech);
         DEFER(photon::wait_all());
-        auto server = Net::new_tcp_socket_server();
+        auto server = net::new_tcp_socket_server();
         DEFER(delete server);
-        auto client = Net::new_tcp_socket_client();
+        auto client = net::new_tcp_socket_client();
         DEFER(delete client);
-        ASSERT_EQ(0, server->bind(0, Net::IPAddr("127.0.0.1")));
+        ASSERT_EQ(0, server->bind(0, net::IPAddr("127.0.0.1")));
         ASSERT_EQ(0, server->listen());
         auto ep = server->getsockname();
         LOG_INFO(VALUE(ep));
@@ -417,9 +435,9 @@ TEST(basic, uds) {
     for (testId = 0; testId < sizeof(sasltvs) / sizeof(sasltvs[0]); testId++) {
         LOG_INFO("------------mechnism: `-------------", sasltvs[testId].mech);
         DEFER(photon::wait_all());
-        auto server = Net::new_uds_server(true);
+        auto server = net::new_uds_server(true);
         DEFER(delete server);
-        auto client = Net::new_uds_client();
+        auto client = net::new_uds_client();
         DEFER(delete client);
         auto fn = "/tmp/uds-sasl-test-" + std::to_string(::getpid()) + ".sock";
         ASSERT_EQ(0, server->bind(fn.c_str()));
@@ -435,7 +453,7 @@ TEST(basic, uds) {
     }
 }
 
-int s_handler(void *, Net::ISocketStream *stream) {
+int s_handler(void *, net::ISocketStream *stream) {
     char buf[6];
     char buffer[1048576];
     LOG_INFO("BEFORE READ");
@@ -450,7 +468,7 @@ int s_handler(void *, Net::ISocketStream *stream) {
     return 0;
 }
 
-void s_client_test(Net::ISocketStream *stream) {
+void s_client_test(net::ISocketStream *stream) {
     char buf[] = "Hello";
     auto ret = stream->write(buf, 6);
     EXPECT_EQ(6, ret);
@@ -467,25 +485,25 @@ TEST(cs, test) {
     for (testId = 0; testId < sizeof(sasltvs) / sizeof(sasltvs[0]); testId++) {
         LOG_INFO("------------mechnism: `-------------", sasltvs[testId].mech);
         auto c_auth_cb = sasltvs[testId].client_first
-                             ? Security::Gsasl_auth_cb(nullptr, &auth_cb_send)
-                             : Security::Gsasl_auth_cb(nullptr, &auth_cb_recv);
-        auto c_prep_cb = Security::Gsasl_prep_cb(nullptr, &client_callback);
+                             ? net::Gsasl_auth_cb(nullptr, &auth_cb_send)
+                             : net::Gsasl_auth_cb(nullptr, &auth_cb_recv);
+        auto c_prep_cb = net::Gsasl_prep_cb(nullptr, &client_callback);
         auto c_session =
-            Security::new_sasl_client_session(sasltvs[testId].mech.data(), c_auth_cb, c_prep_cb);
+            net::new_sasl_client_session(sasltvs[testId].mech.data(), c_auth_cb, c_prep_cb);
         DEFER(delete_sasl_context(c_session));
         auto s_auth_cb = sasltvs[testId].client_first
-                             ? Security::Gsasl_auth_cb(nullptr, &auth_cb_recv)
-                             : Security::Gsasl_auth_cb(nullptr, &auth_cb_send);
-        auto s_prep_cb = Security::Gsasl_prep_cb(nullptr, &server_callback);
+                             ? net::Gsasl_auth_cb(nullptr, &auth_cb_recv)
+                             : net::Gsasl_auth_cb(nullptr, &auth_cb_send);
+        auto s_prep_cb = net::Gsasl_prep_cb(nullptr, &server_callback);
         auto s_session =
-            Security::new_sasl_server_session(sasltvs[testId].mech.data(), s_auth_cb, s_prep_cb);
+            net::new_sasl_server_session(sasltvs[testId].mech.data(), s_auth_cb, s_prep_cb);
         DEFER(delete_sasl_context(s_session));
         DEFER(photon::wait_all());
-        auto server = Security::new_sasl_server(s_session, Net::new_tcp_socket_server(), true);
+        auto server = net::new_sasl_server(s_session, net::new_tcp_socket_server(), true);
         DEFER(delete server);
-        auto client = Security::new_sasl_client(c_session, Net::new_tcp_socket_client(), true);
+        auto client = net::new_sasl_client(c_session, net::new_tcp_socket_client(), true);
         DEFER(delete client);
-        ASSERT_EQ(0, server->bind(0, Net::IPAddr("127.0.0.1")));
+        ASSERT_EQ(0, server->bind(0, net::IPAddr("127.0.0.1")));
         ASSERT_EQ(0, server->listen());
         auto ep = server->getsockname();
         LOG_INFO(VALUE(ep));
@@ -504,23 +522,23 @@ TEST(cs, uds) {
     for (testId = 0; testId < sizeof(sasltvs) / sizeof(sasltvs[0]); testId++) {
         LOG_INFO("------------mechnism: `-------------", sasltvs[testId].mech);
         auto c_auth_cb = sasltvs[testId].client_first
-                             ? Security::Gsasl_auth_cb(nullptr, &auth_cb_send)
-                             : Security::Gsasl_auth_cb(nullptr, &auth_cb_recv);
-        auto c_prep_cb = Security::Gsasl_prep_cb(nullptr, &client_callback);
+                             ? net::Gsasl_auth_cb(nullptr, &auth_cb_send)
+                             : net::Gsasl_auth_cb(nullptr, &auth_cb_recv);
+        auto c_prep_cb = net::Gsasl_prep_cb(nullptr, &client_callback);
         auto c_session =
-            Security::new_sasl_client_session(sasltvs[testId].mech.data(), c_auth_cb, c_prep_cb);
+            net::new_sasl_client_session(sasltvs[testId].mech.data(), c_auth_cb, c_prep_cb);
         DEFER(delete_sasl_context(c_session));
         auto s_auth_cb = sasltvs[testId].client_first
-                             ? Security::Gsasl_auth_cb(nullptr, &auth_cb_recv)
-                             : Security::Gsasl_auth_cb(nullptr, &auth_cb_send);
-        auto s_prep_cb = Security::Gsasl_prep_cb(nullptr, &server_callback);
+                             ? net::Gsasl_auth_cb(nullptr, &auth_cb_recv)
+                             : net::Gsasl_auth_cb(nullptr, &auth_cb_send);
+        auto s_prep_cb = net::Gsasl_prep_cb(nullptr, &server_callback);
         auto s_session =
-            Security::new_sasl_server_session(sasltvs[testId].mech.data(), s_auth_cb, s_prep_cb);
+            net::new_sasl_server_session(sasltvs[testId].mech.data(), s_auth_cb, s_prep_cb);
         DEFER(delete_sasl_context(s_session));
         DEFER(photon::wait_all());
-        auto server = Security::new_sasl_server(s_session, Net::new_uds_server(true), true);
+        auto server = net::new_sasl_server(s_session, net::new_uds_server(true), true);
         DEFER(delete server);
-        auto client = Security::new_sasl_client(c_session, Net::new_uds_client(), true);
+        auto client = net::new_sasl_client(c_session, net::new_uds_client(), true);
         DEFER(delete client);
         auto fn = "/tmp/uds-sasl-test-" + std::to_string(::getpid()) + ".sock";
         ASSERT_EQ(0, server->bind(fn.c_str()));

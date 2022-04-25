@@ -1,3 +1,5 @@
+# $$PHOTON_UNPUBLISHED_FILE$$
+
 targets={
     'testeasy': cpp_fast_test(
         testing=['easy performer',],
@@ -32,6 +34,22 @@ targets={
         testing=['easy performer',],
         incs = ['../'],
         srcs = ['test_easyexport.cpp'],
+        deps = [
+            'gtest-1.7.0:gtest',
+            'gtest-1.7.0:gtest_main',
+            'liberpc-devel-17.1.0:erpc',
+            'zlib-1.2.8:z',
+            'apsara-protobuf-2.4.1:protobuf',
+            'boost-1.69.0'
+        ],
+        ldflags = [
+            '-lphoton'
+        ]
+    ),
+    'testasync': cpp_fast_test(
+        testing=['async perform',],
+        incs = ['../'],
+        srcs = ['test_async.cpp'],
         deps = [
             'gtest-1.7.0:gtest',
             'gtest-1.7.0:gtest_main',

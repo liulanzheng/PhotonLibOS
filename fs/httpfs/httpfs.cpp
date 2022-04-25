@@ -1,3 +1,19 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #include "httpfs.h"
 
 #include <fcntl.h>
@@ -9,19 +25,20 @@
 #include <vector>
 
 #include "../../net/curl.h"
-#include "thread/thread.h"
-#include "common/string-keyed.h"
-#include "common/string_view.h"
-#include "common/timeout.h"
-#include "common/utility.h"
+#include <photon/thread/thread.h>
+#include <photon/common/string-keyed.h>
+#include <photon/common/string_view.h>
+#include <photon/common/timeout.h>
+#include <photon/common/utility.h>
 #include "../virtual-file.h"
 
-namespace FileSystem {
+namespace photon {
+namespace fs {
 
 constexpr static char HTTP_PREFIX[] = "http:/";
 constexpr static char HTTPS_PREFIX[] = "https:/";
 
-class HttpFs : public FileSystem::IFileSystem {
+class HttpFs : public fs::IFileSystem {
 protected:
     bool default_https;
     uint64_t conn_timeout;
@@ -64,12 +81,12 @@ public:
                       override);
     UNIMPLEMENTED_POINTER(DIR* opendir(const char*) override);
 
-    Net::cURL* acquire_curl() { return new Net::cURL(); }
+    net::cURL* acquire_curl() { return new net::cURL(); }
 
-    void release_curl(Net::cURL* curl) { delete curl; }
+    void release_curl(net::cURL* curl) { delete curl; }
 };
 
-class HttpFile : public FileSystem::VirtualReadOnlyFile {
+class HttpFile : public fs::VirtualReadOnlyFile {
 public:
     std::string url;
     HttpFs* fs;
@@ -83,12 +100,12 @@ public:
     std::unordered_map<std::string, std::string> common_header;
     std::string url_param;
 
-    Net::cURL* acuqire_curl() {
-        Net::cURL* curl;
+    net::cURL* acuqire_curl() {
+        net::cURL* curl;
         if (fs)
             curl = fs->acquire_curl();
         else
-            curl = new Net::cURL();
+            curl = new net::cURL();
         curl->clear_header();
         for (auto& kv : common_header) {
             curl->append_header(kv.first, kv.second);
@@ -105,7 +122,7 @@ public:
         return geturl;
     }
 
-    void release_curl(Net::cURL* curl) {
+    void release_curl(net::cURL* curl) {
         if (fs)
             fs->release_curl(curl);
         else
@@ -118,10 +135,10 @@ public:
     again:
         auto curl = acuqire_curl();
         DEFER(release_curl(curl));
-        Net::HeaderMap headers;
+        net::HeaderMap headers;
         curl->set_header_container(&headers);
         curl->set_range(0, 0);
-        Net::DummyReaderWriter dummy;
+        net::DummyReaderWriter dummy;
         ret = curl->GET(get_url().c_str(), &dummy, tmo.timeout());
         if (ret < 200) {
             if (photon::now >= tmo.expire()) {
@@ -186,10 +203,10 @@ public:
     again:
         auto curl = acuqire_curl();
         DEFER(release_curl(curl));
-        Net::IOVWriter writer(iovec, iovcnt);
+        net::IOVWriter writer(iovec, iovcnt);
         curl->set_range(
             offset, std::min(offset + (off_t)writer.sum(), stat.st_size) - 1);
-        Net::HeaderMap headers;
+        net::HeaderMap headers;
         curl->set_header_container(&headers);
         ret = curl->GET(get_url().c_str(), &writer, tmo.timeout());
         if (ret < 200) {
@@ -291,4 +308,5 @@ IFile* new_httpfile(const char* url, IFileSystem* httpfs, uint64_t conn_timeout,
                     uint64_t stat_timeout, FileOpenCallback cb) {
     return new HttpFile(url, httpfs, conn_timeout, stat_timeout, cb);
 }
-}  // namespace FileSystem
+}  // namespace fs
+}

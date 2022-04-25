@@ -1,11 +1,29 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #include <gtest/gtest.h>
 
-#include "net/socket.h"
-#include "io/fd-events.h"
-#include "thread/thread.h"
-#include "common/utility.h"
-#include "common/alog-stdstring.h"
-#include "net/security-context/tls-stream.h"
+#include <photon/net/socket.h>
+#include <photon/io/fd-events.h>
+#include <photon/thread/thread.h>
+#include <photon/common/utility.h>
+#include <photon/common/alog-stdstring.h>
+#include <photon/net/security-context/tls-stream.h>
+
+using namespace photon;
 
 static const char cert_str[] = R"PEMSTR(
 -----BEGIN CERTIFICATE-----
@@ -66,12 +84,12 @@ static const char passphrase_str[] = "Just4Test";
 
 photon::semaphore sem(0);
 
-int handler(void* arg, Net::ISocketStream* stream) {
-    auto* ctx = (Security::TLSContext*)arg;
+int handler(void* arg, net::ISocketStream* stream) {
+    auto* ctx = (net::TLSContext*)arg;
     char buf[6];
     char buffer[1048576];
-    auto ss = Security::new_tls_stream(ctx, stream,
-                                       Security::SecurityRole::Server, false);
+    auto ss = net::new_tls_stream(ctx, stream,
+                                       net::SecurityRole::Server, false);
     DEFER(delete ss);
     LOG_INFO("BEFORE READ");
     auto ret = ss->read(buf, 6);
@@ -85,9 +103,9 @@ int handler(void* arg, Net::ISocketStream* stream) {
     return 0;
 }
 
-void client_test(Net::ISocketStream* stream, Security::TLSContext* ctx) {
-    auto ss = Security::new_tls_stream(ctx, stream,
-                                       Security::SecurityRole::Client, false);
+void client_test(net::ISocketStream* stream, net::TLSContext* ctx) {
+    auto ss = net::new_tls_stream(ctx, stream,
+                                       net::SecurityRole::Client, false);
     DEFER(delete ss);
     char buf[] = "Hello";
     auto ret = ss->write(buf, 6);
@@ -102,14 +120,14 @@ void client_test(Net::ISocketStream* stream, Security::TLSContext* ctx) {
 }
 
 TEST(basic, test) {
-    auto ctx = Security::new_tls_context(cert_str, key_str, passphrase_str);
-    DEFER(Security::delete_tls_context(ctx));
+    auto ctx = net::new_tls_context(cert_str, key_str, passphrase_str);
+    DEFER(net::delete_tls_context(ctx));
     DEFER(photon::wait_all());
-    auto server = Net::new_tcp_socket_server();
+    auto server = net::new_tcp_socket_server();
     DEFER(delete server);
-    auto client = Net::new_tcp_socket_client();
+    auto client = net::new_tcp_socket_client();
     DEFER(delete client);
-    ASSERT_EQ(0, server->bind(0, Net::IPAddr("127.0.0.1")));
+    ASSERT_EQ(0, server->bind(0, net::IPAddr("127.0.0.1")));
     ASSERT_EQ(0, server->listen());
     auto ep = server->getsockname();
     LOG_INFO(VALUE(ep));
@@ -124,12 +142,12 @@ TEST(basic, test) {
 }
 
 TEST(basic, uds) {
-    auto ctx = Security::new_tls_context(cert_str, key_str, passphrase_str);
-    DEFER(Security::delete_tls_context(ctx));
+    auto ctx = net::new_tls_context(cert_str, key_str, passphrase_str);
+    DEFER(net::delete_tls_context(ctx));
     DEFER(photon::wait_all());
-    auto server = Net::new_uds_server(true);
+    auto server = net::new_uds_server(true);
     DEFER(delete server);
-    auto client = Net::new_uds_client();
+    auto client = net::new_uds_client();
     DEFER(delete client);
     auto fn = "/tmp/uds-tls-test-" + std::to_string(::getpid()) + ".sock";
     ASSERT_EQ(0, server->bind(fn.c_str()));
@@ -144,7 +162,7 @@ TEST(basic, uds) {
     client_test(stream, ctx);
 }
 
-int s_handler(void*, Net::ISocketStream* stream) {
+int s_handler(void*, net::ISocketStream* stream) {
     char buf[6];
     char buffer[1048576];
     LOG_INFO("BEFORE READ");
@@ -159,7 +177,7 @@ int s_handler(void*, Net::ISocketStream* stream) {
     return 0;
 }
 
-void s_client_test(Net::ISocketStream* stream) {
+void s_client_test(net::ISocketStream* stream) {
     char buf[] = "Hello";
     auto ret = stream->write(buf, 6);
     EXPECT_EQ(6, ret);
@@ -173,16 +191,16 @@ void s_client_test(Net::ISocketStream* stream) {
 }
 
 TEST(cs, test) {
-    auto ctx = Security::new_tls_context(cert_str, key_str, passphrase_str);
-    DEFER(Security::delete_tls_context(ctx));
+    auto ctx = net::new_tls_context(cert_str, key_str, passphrase_str);
+    DEFER(net::delete_tls_context(ctx));
     DEFER(photon::wait_all());
     auto server =
-        Security::new_tls_server(ctx, Net::new_tcp_socket_server(), true);
+        net::new_tls_server(ctx, net::new_tcp_socket_server(), true);
     DEFER(delete server);
     auto client =
-        Security::new_tls_client(ctx, Net::new_tcp_socket_client(), true);
+        net::new_tls_client(ctx, net::new_tcp_socket_client(), true);
     DEFER(delete client);
-    ASSERT_EQ(0, server->bind(0, Net::IPAddr("127.0.0.1")));
+    ASSERT_EQ(0, server->bind(0, net::IPAddr("127.0.0.1")));
     ASSERT_EQ(0, server->listen());
     auto ep = server->getsockname();
     LOG_INFO(VALUE(ep));
@@ -197,13 +215,13 @@ TEST(cs, test) {
 }
 
 TEST(cs, uds) {
-    auto ctx = Security::new_tls_context(cert_str, key_str, passphrase_str);
-    DEFER(Security::delete_tls_context(ctx));
+    auto ctx = net::new_tls_context(cert_str, key_str, passphrase_str);
+    DEFER(net::delete_tls_context(ctx));
     DEFER(photon::wait_all());
     auto server =
-        Security::new_tls_server(ctx, Net::new_uds_server(true), true);
+        net::new_tls_server(ctx, net::new_uds_server(true), true);
     DEFER(delete server);
-    auto client = Security::new_tls_client(ctx, Net::new_uds_client(), true);
+    auto client = net::new_tls_client(ctx, net::new_uds_client(), true);
     DEFER(delete client);
     auto fn = "/tmp/uds-tls-test-" + std::to_string(::getpid()) + ".sock";
     ASSERT_EQ(0, server->bind(fn.c_str()));

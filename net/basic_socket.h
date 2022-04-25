@@ -1,13 +1,30 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #pragma once
 #include <cinttypes>
 #include <sys/socket.h>
 
-#include "photon/common/iovector.h"
-#include "photon/thread/thread.h"
-#include "photon/common/timeout.h"
-#include "photon/common/utility.h"
+#include <photon/common/iovector.h>
+#include <photon/thread/thread.h>
+#include <photon/common/timeout.h>
+#include <photon/common/utility.h>
 
-namespace Net {
+namespace photon {
+namespace net {
 int socket(int domain, int type, int protocol);
 
 int connect(int fd, const struct sockaddr *addr, socklen_t addrlen,
@@ -85,4 +102,5 @@ __FORCE_INLINE__ ssize_t doiov_n(iovector_view &v, IOCB iocb) {
     }
     return count;
 }
-}  // namespace Net
+}  // namespace net
+}
