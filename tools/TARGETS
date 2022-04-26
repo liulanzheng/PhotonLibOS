@@ -13,6 +13,7 @@ targets = {
                 glob('../common/checksum/*.cpp') +
                 glob('../common/memory-stream/*.cpp') +
                 glob('../common/stream-messenger/*.cpp') +
+                glob('../common/executor/*.cpp') +
                 glob('../fs/*.cpp') +
                 glob('../fs/httpfs/*.cpp') +
                 glob('../io/*.cpp') +
