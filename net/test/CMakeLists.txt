@@ -3,5 +3,5 @@ link_directories(${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
 add_definitions(-w)
 
 add_executable(test-socket test.cpp)
-target_link_libraries(test-socket PRIVATE photon_shared ${testing_libs})
+target_link_libraries(test-socket PRIVATE photon ${testing_libs})
 add_test(NAME test-socket COMMAND $<TARGET_FILE:test-socket>)

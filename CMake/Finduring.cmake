@@ -1,8 +1,0 @@
-find_path(URING_INCLUDE_DIR liburing.h)
-
-find_library(URING_LIBRARIES uring)
-
-include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(uring DEFAULT_MSG URING_LIBRARIES URING_INCLUDE_DIR)
-
-mark_as_advanced(URING_INCLUDE_DIR URING_LIBRARIES)

@@ -3,5 +3,5 @@ link_directories(${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
 add_definitions(-w)
 
 add_executable(test-fs test.cpp)
-target_link_libraries(test-fs PRIVATE photon_shared ${testing_libs})
+target_link_libraries(test-fs PRIVATE photon ${testing_libs})
 add_test(NAME test-fs COMMAND $<TARGET_FILE:test-fs>)

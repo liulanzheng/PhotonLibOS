@@ -24,25 +24,16 @@ and prepared to wrap them into the framework. It is a real killer in the low lev
 
 ### Install dependencies
 
-#### io_uring >= 2.2
-```shell
-git clone https://github.com/axboe/liburing.git
-cd liburing && ./configure
-make -j && make install
-```
-Note that compiling liburing doesn't require latest kernel, but in order run it successfully with photon,
-your kernel version has to be greater than 5.8.
-
 #### CentOS 8.5
 ```shell
 dnf install gcc-c++ epel-release cmake
-dnf install openssl-devel libcurl-devel boost-devel libaio-devel fuse-devel libgsasl-devel krb5-devel
+dnf install openssl-devel libcurl-devel libaio-devel fuse-devel libgsasl-devel krb5-devel
 ```
 
-#### Ubuntu 18.04
+#### Ubuntu 20.04
 ```shell
 apt install cmake
-apt install libssl-dev libcurl4-openssl-dev libboost-all-dev libaio-dev libfuse-dev libgsasl7-dev libkrb5-dev
+apt install libssl-dev libcurl4-openssl-dev libaio-dev libfuse-dev libgsasl7-dev libkrb5-dev
 ```
 
 ### Build from source
@@ -62,6 +53,7 @@ dnf install gtest-devel gmock-devel gflags-devel
 apt install libgtest-dev libgmock-dev libgflags-dev
 
 cmake -D BUILD_TESTING=1 ..
+make -j
 ctest
 ```
 

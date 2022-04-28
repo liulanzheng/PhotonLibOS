@@ -26,14 +26,14 @@ namespace photon {
 
 class ExecutorImpl;
 
-ExecutorImpl *new_executor();
-void delete_executor(ExecutorImpl *e);
-void issue(ExecutorImpl *e, Delegate<void> cb);
+ExecutorImpl *_new_executor();
+void _delete_executor(ExecutorImpl *e);
+void _issue(ExecutorImpl *e, Delegate<void> cb);
 
 class Executor {
 public:
-    ExecutorImpl *e = new_executor();
-    ~Executor() { delete_executor(e); }
+    ExecutorImpl *e = _new_executor();
+    ~Executor() { _delete_executor(e); }
 
     template <
         typename Context = StdContext, typename Func,
@@ -100,7 +100,7 @@ protected:
         }
         template <typename Func>
         void call(ExecutorImpl *e, Func &&act) {
-            issue(e, act);
+            _issue(e, act);
             wait_for_completion();
         }
     };

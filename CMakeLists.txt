@@ -12,25 +12,36 @@ set(CMAKE_CXX_STANDARD_REQUIRED on)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mcrc32 -msse4.2 -fPIC")
 
 # CMake dirs
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/build/output)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/build/output)
-set(CMAKE_EXECUTABLE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/build/output)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output)
+set(CMAKE_EXECUTABLE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/CMake)
 
-include(CMake/pack.cmake)
+include(CPack)
+
+include(FetchContent)
+set(FETCHCONTENT_QUIET false)
+if (${CMAKE_VERSION} VERSION_LESS 3.14)
+    macro(FetchContent_MakeAvailable NAME)
+        FetchContent_GetProperties(${NAME})
+        if (NOT ${NAME}_POPULATED)
+            FetchContent_Populate(${NAME})
+            add_subdirectory(${${NAME}_SOURCE_DIR} ${${NAME}_BINARY_DIR})
+        endif ()
+    endmacro()
+endif ()
+
 add_subdirectory(third_party)
 
 # Find packages either from cmake-modules or external packages
 find_package(ZLIB REQUIRED)
 find_package(CURL REQUIRED)
 find_package(OpenSSL REQUIRED)
-find_package(Boost REQUIRED COMPONENTS system)
 
 find_package(aio REQUIRED)
 find_package(fuse REQUIRED)
 find_package(krb5 REQUIRED)
 find_package(gsasl REQUIRED)
-find_package(uring REQUIRED)
 
 # Get CPU arch
 execute_process(COMMAND uname -m OUTPUT_VARIABLE ARCH OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -38,11 +49,41 @@ if (NOT (${ARCH} STREQUAL x86_64) AND NOT (${ARCH} STREQUAL aarch64))
     message(FATAL_ERROR "Unknown CPU architecture ${ARCH}")
 endif ()
 
-# Compile objects
+# Fetch liburing
+FetchContent_Declare(
+        liburing
+        GIT_REPOSITORY https://github.com/axboe/liburing.git
+        GIT_TAG 469b5e80ce42be53ec748ddea8523a3c16ea5465
+        UPDATE_COMMAND ./configure
+)
+FetchContent_MakeAvailable(liburing)
+set(liburing_include_dir ${liburing_SOURCE_DIR}/src/include)
+add_library(
+        uring
+        STATIC
+        ${liburing_SOURCE_DIR}/src/setup.c
+        ${liburing_SOURCE_DIR}/src/queue.c
+        ${liburing_SOURCE_DIR}/src/register.c
+        ${liburing_SOURCE_DIR}/src/syscall.c
+)
+target_compile_options(uring PRIVATE -Wno-implicit-function-declaration)
+target_include_directories(uring PRIVATE ${liburing_include_dir})
+
+# Fetch boost
+FetchContent_Declare(
+        boost
+        URL https://boostorg.jfrog.io/artifactory/main/release/1.75.0/source/boost_1_75_0.tar.gz
+        URL_MD5 38813f6feb40387dfe90160debd71251
+)
+FetchContent_MakeAvailable(boost)
+set(boost_include_dir ${boost_SOURCE_DIR})
+
+# Compile photon objects
 file(
         GLOB PHOTON_SRC
         common/*.cpp
         common/checksum/*.cpp
+        common/executor/*.cpp
         common/memory-stream/*.cpp
         common/stream-messenger/*.cpp
         fs/*.cpp
@@ -56,16 +97,15 @@ file(
         thread/switch_context_${ARCH}.s
 )
 add_library(photon_obj OBJECT ${PHOTON_SRC})
-target_include_directories(photon_obj PUBLIC include)
+target_include_directories(photon_obj PUBLIC include ${liburing_include_dir} ${boost_include_dir})
 target_compile_definitions(photon_obj PRIVATE _FILE_OFFSET_BITS=64 FUSE_USE_VERSION=29)
 target_compile_options(photon_obj PRIVATE -Wno-deprecated-declarations)
 
-# Make virtual interface for third-party libs
+# Make virtual interface for third-party dynamic libs
 add_library(third_party INTERFACE)
 target_link_libraries(third_party INTERFACE
         ZLIB::ZLIB
         CURL::libcurl
-        Boost::system
         OpenSSL::SSL
         OpenSSL::Crypto
 
@@ -73,20 +113,18 @@ target_link_libraries(third_party INTERFACE
         ${FUSE_LIBRARIES}
         ${KRB5_LIBRARIES}
         ${GSASL_LIBRARIES}
-        ${URING_LIBRARIES}
-)
+        )
 
-# Link shared lib
-add_library(photon_shared SHARED $<TARGET_OBJECTS:photon_obj>)
-set_target_properties(photon_shared PROPERTIES OUTPUT_NAME photon)
+# Link photon lib
+add_library(photon SHARED $<TARGET_OBJECTS:photon_obj>)
 target_link_libraries(
-        photon_shared
+        photon
+        -Wl,--whole-archive
+        uring
+        easy_weak
+        -Wl,--no-whole-archive
         third_party
 )
-
-# Archive static lib
-add_library(photon_static STATIC $<TARGET_OBJECTS:photon_obj>)
-set_target_properties(photon_static PROPERTIES OUTPUT_NAME photon)
 
 # Build test cases
 if (BUILD_TESTING)

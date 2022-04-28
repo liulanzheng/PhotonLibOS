@@ -234,6 +234,7 @@ public:
         }
 
         io_uring_prep_poll_remove(sqe, &iter->second.io_ctx);
+        io_uring_sqe_set_data(sqe, nullptr);
         return 0;
     }
 
@@ -297,6 +298,7 @@ public:
             LOG_ERROR_RETURN(EBUSY, -1, "iouring: submission queue is full");
         }
         io_uring_prep_timeout(sqe, &ts, 1, 0);
+        io_uring_sqe_set_data(sqe, nullptr);
 
         // Batch submit all SQEs
         int ret = io_uring_submit_and_wait(m_ring, 1);
@@ -311,7 +313,7 @@ public:
             i++;
             auto ctx = (ioCtx*) io_uring_cqe_get_data(cqe);
             if (!ctx) {
-                // Own timeout didn't set user data
+                // Own timeout doesn't have user data
                 continue;
             }
             ctx->res = cqe->res;

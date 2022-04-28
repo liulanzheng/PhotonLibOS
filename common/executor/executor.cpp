@@ -97,11 +97,11 @@ public:
     }
 };
 
-ExecutorImpl *new_executor() { return new ExecutorImpl(); }
+ExecutorImpl *_new_executor() { return new ExecutorImpl(); }
 
-void delete_executor(ExecutorImpl *e) { delete e; }
+void _delete_executor(ExecutorImpl *e) { delete e; }
 
-void issue(ExecutorImpl *e, Delegate<void> act) {
+void _issue(ExecutorImpl *e, Delegate<void> act) {
     {
         std::lock_guard<std::mutex> lock(e->mutex);
         while (!e->queue.push(act)) ::sched_yield();
