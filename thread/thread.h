@@ -66,7 +66,7 @@ namespace photon
     // Return 0 if timeout, return -1 if interrupted, and errno is set by the interrupt invoker.
     int thread_usleep(uint64_t useconds);
     // thread_usleep_defer sets a callback, and will execute callback in another photon thread
-    // after this photon thread fall in sleep.
+    // after this photon thread fall in sleep. The defer function should NEVER fall into sleep!
     int thread_usleep_defer(uint64_t useconds, defer_func defer, void* defer_arg=nullptr);
     inline int thread_sleep(uint64_t seconds)
     {
