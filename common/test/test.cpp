@@ -265,7 +265,7 @@ void test_defer()
     puts("puts(\"asdf\")");
     printf("a=%d\n", a);
 }
-
+/*
 TEST(ALog, static_parser)
 {
 #define TEST_PARSER(str, ...) {     \
@@ -276,7 +276,7 @@ TEST(ALog, static_parser)
     TEST_PARSER("`NNN``NN`", 0,-5,8);
     TEST_PARSER("`NNNNN`", 0,6);
     TEST_PARSER("`NN````NNN`", 0,-4,-6,10);
-}
+}*/
 
 TEST(ALog, ALog)
 {

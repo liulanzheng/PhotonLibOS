@@ -26,6 +26,7 @@ limitations under the License.
 
 #include <photon/common/utility.h>
 #include <photon/common/object.h>
+#include <photon/common/conststr.h>
 
 class ILogOutput : public Object {
 public:
@@ -296,7 +297,7 @@ extern ILogOutput*& log_output;
 
 static LogFormatter log_formatter;
 
-class LogBuffer : public ALogBuffer
+struct LogBuffer : public ALogBuffer
 {
 public:
     LogBuffer(ILogOutput *output): log_output(output)
@@ -334,143 +335,6 @@ protected:
     LogBuffer(const LogBuffer& rhs);
 };
 
-namespace alog_format
-{
-    template<int...Is> struct seq
-    {
-        template<int J>
-        using push_back = seq<Is..., J>;
-    };
-
-    constexpr static char TOKEN = '`';
-
-    template<typename S, int I>
-    struct parser : public S
-    {
-        static_assert(I > 0, "...");
-        // static_assert(S::string()[I] != '\\', "'\\' in format string is illegal!");
-        using S::LEN;
-        using typename S::type;
-        using S::string;
-
-        constexpr static bool cond0 = (string()[I] != TOKEN);
-        constexpr static bool cond1 = (string()[I-1] != TOKEN);
-
-        typedef typename parser<S, I-1>::sequence prev_seq;
-        typedef typename parser<S, I-2>::sequence pprev_seq;
-
-        using sequence = typename std::conditional<cond0, prev_seq,
-            typename std::conditional<cond1, typename prev_seq::template push_back<I-1>,
-                typename pprev_seq::template push_back<-(I-1)>>::type>::type;
-    };
-
-    template<typename S>
-    struct parser<S, -1>
-    {
-        typedef seq<> sequence;
-    };
-
-    template<typename S>
-    struct parser<S, 0> : public S
-    {
-        static_assert(S::string()[0] != '\\', "'\\' in format string is illegal!");
-        constexpr static bool cond = (S::string()[0] != TOKEN);
-        typedef typename std::conditional<cond, seq<>, seq<0>>::type sequence;
-    };
-
-    template<typename SEQ>
-    struct ALogFMTString : public ALogStringL
-    {
-        using ALogStringL::ALogStringL;
-    };
-
-    class FMTLogBuffer;
-    template<bool B, int BEGIN>
-    struct next
-    {
-        template<typename FMT, typename T, typename...Ts>
-        static inline FMTLogBuffer& printf_fmt(FMTLogBuffer& log, FMT fmt, const T& x, const Ts&...xs);
-
-        template<typename FMT>
-        static inline FMTLogBuffer& printf_fmt(FMTLogBuffer& log, FMT fmt);
-    };
-
-    template<int BEGIN> struct next<false, BEGIN>
-    {
-        template<typename FMT, typename T, typename...Ts>
-        static inline FMTLogBuffer& printf_fmt(FMTLogBuffer& log, FMT fmt, const T& x, const Ts&...xs);
-
-        template<typename FMT>
-        static inline FMTLogBuffer& printf_fmt(FMTLogBuffer& log, FMT fmt);
-    };
-
-    class FMTLogBuffer : public LogBuffer
-    {
-    public:
-        using LogBuffer::printf;
-
-        FMTLogBuffer(ILogOutput *output): LogBuffer(output) {}
-
-        template<int BEGIN, typename SEQ>
-        FMTLogBuffer& printf_fmt(ALogFMTString<SEQ> fmt)
-        {
-            printf(fmt);
-            return *this;
-        }
-        template<int BEGIN, typename T, typename...Ts>
-        FMTLogBuffer& printf_fmt(ALogFMTString<seq<>> fmt, const T& x, const Ts&...xs)
-        {
-            printf(fmt, x, xs...);
-            return *this;
-        }
-        template<int BEGIN, int I, int...Is, typename T, typename...Ts>
-        FMTLogBuffer& printf_fmt(ALogFMTString<seq<I, Is...>> fmt, const T& x, const Ts&...xs);
-    };
-
-    template<bool B, int BEGIN>
-    template<typename FMT, typename T, typename...Ts>
-    FMTLogBuffer& next<B, BEGIN>::printf_fmt(FMTLogBuffer& log, FMT fmt, const T& x, const Ts&...xs)
-    {
-        log.printf(x);
-        return log.printf_fmt<BEGIN>(fmt, xs...);
-    }
-
-    template<bool B, int BEGIN>
-    template<typename FMT>
-    FMTLogBuffer& next<B, BEGIN>::printf_fmt(FMTLogBuffer& log, FMT fmt)
-    {
-        return log.printf(fmt);
-    }
-
-    template<int BEGIN>
-    template<typename FMT, typename T, typename...Ts>
-    FMTLogBuffer& next<false, BEGIN>::printf_fmt(FMTLogBuffer& log, FMT fmt, const T& x, const Ts&...xs)
-    {
-        return log.printf_fmt<BEGIN>(fmt, x, xs...);
-    }
-
-    template<int BEGIN>
-    template<typename FMT>
-    FMTLogBuffer& next<false, BEGIN>::printf_fmt(FMTLogBuffer& log, FMT fmt)
-    {
-        return log.printf(fmt);
-    }
-
-    template<int BEGIN, int I, int...Is, typename T, typename...Ts>
-    FMTLogBuffer& FMTLogBuffer::printf_fmt(ALogFMTString<seq<I, Is...>> fmt, const T& x, const Ts&...xs)
-    {
-        const int POS = I > 0 ? I : -I;
-        static_assert(POS >= BEGIN, "...");
-        const size_t L = POS - BEGIN;
-
-        assert(L < fmt.size);
-        printf(ALogString(fmt.s, L));
-
-        ALogFMTString<seq<Is...>> fmt_next(fmt.s + (L+1), fmt.size - (L+1));
-        return next<(I>=0), (POS+1)>::printf_fmt(*this, fmt_next, x, xs...);
-    }
-}
-
 struct Prologue
 {
     uint64_t addr_func, addr_file;
@@ -486,75 +350,45 @@ using CopyOrRef = std::conditional<
         (sizeof(typename std::remove_reference<T>::type) <= 16),
     const T, const T&>;
 
-template<typename SEQ=int, typename...Ts> __attribute__((noinline, cold))
-static void __do_log_2__(int level, ILogOutput* output, const Prologue& prolog, Ts ...xs)
+struct STFMTLogBuffer : public LogBuffer {
+    using LogBuffer::LogBuffer;
+
+    template <typename ST, typename T, typename... Ts>
+    typename std::enable_if<ST::template cut<'`'>().tail.chars[0] != '`'>::type
+    print_fmt(ST st, const T& t, const Ts&... ts) {
+        printf(ALogString(st.template cut<'`'>().head.chars,
+                          st.template cut<'`'>().head.len),
+               t);
+        print_fmt(st.template cut<'`'>().tail, ts...);
+    }
+
+    template <typename ST, typename T, typename... Ts>
+    typename std::enable_if<ST::template cut<'`'>().tail.chars[0] == '`'>::type
+    print_fmt(ST st, const T& t, const Ts&... ts) {
+        printf(ALogString(st.template cut<'`'>().head.chars,
+                          st.template cut<'`'>().head.len),
+               '`');
+        print_fmt(st.template cut<'`'>().tail.template cut<'`'>().tail, t,
+                  ts...);
+    }
+
+    template <typename ST>
+    void print_fmt(ST) {
+        printf(ALogString(ST::chars, ST::len));
+    }
+
+    template <typename T, typename... Ts>
+    void print_fmt(ConstString::TString<> st, const T& t, const Ts&... ts) {
+        printf(t, ts...);
+    }
+};
+
+template<typename FMT, typename...Ts> __attribute__((noinline, cold))
+static void __log__(int level, ILogOutput* output, const Prologue& prolog, FMT fmt, Ts&&...xs)
 {
-    LogBuffer log(output);
+    STFMTLogBuffer log(output);
     log << prolog;
-    log.printf(xs...);
-    log.level = level;
-}
-
-template<typename SEQ=int, typename...Ts>
-static void __do_log__(int level, ILogOutput* output, const Prologue& prolog, Ts ...xs)
-{
-    __do_log_2__<SEQ, typename CopyOrRef<Ts>::type ...>(level, output, prolog, xs...);
-}
-
-template<typename SEQ=int, typename...Ts>
-inline void __log__(int level, ILogOutput* output, const Prologue& prolog, Ts&&...xs)
-{
-    __do_log__(level, output, prolog, alog_forwarding(xs)...);
-}
-
-template<typename SEQ=int, size_t N, typename...Ts>
-inline void __log__(int level, ILogOutput* output, const Prologue& prolog, char (&s)[N], Ts&&...xs)
-{
-    __do_log__(level, output, prolog, alog_forwarding(s), alog_forwarding(xs)...);
-}
-
-template<typename SEQ, size_t N, typename...Ts> __attribute__((noinline, cold))
-static void __log__(int level, ILogOutput* output, const Prologue& prolog, const char (&fmt)[N], Ts&&...xs)
-{
-    alog_format::FMTLogBuffer log(output);
-    log << prolog;
-    log.printf_fmt<0>(alog_format::ALogFMTString<SEQ>(fmt), alog_forwarding(xs)...);
-    log.level = level;
-}
-
-template<typename SEQ=int, typename...Ts> __attribute__((noinline))
-static void __do_log_2_audit__(int level, ILogOutput* output, const Prologue& prolog, Ts ...xs)
-{
-    LogBuffer log(output);
-    log << prolog;
-    log.printf(xs...);
-    log.level = level;
-}
-
-template<typename SEQ=int, typename...Ts>
-static void __do_log_audit__(int level, ILogOutput* output, const Prologue& prolog, Ts ...xs)
-{
-    __do_log_2_audit__<SEQ, typename CopyOrRef<Ts>::type ...>(level, output, prolog, xs...);
-}
-
-template<typename SEQ=int, typename...Ts>
-inline void __log_audit__(int level, ILogOutput* output, const Prologue& prolog, Ts&&...xs)
-{
-    __do_log_audit__(level, output, prolog, alog_forwarding(xs)...);
-}
-
-template<typename SEQ=int, size_t N, typename...Ts>
-inline void __log_audit__(int level, ILogOutput* output, const Prologue& prolog, char (&s)[N], Ts&&...xs)
-{
-    __do_log_audit__(level, output, prolog, alog_forwarding(s), alog_forwarding(xs)...);
-}
-
-template<typename SEQ, size_t N, typename...Ts> __attribute__((noinline))
-static void __log_audit__(int level, ILogOutput* output, const Prologue& prolog, const char (&fmt)[N], Ts&&...xs)
-{
-    alog_format::FMTLogBuffer log(output);
-    log << prolog;
-    log.printf_fmt<0>(alog_format::ALogFMTString<SEQ>(fmt), alog_forwarding(xs)...);
+    log.print_fmt(fmt, alog_forwarding(xs)...);
     log.level = level;
 }
 
@@ -594,73 +428,40 @@ struct LogBuilder {
         __LINE__, level                                     \
     };
 
-template <char HEAD, char TAIL, int LEN, int LEN2>
-typename std::enable_if<(LEN > LEN2 + 2) && HEAD == '"' && TAIL == '"',
-                        const char (&)[LEN - 2]>::type
-__first_format_forward(const char (&S)[LEN], const char (&s)[LEN2]) {
-    // for those first parameter is static format string
-    // but is multiline string or contains escape characters
-    // takes code as string literal, include quotas and other characters
-    // to prevent read out of range.
-    return (const char(&)[LEN - 2]) S[1];
-}
+#define _IS_LITERAL_STRING(x) \
+    (sizeof(#x) > 2 && (#x[0] == '"') && (#x[sizeof(#x) - 2] == '"'))
 
-template <char HEAD, char TAIL, typename T, int LEN>
-T&& __first_format_forward(const char (&S)[LEN], T&& s) {
-    return std::forward<T>(s);
-}
-
-#define PARSE_FMTSTR(S, thesequence)                  \
-    struct static_string {                            \
-        enum { LEN = sizeof(#S) - 1 };                \
-        typedef const char (&type)[LEN + 1];          \
-        constexpr static type string() { return #S; } \
-    };                                                \
-    typedef typename alog_format::parser<             \
-        static_string, static_string::LEN>::sequence thesequence;
-
-#define __LOG__(level, first, ...)                                        \
-    ({                                                                    \
-        DEFINE_PROLOGUE(level, prolog);                                   \
-        auto __build_lambda__ = [&](ILogOutput* __output_##__LINE__) {    \
-            PARSE_FMTSTR(first, sequence);                                \
-            __log__<sequence>(                                            \
-                level, __output_##__LINE__, prolog,                       \
-                __first_format_forward<(#first)[0],                       \
-                                       (#first)[static_string::LEN - 1]>( \
-                    #first, first),                                       \
-                ##__VA_ARGS__);                                           \
-        };                                                                \
-        LogBuilder<decltype(__build_lambda__)>(                           \
-            level, std::move(__build_lambda__), &default_logger);         \
+#define __LOG__(logger, level, first, ...)                               \
+    ({                                                                   \
+        DEFINE_PROLOGUE(level, prolog);                                  \
+        auto __build_lambda__ = [&](ILogOutput* __output_##__LINE__) {   \
+            if (_IS_LITERAL_STRING(first)) {                             \
+                __log__(level, __output_##__LINE__, prolog,              \
+                        TSTRING(#first).template strip<'\"'>(),          \
+                        ##__VA_ARGS__);                                  \
+            } else {                                                     \
+                __log__(level, __output_##__LINE__, prolog,              \
+                        ConstString::TString<>(), first, ##__VA_ARGS__); \
+            }                                                            \
+        };                                                               \
+        LogBuilder<decltype(__build_lambda__)>(                          \
+            level, std::move(__build_lambda__), &logger);                \
     })
 
-#define __LOG_AUDIT__(level, first, ...)                                  \
-    ({                                                                    \
-        DEFINE_PROLOGUE(level, prolog);                                   \
-        auto __build_lambda__ = [&](ILogOutput* __output_##__LINE__) {    \
-            PARSE_FMTSTR(first, sequence);                                \
-            __log_audit__<sequence>(                                      \
-                level, __output_##__LINE__, prolog,                       \
-                __first_format_forward<(#first)[0],                       \
-                                       (#first)[static_string::LEN - 1]>( \
-                    #first, first),                                       \
-                ##__VA_ARGS__);                                           \
-        };                                                                \
-        LogBuilder<decltype(__build_lambda__)>(                           \
-            level, std::move(__build_lambda__), &default_audit_logger);   \
-    })
+#define LOG_DEBUG(...) (__LOG__(default_logger, ALOG_DEBUG, __VA_ARGS__))
+#define LOG_INFO(...) (__LOG__(default_logger, ALOG_INFO, __VA_ARGS__))
+#define LOG_WARN(...) (__LOG__(default_logger, ALOG_WARN, __VA_ARGS__))
+#define LOG_ERROR(...) (__LOG__(default_logger, ALOG_ERROR, __VA_ARGS__))
+#define LOG_FATAL(...) (__LOG__(default_logger, ALOG_FATAL, __VA_ARGS__))
+#define LOG_TEMP(...)                                    \
+    {                                                    \
+        auto _err_bak = errno;                           \
+        __LOG__(default_logger, ALOG_TEMP, __VA_ARGS__); \
+        errno = _err_bak;                                \
+    }
+#define LOG_AUDIT(...) (__LOG__(default_audit_logger, ALOG_AUDIT, __VA_ARGS__))
 
-#define LOG_DEBUG(...) (__LOG__(ALOG_DEBUG, __VA_ARGS__))
-#define LOG_INFO(...)  (__LOG__(ALOG_INFO,  __VA_ARGS__))
-#define LOG_WARN(...)  (__LOG__(ALOG_WARN,  __VA_ARGS__))
-#define LOG_ERROR(...) (__LOG__(ALOG_ERROR, __VA_ARGS__))
-#define LOG_FATAL(...) (__LOG__(ALOG_FATAL, __VA_ARGS__))
-#define LOG_TEMP(...)  {auto _err_bak = errno; __LOG__(ALOG_TEMP, __VA_ARGS__); errno = _err_bak;}
-#define LOG_AUDIT(...) (__LOG_AUDIT__(ALOG_AUDIT, __VA_ARGS__))
-
-inline void set_log_output(ILogOutput* output)
-{
+inline void set_log_output(ILogOutput* output) {
     default_logger.log_output = output;
 }
 

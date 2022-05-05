@@ -23,13 +23,21 @@ targets = {
             '-lphoton',
         ],
     ),
+    'test_hash' : cpp_fast_test (
+        testing = [':hash'],
+        incs = ['./'],
+        srcs = ['./test_hash.cpp'],
+        ldflags=[
+            '-lphoton',
+        ],
+    ),
     'test_alog': cpp_fast_test(
         testing = [':test'],
         incs = [ './' ],
         srcs = [ './test_alog.cpp'],
         static_deps = [
-            'gtest-1.7.0:gtest',
-            'gmock-1.7.0:gmock',
+            # 'gtest-1.7.0:gtest',
+            # 'gmock-1.7.0:gmock',
         ],
         cxxflags = [
             '-DLOGCURRENT'

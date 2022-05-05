@@ -16,6 +16,7 @@ limitations under the License.
 
 #include <gtest/gtest.h>
 
+#include <array>
 #include <tuple>
 
 #include "../alog-stdstring.h"
@@ -70,14 +71,13 @@ TEST(Basic_simple_tests, HTTPVerb) {
     EXPECT_TRUE(verbs[VERBS::UNLINK] == "UNLINK");
 }
 
-
 TEST(Basic_simple_tests, whole) {
     DEFINE_ENUM_STR(A, a, AAA, bbb, CCC, ddd);
     puts(a.whole().chars);
     puts(&a.whole().chars[4]);
     puts(&a.whole().chars[8]);
     puts(&a.whole().chars[12]);
-    for(int i=0;i<4;i++) {
+    for (int i = 0; i < 4; i++) {
         printf("%d\n", a.arr().offset.arr[i]);
     }
 }
@@ -94,22 +94,25 @@ TEST(Static, memuse) {
 TEST(TString, JoinAndSplit) {
     auto a = TSTRING("Hello");
     auto b = TSTRING(" world");
-    auto c = ConstString::join_tstring<','>(a, b);
-    EXPECT_STREQ("Hello, world", c.chars);
+    auto c = ConstString::make_tstring_array(a, b);
+    EXPECT_STREQ("Hello, world", c.join<','>().chars);
 
-    auto d = TSTRING("1,2, 3, 4, 5, 6");
+    auto d = TSTRING(
+        "1,2, 3, "
+        "4, 5, 6");
     // seperate by ',' and ignore ' '
-    auto sp = ConstString::split_helper<',', ' '>(d);
-    EXPECT_EQ(6UL, sp.len);
-    EXPECT_TRUE("1" == sp.array.views[0]);
-    EXPECT_TRUE("2" == sp.array.views[1]);
-    EXPECT_TRUE("3" == sp.array.views[2]);
-    EXPECT_TRUE("4" == sp.array.views[3]);
-    EXPECT_TRUE("5" == sp.array.views[4]);
-    EXPECT_TRUE("6" == sp.array.views[5]);
+    auto sp = d.split<',', ' '>();
+    EXPECT_EQ(6UL, sp.size);
+    EXPECT_TRUE("1" == sp.views[0]);
+    EXPECT_TRUE("2" == sp.views[1]);
+    EXPECT_TRUE("3" == sp.views[2]);
+    EXPECT_TRUE("4" == sp.views[3]);
+    EXPECT_TRUE("5" == sp.views[4]);
+    EXPECT_TRUE("6" == sp.views[5]);
+    EXPECT_STREQ("1|2|3|4|5|6", sp.join<'|'>().chars);
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
     int ret = RUN_ALL_TESTS();
     LOG_ERROR_RETURN(0, ret, VALUE(ret));

@@ -44,6 +44,18 @@ struct make_index_sequence<0, Z> {
 
 struct tstring_base {};
 
+template <typename... Tss>
+struct TStrArray;
+
+template <char SP, char... chs>
+struct TSCut;
+
+template <char SP, char... chs>
+struct TStrip;
+
+template <char SP, char IGN, typename TStr>
+struct TSpliter;
+
 template <char... str>
 struct TString : tstring_base {
     static constexpr const char chars[sizeof...(str) + 1] = {str..., '\0'};
@@ -52,18 +64,61 @@ struct TString : tstring_base {
     using type = TString<str...>;
 
     template <char ch>
-    using prepend = TString<ch, str...>;
+    using Prepend = TString<ch, str...>;
     template <char ch>
-    using append = TString<str..., ch>;
+    using Append = TString<str..., ch>;
 
+    template <char ch>
+    static constexpr decltype(auto) prepend() {
+        return Prepend<ch>{};
+    }
+    template <char ch>
+    static constexpr decltype(auto) append() {
+        return Append<ch>{};
+    }
     template <char... rhs>
-    decltype(auto) concat(TString<rhs...>) {
+    static constexpr decltype(auto) concat(TString<rhs...>) {
         return TString<str..., rhs...>{};
     }
-
+    template <typename T, typename = typename std::enable_if<
+                              std::is_base_of<tstring_base, T>::value>::type>
+    decltype(auto) operator+(T rhs) {
+        return concat(*this, rhs);
+    }
+    template <char SP, char IGN>
+    static constexpr decltype(auto) split() {
+        return TSpliter<SP, IGN, TString>::array;
+    }
+    static constexpr decltype(auto) tsreverse(TString<>) { return TString<>(); }
+    template <char ch, char... chs>
+    static constexpr decltype(auto) tsreverse(TString<ch, chs...>) {
+        return typename decltype(tsreverse(
+            TString<chs...>()))::template Append<ch>();
+    }
+    static constexpr decltype(auto) reverse() { return tsreverse(TString()); }
+    template <char SP>
+    static constexpr decltype(auto) cut() {
+        return TSCut<SP, str...>();
+    }
+    template <char SP>
+    static constexpr decltype(auto) lstrip() {
+        return typename TStrip<SP, str...>::type();
+    }
+    template <char SP>
+    static constexpr decltype(auto) rstrip() {
+        return reverse().template lstrip<SP>().reverse();
+    }
+    template <char SP>
+    static constexpr decltype(auto) strip() {
+        return lstrip<SP>().template rstrip<SP>();
+    }
     template <size_t... indices>
-    decltype(auto) _do_substr(index_sequence<indices...>) {
+    static constexpr decltype(auto) _do_substr(index_sequence<indices...>) {
         return TString<chars[indices]...>();
+    }
+    template <size_t offset, size_t len>
+    static constexpr decltype(auto) substr() {
+        return _do_substr<decltype(make_index_sequence<len, offset>())>();
     }
 
     static constexpr std::string_view view() { return {chars, len}; }
@@ -80,47 +135,20 @@ constexpr decltype(auto) build_tstring(index_sequence<indices...>) {
     return TString<str().chars[indices]...>();
 }
 
-#define TSTRING(x)                                                         \
-    [] {                                                                   \
-        struct const_str {                                                 \
-            const char* chars = x;                                         \
-        };                                                                 \
-        return ConstString::build_tstring<const_str>(                      \
-            ConstString::make_index_sequence<sizeof(x) - 1, 0>::result{}); \
+#define TSTRING(x)                                                   \
+    [] {                                                             \
+        struct const_str {                                           \
+            const char* chars = x;                                   \
+        };                                                           \
+        return ConstString::build_tstring<const_str>(                \
+            typename ConstString::make_index_sequence<sizeof(x) - 1, \
+                                                      0>::result{}); \
     }()
-
-constexpr TString<> concat_tstring() { return TString<>{}; }
-
-template <typename Arg>
-constexpr decltype(auto) concat_tstring(Arg arg) {
-    return arg;
-}
-
-template <typename LS, typename RS, typename... Args>
-constexpr decltype(auto) concat_tstring(LS ls, RS rs, Args... args) {
-    return concat_tstring(ls.concat(rs), args...);
-}
-
-template <char>
-constexpr TString<> join_tstring() {
-    return TString<>{};
-}
-
-template <char sp, typename Arg>
-constexpr decltype(auto) join_tstring(Arg arg) {
-    return arg;
-}
-
-template <char sp, typename LS, typename RS, typename... Args>
-constexpr decltype(auto) join_tstring(LS ls, RS rs, Args... args) {
-    using with_tail = typename LS::template append<sp>;
-    return join_tstring<sp>(with_tail{}.concat(rs), args...);
-}
 
 template <typename T, T... xs>
 struct Accumulate {
     template <T x>
-    using prepend = Accumulate<T, 0, (xs + x)...>;
+    using Prepend = Accumulate<T, 0, (xs + x)...>;
 
     constexpr static T arr[sizeof...(xs)] = {xs...};
 };
@@ -130,8 +158,8 @@ constexpr T Accumulate<T, xs...>::arr[];
 
 template <typename T, T x, T... xs>
 constexpr decltype(auto) accumulate_helper(TList<T, x, xs...>) {
-    return typename decltype(
-        accumulate_helper(TList<T, xs...>{}))::template prepend<x>{};
+    return typename decltype(accumulate_helper(
+        TList<T, xs...>{}))::template Prepend<x>{};
 }
 
 template <typename T>
@@ -142,56 +170,107 @@ constexpr Accumulate<T, 0> accumulate_helper(TList<T>) {
 template <typename... Tss>
 struct TStrArray {
     template <typename T>
-    using prepend = TStrArray<T, Tss...>;
+    using Prepend = TStrArray<T, Tss...>;
 
-    constexpr static decltype(auto) whole() {
-        return join_tstring<'\0', Tss...>(Tss()...);
+    template <typename T>
+    using Append = TStrArray<Tss..., T>;
+
+    template <typename T>
+    constexpr static decltype(auto) prepend() {
+        return Prepend<T>();
     }
+    template <typename T>
+    constexpr static decltype(auto) append() {
+        return Append<T>();
+    }
+    constexpr static decltype(auto) whole() { return join<'\0'>(); }
+    constexpr static size_t size = sizeof...(Tss);
     constexpr static std::string_view views[sizeof...(Tss)] = {Tss::view()...};
     constexpr static auto offset =
         decltype(accumulate_helper(TList<int16_t, (Tss::len + 1)...>{})){};
+
+    template <char sp>
+    constexpr static decltype(auto) _join_tstring() {
+        return TStrArray<>();
+    }
+    template <char sp, typename T>
+    constexpr static decltype(auto) _join_tstring(T t) {
+        return t;
+    }
+    template <char sp, typename LS, typename RS, typename... Args>
+    constexpr static decltype(auto) _join_tstring(LS ls, RS rs, Args... args) {
+        using with_tail = typename LS::template Append<sp>;
+        return _join_tstring<sp>(with_tail{}.concat(rs), args...);
+    }
+    template <char SP>
+    constexpr static decltype(auto) join() {
+        return _join_tstring<SP>(Tss()...);
+    }
 };
 
 template <typename... Tss>
-
 constexpr std::string_view TStrArray<Tss...>::views[];
 
-template <char SP, char IGN, char head, char... tail>
-struct Spliter {
-    using current = typename std::conditional<
-        head == SP, TString<>,
-        typename std::conditional<
-            head == IGN, typename Spliter<SP, IGN, tail...>::current,
-            typename Spliter<SP, IGN, tail...>::current::template prepend<
-                head> >::type>::type;
-    using next = typename std::conditional<
-        head == SP, Spliter<SP, IGN, tail...>,
-        typename Spliter<SP, IGN, tail...>::next>::type;
-    using arr = typename next::arr::template prepend<current>;
-    static constexpr size_t len = next::len + 1;
-    static constexpr arr array{};
-};
+template <typename... Tss>
+constexpr size_t TStrArray<Tss...>::size;
 
-template <char SP, char IGN, char head, char... tail>
-constexpr size_t Spliter<SP, IGN, head, tail...>::len;
-
-template <char SP, char IGN>
-struct Spliter<SP, IGN, '\0'> {
-    using current = TString<>;
-    using next = Spliter<SP, IGN, '\0'>;
-    using arr = TStrArray<>;
-    static constexpr size_t len = 0;
-    static constexpr arr array{};
-};
-
-template <char SP, char IGN>
-constexpr size_t Spliter<SP, IGN, '\0'>::len;
-
-template <char SP, char Skip = '\0', char... chars>
-constexpr auto split_helper(TString<chars...>)
-    -> Spliter<SP, Skip, chars..., '\0'> {
-    return {};
+template<typename... Tss>
+constexpr static decltype(auto) make_tstring_array(Tss...) {
+    return TStrArray<Tss...>{};
 }
+
+template <char SP, char IGN, typename TStr>
+struct TSpliter {
+    using Cut = decltype(TStr::template cut<SP>());
+    using Current = decltype(Cut::Head::template strip<IGN>());
+    using Next = TSpliter<SP, IGN, typename Cut::Tail>;
+    using Array = typename Next::Array::template Prepend<Current>;
+    static constexpr Current current{};
+    static constexpr Next next{};
+    static constexpr Array array{};
+};
+
+template <char SP, char IGN>
+struct TSpliter<SP, IGN, TString<>> {
+    using Cut = TSCut<SP>;
+    using Current = TString<>;
+    using Next = TSpliter;
+    using Array = TStrArray<>;
+    static constexpr Current current{};
+    static constexpr Next next{};
+    static constexpr Array array{};
+};
+
+template <char SP, char ch, char... chs>
+struct TSCut<SP, ch, chs...> {
+    using Head = typename std::conditional<
+        SP == ch, TString<>,
+        typename TSCut<SP, chs...>::Head::template Prepend<ch>>::type;
+    using Tail =
+        typename std::conditional<SP == ch, TString<chs...>,
+                                  typename TSCut<SP, chs...>::Tail>::type;
+    static constexpr Head head{};
+    static constexpr Tail tail{};
+};
+
+template <char SP>
+struct TSCut<SP> {
+    using Head = TString<>;
+    using Tail = TString<>;
+    static constexpr Head head{};
+    static constexpr Tail tail{};
+};
+
+template <char SP, char ch, char... chs>
+struct TStrip<SP, ch, chs...> {
+    using type =
+        typename std::conditional<SP == ch, typename TStrip<SP, chs...>::type,
+                                  TString<ch, chs...>>::type;
+};
+template <char SP>
+struct TStrip<SP> {
+    using type = TString<>;
+};
 
 template <typename EnumType, typename Split>
 struct EnumStr : public Split {
@@ -201,23 +280,23 @@ struct EnumStr : public Split {
                 (size_t)(off((int)x + 1) - off((int)x)) - 1};
     }
 
-    constexpr static decltype(auto) whole() { return Split::arr::whole(); }
+    constexpr static decltype(auto) whole() { return Split::Array::whole(); }
 
-    constexpr static decltype(auto) arr() { return typename Split::arr{}; }
+    constexpr static decltype(auto) arr() { return typename Split::Array{}; }
 
-    static int16_t off(int i) { return Split::arr::offset.arr[i]; }
+    static int16_t off(int i) { return Split::Array::offset.arr[i]; }
 
-    constexpr static const char* base() { return Split::arr::whole().chars; }
+    constexpr static const char* base() { return Split::Array::whole().chars; }
 
-    constexpr static size_t size() { return Split::len; }
+    constexpr static size_t size() { return Split::Array::size; }
 };
 
-#define DEFINE_ENUM_STR(enum_name, str_name, ...)                    \
-    enum class enum_name { __VA_ARGS__ };                            \
-    static const auto str_name = [] {                                \
-        auto x = TSTRING(#__VA_ARGS__);                              \
-        using sp = decltype(ConstString::split_helper<',', ' '>(x)); \
-        return ConstString::EnumStr<enum_name, sp>();                \
+#define DEFINE_ENUM_STR(enum_name, str_name, ...)                         \
+    enum class enum_name { __VA_ARGS__ };                                 \
+    static const auto str_name = [] {                                     \
+        auto x = TSTRING(#__VA_ARGS__);                                   \
+        using sp = typename ConstString::TSpliter<',', ' ', decltype(x)>; \
+        return ConstString::EnumStr<enum_name, sp>();                     \
     }()
 
 }  // namespace ConstString
