@@ -198,6 +198,7 @@ struct ALogBuffer
 class LogFormatter
 {
 public:
+    __attribute__((always_inline))
     void put(ALogBuffer& buf, char c)
     {
         if (buf.size == 0) return;
@@ -205,6 +206,7 @@ public:
         buf.consume(1);
     }
 
+    __attribute__((always_inline))
     void put(ALogBuffer& buf, const ALogString& s)
     {
         if (buf.size < s.size) return;
@@ -312,6 +314,7 @@ public:
         log_output->write(level, buf, ptr);
     }
     template<typename T>
+    __attribute__((always_inline))
     LogBuffer& operator << (const T& x)
     {
         log_formatter.put(*this, alog_forwarding(x));
