@@ -322,10 +322,10 @@ public:
         return *this;
     }
     template<typename T, typename...Ts>
-    LogBuffer& printf(const T& x, const Ts&...xs)
+    LogBuffer& printf(T&& x, Ts&&...xs)
     {
-        (*this) << x;
-        return printf(xs...);
+        (*this) << std::forward<T>(x);
+        return printf(std::forward<Ts>(xs)...);
     }
 
 protected:
@@ -350,36 +350,49 @@ using CopyOrRef = std::conditional<
         (sizeof(typename std::remove_reference<T>::type) <= 16),
     const T, const T&>;
 
-struct STFMTLogBuffer : public LogBuffer {
+struct STFMTLogBuffer : public LogBuffer
+{
     using LogBuffer::LogBuffer;
 
     template <typename ST, typename T, typename... Ts>
-    typename std::enable_if<ST::template cut<'`'>().tail.chars[0] != '`'>::type
-    print_fmt(ST st, const T& t, const Ts&... ts) {
-        printf(ALogString(st.template cut<'`'>().head.chars,
-                          st.template cut<'`'>().head.len),
-               t);
-        print_fmt(st.template cut<'`'>().tail, ts...);
+    auto print_fmt(ST st, T&& t, Ts&&... ts) ->
+        typename std::enable_if<ST::template cut<'`'>().tail.chars[0] !=
+                                '`'>::type
+    {
+        printf<const ALogString&,
+               typename CopyOrRef<decltype(alog_forwarding(t))>::type>(
+            ALogString(st.template cut<'`'>().head.chars,
+                       st.template cut<'`'>().head.len),
+            alog_forwarding(std::forward<T>(t)));
+        print_fmt(st.template cut<'`'>().tail, std::forward<Ts>(ts)...);
     }
 
     template <typename ST, typename T, typename... Ts>
-    typename std::enable_if<ST::template cut<'`'>().tail.chars[0] == '`'>::type
-    print_fmt(ST st, const T& t, const Ts&... ts) {
-        printf(ALogString(st.template cut<'`'>().head.chars,
-                          st.template cut<'`'>().head.len),
-               '`');
-        print_fmt(st.template cut<'`'>().tail.template cut<'`'>().tail, t,
-                  ts...);
+    auto print_fmt(ST st, T&& t, Ts&&... ts) ->
+        typename std::enable_if<ST::template cut<'`'>().tail.chars[0] ==
+                                '`'>::type
+    {
+        printf<const ALogString&, const char>(
+            ALogString(st.template cut<'`'>().head.chars,
+                       st.template cut<'`'>().head.len),
+            '`');
+        print_fmt(st.template cut<'`'>().tail.template cut<'`'>().tail,
+                  std::forward<T>(t), std::forward<Ts>(ts)...);
     }
 
     template <typename ST>
-    void print_fmt(ST) {
-        printf(ALogString(ST::chars, ST::len));
+    void print_fmt(ST)
+    {
+        printf<const ALogString&>(ALogString(ST::chars, ST::len));
     }
 
     template <typename T, typename... Ts>
-    void print_fmt(ConstString::TString<> st, const T& t, const Ts&... ts) {
-        printf(t, ts...);
+    void print_fmt(ConstString::TString<> st, T&& t, Ts&&... ts)
+    {
+        printf<typename CopyOrRef<decltype(alog_forwarding(t))>::type,
+               typename CopyOrRef<decltype(alog_forwarding(ts))>::type...>(
+            alog_forwarding(std::forward<T>(t)),
+            alog_forwarding(std::forward<Ts>(ts))...);
     }
 };
 
@@ -388,7 +401,7 @@ static void __log__(int level, ILogOutput* output, const Prologue& prolog, FMT f
 {
     STFMTLogBuffer log(output);
     log << prolog;
-    log.print_fmt(fmt, alog_forwarding(xs)...);
+    log.print_fmt(fmt, std::forward<Ts>(xs)...);
     log.level = level;
 }
 
@@ -421,12 +434,10 @@ struct LogBuilder {
     }
 };
 
-#define DEFINE_PROLOGUE(level, prolog)                      \
-    const static Prologue prolog{                           \
-        (uint64_t)__func__, (uint64_t)__FILE__,             \
-        sizeof(__func__) - 1, sizeof(__FILE__) - 1,         \
-        __LINE__, level                                     \
-    };
+#define DEFINE_PROLOGUE(level, prolog)                                  \
+    const static Prologue prolog{                                       \
+        (uint64_t) __func__,  (uint64_t)__FILE__, sizeof(__func__) - 1, \
+        sizeof(__FILE__) - 1, __LINE__,           level};
 
 #define _IS_LITERAL_STRING(x) \
     (sizeof(#x) > 2 && (#x[0] == '"') && (#x[sizeof(#x) - 2] == '"'))
