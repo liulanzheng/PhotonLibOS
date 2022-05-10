@@ -426,8 +426,8 @@ TEST(http_client, partial_body) {
 // }
 
 int main(int argc, char** arg) {
-    photon::init();
-    DEFER(photon::fini());
+    photon::thread_init();
+    DEFER(photon::thread_fini());
     photon::fd_events_init();
     DEFER(photon::fd_events_fini());
     if (et_poller_init() < 0) {

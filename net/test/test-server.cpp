@@ -23,13 +23,13 @@ limitations under the License.
 using namespace photon;
 
 int main(int argc, char** argv) {
-    photon::init();
+    photon::thread_init();
     photon::fd_events_init();
     net::ssl_init("net/test/cert.pem", "net/test/key.pem", "Just4Test");
     DEFER({
         net::ssl_fini();
         photon::fd_events_fini();
-        photon::fini();
+        photon::thread_fini();
     });
     auto server = net::new_tls_socket_server();
     DEFER(delete server);

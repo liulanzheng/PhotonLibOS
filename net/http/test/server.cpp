@@ -485,8 +485,8 @@ bool server_done(TestServer* serv) {
 static void stop_handler(int signal) { stop_flag = true; }
 int main(int argc, char** argv) {
     gflags::ParseCommandLineFlags(&argc, &argv, true);
-    photon::init();
-    DEFER(photon::fini());
+    photon::thread_init();
+    DEFER(photon::thread_fini());
     photon::fd_events_init();
     DEFER(photon::fd_events_fini());
     set_log_output_level(ALOG_INFO);

@@ -84,7 +84,7 @@ TEST(easy_performer, test) {
     easy_atomic_set(count, 10000);
 
     std::thread([]() {
-        photon::init();
+        photon::thread_init();
         photon::fd_events_init();
         fs::exportfs_init();
 

@@ -439,7 +439,7 @@ public:
 class TcpSocketServer0c : public KernelSocketServer {
 public:
     TcpSocketServer0c(int socket_family, bool autoremove) :
-        KernelSocketServer(socket_family, autoremove, false)
+        KernelSocketServer(socket_family, autoremove, true)
     {
         int v = 1;
         _ctor1 = &socket_ctor<ZeroCopySocketStream>;

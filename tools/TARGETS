@@ -9,7 +9,8 @@ targets = {
         incs = [
             '../third_party/liburing/src/include',
         ],
-        srcs =  glob('../common/*.cpp') +
+        srcs =  glob('../photon.cpp') +
+                glob('../common/*.cpp') +
                 glob('../common/checksum/*.cpp') +
                 glob('../common/memory-stream/*.cpp') +
                 glob('../common/stream-messenger/*.cpp') +

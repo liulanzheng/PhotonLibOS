@@ -146,8 +146,8 @@ int main(int argc, char** argv) {
     set_log_output_level(ALOG_INFO);
     gflags::ParseCommandLineFlags(&argc, &argv, true);
 
-    photon::init();
-    DEFER(photon::fini());
+    photon::thread_init();
+    DEFER(photon::thread_fini());
     photon::fd_events_init();
     DEFER(photon::fd_events_fini());
 

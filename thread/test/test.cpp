@@ -789,8 +789,8 @@ TEST(RWLock, smp) {
     std::vector<std::thread> ths;
     for (int i=0 ;i< 10;i++) {
         ths.emplace_back([&]{
-            photon::init();
-            DEFER(photon::fini());
+            photon::thread_init();
+            DEFER(photon::thread_fini());
             for (int i = 0; i < 100; i++){
                 auto ret = lock.lock(WLOCK);
                 // LOG_INFO("Locked");
@@ -922,9 +922,9 @@ void std_threads_create_join(int N, Ts&&...xs)
 
 void photon_do(int n, thread_entry start, void* args)
 {
-    photon::init();
+    photon::thread_init();
     photon::threads_create_join(n, start, args);
-    photon::fini();
+    photon::thread_fini();
 }
 
 struct smp_args
@@ -1038,8 +1038,8 @@ TEST(smp, rwlock) {
     srw_count = 0;
     swriting = false;
     std_threads_create_join(10, [&]{
-        photon::init();
-        DEFER(photon::fini());
+        photon::thread_init();
+        DEFER(photon::thread_fini());
         std::vector<photon::join_handle*> handles;
         for (uint64_t i=0; i<100;i++) {
             uint64_t arg = (i << 32) | (rand()%10 < 7 ? photon::RLOCK : photon::WLOCK);
@@ -1195,8 +1195,8 @@ TEST(mutex, timeout_is_zero) {
     std::atomic<int> cnt(0);
     for (int i=0;i<32;i++) {
         ths.emplace_back([&]{
-            photon::init();
-            DEFER(photon::fini());
+            photon::thread_init();
+            DEFER(photon::thread_fini());
             for(int j=0;j<10000;j++) {
                 auto ret = mtx.lock(0);
                 if (ret == 0)
@@ -1339,10 +1339,10 @@ TEST(smp, join_on_smp) {
     jh.clear();
     for (int i=0;i<3;i++) {
         jt.emplace_back([&]{
-            photon::init();
+            photon::thread_init();
             DEFER({
                 LOG_INFO("before FINI");
-                photon::fini();
+                photon::thread_fini();
                 LOG_INFO("FINI");
             });
             {
@@ -1372,7 +1372,7 @@ int main(int argc, char** arg)
     ::testing::InitGoogleTest(&argc, arg);
     google::ParseCommandLineFlags(&argc, &arg, true);
     default_audit_logger.log_output = log_output_stdout;
-    photon::init();
+    photon::thread_init();
             set_log_output_level(ALOG_INFO);
 
     if (FLAGS_vcpus <= 1)
@@ -1383,10 +1383,10 @@ int main(int argc, char** arg)
     std::vector<std::thread> ths;
     for(int i=1; i<=FLAGS_vcpus; i++) {
         ths.emplace_back([i]{
-            photon::init();
+            photon::thread_init();
             set_log_output_level(ALOG_INFO);
             run_all_tests(i);
-            photon::fini();
+            photon::thread_fini();
         });
     }
 
@@ -1403,7 +1403,7 @@ int main(int argc, char** arg)
     //aSem.wait(10);
 
     wait_for_completion(0);
-    while(photon::fini() != 0)
+    while(photon::thread_fini() != 0)
     {
         LOG_DEBUG("wait for other vCPU(s) to end");
         ::usleep(1000*1000);

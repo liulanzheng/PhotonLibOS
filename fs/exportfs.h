@@ -30,7 +30,7 @@ namespace fs
     extern "C"
     {
         // The exports below wrap a sync file/fs/dir object into an
-        // async/sync one for ourside world, assuming that the exported
+        // async/sync one for outside world, assuming that the exported
         // will be used in other OS thread(s) (not necessarily), so
         // the exports will act accordingly in a thread-safe manner.
 

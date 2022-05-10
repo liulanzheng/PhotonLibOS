@@ -168,9 +168,9 @@ void test_client(result &res) {
 int main(int argc, char** argv) {
     gflags::ParseCommandLineFlags(&argc, &argv, true);
     set_log_output_level(ALOG_INFO);
-    auto ret = photon::init();
+    auto ret = photon::thread_init();
     if (ret < 0) return -1;
-    DEFER({ photon::fini(); });
+    DEFER({ photon::thread_fini(); });
     ret = photon::fd_events_init();
     if (ret < 0) return -1;
     DEFER({ photon::fd_events_fini(); });

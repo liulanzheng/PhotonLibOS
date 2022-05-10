@@ -25,8 +25,8 @@ limitations under the License.
 
 namespace photon
 {
-    int init();
-    int fini();
+    int thread_init();
+    int thread_fini();
     int wait_all();
 
     struct thread;

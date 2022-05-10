@@ -1341,11 +1341,11 @@ TEST(Walker, basic) {
 int main(int argc, char **argv)
 {
     ::testing::InitGoogleTest(&argc, argv);
-    photon::init();
+    photon::thread_init();
     photon::fd_events_init();
     DEFER({
         photon::fd_events_fini();
-        photon::fini();
+        photon::thread_fini();
     });
     int ret = RUN_ALL_TESTS();
     LOG_ERROR_RETURN(0, ret, VALUE(ret));

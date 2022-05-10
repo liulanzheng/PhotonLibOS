@@ -1349,7 +1349,7 @@ namespace photon
 
     static std::atomic<uint32_t> _n_vcpu{0};
 
-    int init()
+    int thread_init()
     {
         if (CURRENT) return -1;      // re-init has no side-effect
         auto _vcpuid = _n_vcpu++;
@@ -1359,7 +1359,7 @@ namespace photon
         update_now();
         return _vcpuid;
     }
-    int fini()
+    int thread_fini()
     {
         auto& current = CURRENT;
         if (!current) return -1;

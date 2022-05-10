@@ -91,13 +91,13 @@ int callbackvoid(void*, AsyncResult<void>* ret) {
 
 
 TEST(ExportFS, basic) {
-    photon::init();
+    photon::thread_init();
     photon::fd_events_init();
     exportfs_init();
     DEFER({
         exportfs_fini();
         photon::fd_events_fini();
-        photon::fini();
+        photon::thread_fini();
     });
     Mock::MockNullFile* mockfile = new Mock::MockNullFile();
     Mock::MockNullFileSystem* mockfs = new Mock::MockNullFileSystem();
@@ -242,7 +242,7 @@ TEST(ExportFS, init_fini_failed_situation) {
     auto ret = exportfs_fini();
     EXPECT_EQ(-1, ret);
     EXPECT_EQ(ENOSYS, errno);
-    photon::init();
+    photon::thread_init();
     photon::fd_events_init();
     ret = exportfs_init();
     EXPECT_EQ(0, ret);
@@ -252,7 +252,7 @@ TEST(ExportFS, init_fini_failed_situation) {
     ret = exportfs_fini();
     EXPECT_EQ(0, ret);
     photon::fd_events_fini();
-    // photon::fini();
+    // photon::thread_fini();
 }
 
 TEST(ExportFS, op_failed_situation) {
@@ -261,13 +261,13 @@ TEST(ExportFS, op_failed_situation) {
     DEFER({
         log_output = _o_output;
     });
-    // photon::init();
+    // photon::thread_init();
     photon::fd_events_init();
     exportfs_init();
     DEFER({
         exportfs_fini();
         photon::fd_events_fini();
-        // photon::fini();
+        // photon::thread_fini();
     });
     Mock::MockNullFile* mockfile = new Mock::MockNullFile;
     errno = 0;
@@ -295,8 +295,8 @@ TEST(ExportFS, op_failed_situation) {
 
 int main(int argc, char **argv)
 {
-    photon::init();
-    DEFER(photon::fini());
+    photon::thread_init();
+    DEFER(photon::thread_fini());
     ::testing::InitGoogleTest(&argc, argv);
     int ret = RUN_ALL_TESTS();
     LOG_ERROR_RETURN(0, ret, VALUE(ret));

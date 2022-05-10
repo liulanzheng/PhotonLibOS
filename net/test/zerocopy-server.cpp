@@ -26,12 +26,10 @@ limitations under the License.
 #include <fcntl.h>
 #include <gflags/gflags.h>
 
+#include <photon/photon.h>
 #include <photon/io/aio-wrapper.h>
-#include <photon/io/fd-events.h>
-#include <photon/thread/thread11.h>
 #include <photon/io/signalfd.h>
-#include <photon/net/socket.h>
-#include <photon/net/zerocopy.h>
+#include <photon/thread/thread11.h>
 #include <photon/common/alog.h>
 #include <photon/common/alog-stdstring.h>
 #include <photon/common/alog-functionptr.h>
@@ -39,6 +37,7 @@ limitations under the License.
 #include <photon/common/callback.h>
 #include <photon/rpc/rpc.h>
 #include <photon/common/checksum/crc32c.h>
+
 #include "zerocopy-common.h"
 
 using namespace std;
@@ -194,17 +193,9 @@ int main(int argc, char** argv) {
     set_log_output_level(ALOG_INFO);
     gflags::ParseCommandLineFlags(&argc, &argv, true);
 
-    photon::init();
+    if (photon::init(INIT_EVENT_DEFAULT, INIT_IO_LIBAIO | INIT_IO_SOCKET_ZEROCOPY) < 0)
+        return -1;
     DEFER(photon::fini());
-    photon::fd_events_init();
-    DEFER(photon::fd_events_fini());
-    photon::libaio_wrapper_init();
-    DEFER(photon::libaio_wrapper_fini());
-    net::zerocopy_init();
-    DEFER(net::zerocopy_fini());
-
-    photon::sync_signal_init();
-    DEFER(photon::sync_signal_fini());
     photon::sync_signal(SIGPIPE, &ignore_signal);
     photon::sync_signal(SIGTERM, &handle_signal);
     photon::sync_signal(SIGINT, &handle_signal);
@@ -228,9 +219,6 @@ int main(int argc, char** argv) {
         socket_srv = net::new_tcp_socket_server();
         LOG_INFO("New tcp socket server");
     } else if (SocketType(FLAGS_socket_type) == SocketType::ZEROCOPY) {
-        if (!net::zerocopy_available()) {
-            LOG_ERROR_RETURN(0, -1, "zerocopy is not supported");
-        }
         socket_srv = net::new_tcp_socket_server_0c();
         LOG_INFO("New zerocopy socket server");
     } else if (SocketType(FLAGS_socket_type) == SocketType::IOURING) {
@@ -249,6 +237,7 @@ int main(int argc, char** argv) {
     socket_srv->bind((uint16_t) FLAGS_port, net::IPAddr("0.0.0.0"));
     socket_srv->listen(1024);
     socket_srv->start_loop(false);
+    LOG_INFO("Socket server running ...");
     while (!g_stop_test) {
         photon::thread_sleep(1);
     }

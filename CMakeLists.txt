@@ -81,6 +81,7 @@ set(boost_include_dir ${boost_SOURCE_DIR})
 # Compile photon objects
 file(
         GLOB PHOTON_SRC
+        photon.cpp
         common/*.cpp
         common/checksum/*.cpp
         common/executor/*.cpp

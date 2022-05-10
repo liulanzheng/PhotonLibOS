@@ -322,7 +322,7 @@ TEST(rpc, timeout) {
 
 int main(int argc, char** arg)
 {
-    ::photon::init();
+    ::photon::thread_init();
     ::testing::InitGoogleTest(&argc, arg);
     return RUN_ALL_TESTS();
 }
