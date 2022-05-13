@@ -313,7 +313,7 @@ namespace photon
             resume_one();
             return 0;
         }
-        uint64_t count() {
+        uint64_t count() const {
             return m_count.load(std::memory_order_relaxed);
         }
 
