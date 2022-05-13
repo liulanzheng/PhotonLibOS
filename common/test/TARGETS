@@ -35,6 +35,18 @@ targets = {
             '-lphoton',
         ],
     ),
+    'test_throttle' : cpp_fast_test(
+        testing = [':test_throttle'],
+        incs = [ './' ],
+        srcs = [ './test_throttle.cpp' ],
+        static_deps = [
+            'gtest-1.7.0:gtest',
+            'gmock-1.7.0:gmock',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+    ),
     'test_constexprstr' : cpp_fast_test(
         testing = [':test_constexprstr'],
         incs = [ './' ],
