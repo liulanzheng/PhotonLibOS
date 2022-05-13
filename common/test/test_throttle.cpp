@@ -162,7 +162,7 @@ TEST(Throttle, try_consume) {
 }
 
 int main(int argc, char** argv) {
-    photon::init();
+    photon::init(0, 0);
     DEFER(photon::fini());
     testing::InitGoogleTest(&argc, argv);
     int ret = RUN_ALL_TESTS();
