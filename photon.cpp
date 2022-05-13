@@ -49,10 +49,6 @@ int init(uint64_t event_engine, uint64_t io_engine, uint64_t misc) {
 }
 
 int fini() {
-    thread_fini();
-    if (g_event_engine & (INIT_EVENT_EPOLL | INIT_EVENT_IOURING)) {
-        fd_events_fini();
-    }
     if (g_event_engine & INIT_EVENT_SIGNALFD) {
         sync_signal_fini();
     }
@@ -73,6 +69,10 @@ int fini() {
     if (g_io_engine & INIT_IO_EXPORTFS) {
         fs::exportfs_fini();
     }
+    if (g_event_engine & (INIT_EVENT_EPOLL | INIT_EVENT_IOURING)) {
+        fd_events_fini();
+    }
+    thread_fini();
     return 0;
 }
 
