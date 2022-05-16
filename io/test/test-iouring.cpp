@@ -584,7 +584,7 @@ TEST(echo_server, DISABLED_client) {
     photon::thread_enable_join(qps_th);
 
     net::EndPoint ep{net::IPAddr(FLAGS_ip.c_str()), (uint16_t) FLAGS_port};
-    auto cli = net::new_socket_client_iouring();
+    auto cli = net::new_tcp_socket_client();
     auto conn = cli->connect(ep);
     ASSERT_NE(conn, nullptr);
 

@@ -1,11 +1,11 @@
 # $$PHOTON_UNPUBLISHED_FILE$$
 
 targets = {
-    'client_test': cpp_fast_test (
-       testing = [ 'http_client' ],
+    'client_function_test': cpp_fast_test (
+       testing = [],
        incs = [],
        srcs = [
-           'client_test.cpp',
+           'client_function_test.cpp',
        ],
        static_deps=[
            'curl-7.42.1',
@@ -18,12 +18,12 @@ targets = {
            '-lphoton',
        ],
     ),
-    'server_test': cpp_fast_test (
-        testing = [ 'http_server' ],
+    'server_function_test': cpp_fast_test (
+        testing = [],
         incs = [
         ],
         srcs = [
-            'server_test.cpp',
+            'server_function_test.cpp',
         ],
         static_deps=[
             'curl-7.42.1',
@@ -38,7 +38,7 @@ targets = {
         ],
     ),
     'headers_test': cpp_fast_test (
-       testing = [ 'new_headers' ],
+       testing = [],
        incs = [],
        srcs = [
            'headers_test.cpp',
@@ -55,7 +55,7 @@ targets = {
        ],
     ),
     'cookie_jar_test': cpp_fast_test (
-        testing = [ 'cookie_jar' ],
+        testing = [],
         incs = [
         ],
         srcs = [
@@ -71,12 +71,12 @@ targets = {
             '-lphoton',
         ],
     ),
-    'simple_server' : cpp_program(
+    'server_perf' : cpp_program(
         incs = [
             './',
         ],
         srcs = [
-            'server.cpp',
+            'server_perf.cpp',
         ],
         static_deps = [
             'gtest-1.7.0:gtest',
@@ -87,11 +87,11 @@ targets = {
             '-lphoton',
         ],
     ),
-    'perftest': cpp_program (
+    'client_perf': cpp_program (
         incs = [
         ],
         srcs = [
-            'perf.cpp',
+            'client_perf.cpp',
         ],
         static_deps=[
             'curl-7.42.1',
@@ -103,7 +103,7 @@ targets = {
             '-lphoton',
         ],
     ),
-    'pure_curl': cpp_program (
+    'pure_libcurl': cpp_program (
         incs = ['.'],
         srcs = [
             'pure_libcurl.cpp',

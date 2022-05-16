@@ -16,14 +16,8 @@ limitations under the License.
 
 #include <fcntl.h>
 #include <time.h>
-#include <gtest/gtest.h>
-#include <netinet/tcp.h>
 
-// #define protected public
-// #define private public
-#include "../server.cpp"
-// #undef protected
-// #undef private
+#include <gtest/gtest.h>
 #include <photon/net/http/server.h>
 #include <photon/net/http/client.h>
 #include <photon/io/fd-events.h>
@@ -31,6 +25,8 @@ limitations under the License.
 #include <photon/thread/thread11.h>
 #include <photon/common/alog-stdstring.h>
 #include <photon/fs/localfs.h>
+
+#include "../server.h"
 
 using namespace photon;
 using namespace photon::net;

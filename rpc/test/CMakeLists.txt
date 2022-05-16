@@ -1,5 +1,5 @@
 include_directories(${CMAKE_SOURCE_DIR}/include)
-link_directories(${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
+link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 add_definitions(-w)
 
 add_executable(test-rpc test.cpp)

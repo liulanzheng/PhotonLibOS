@@ -11,11 +11,16 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED on)
 set(CMAKE_CXX_EXTENSIONS off)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mcrc32 -msse4.2 -fPIC")
+set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
+set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
+if (NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif ()
 
 # CMake dirs
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output)
-set(CMAKE_EXECUTABLE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/CMake)
 
 include(CPack)
@@ -101,7 +106,7 @@ file(
 add_library(photon_obj OBJECT ${PHOTON_SRC})
 target_include_directories(photon_obj PUBLIC include ${liburing_include_dir} ${boost_include_dir})
 target_compile_definitions(photon_obj PRIVATE _FILE_OFFSET_BITS=64 FUSE_USE_VERSION=29)
-target_compile_options(photon_obj PRIVATE -Wno-deprecated-declarations)
+target_compile_options(photon_obj PRIVATE -Wall)
 
 # Make virtual interface for third-party dynamic libs
 add_library(third_party INTERFACE)
@@ -138,11 +143,13 @@ if (BUILD_TESTING)
     find_package(gmock REQUIRED)
     find_package(gflags REQUIRED)
 
+    set(CMAKE_BUILD_TYPE Debug)
     set(testing_libs ${GTEST_BOTH_LIBRARIES} ${GMOCK_LIBRARIES} ${GFLAGS_LIBRARIES})
 
     add_subdirectory(io/test)
     add_subdirectory(thread/test)
     add_subdirectory(rpc/test)
     add_subdirectory(net/test)
+    add_subdirectory(net/http/test)
     add_subdirectory(fs/test)
 endif ()
