@@ -9,6 +9,7 @@ project(
 # Compiler options
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED on)
+set(CMAKE_CXX_EXTENSIONS off)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mcrc32 -msse4.2 -fPIC")
 
 # CMake dirs
@@ -109,11 +110,12 @@ target_link_libraries(third_party INTERFACE
         CURL::libcurl
         OpenSSL::SSL
         OpenSSL::Crypto
-
         ${AIO_LIBRARIES}
         ${FUSE_LIBRARIES}
         ${KRB5_LIBRARIES}
         ${GSASL_LIBRARIES}
+        -lrt
+        -lpthread
         )
 
 # Link photon lib
@@ -136,7 +138,7 @@ if (BUILD_TESTING)
     find_package(gmock REQUIRED)
     find_package(gflags REQUIRED)
 
-    set(testing_libs ${GTEST_BOTH_LIBRARIES} ${GMOCK_LIBRARIES} ${GFLAGS_LIBRARIES} -lpthread)
+    set(testing_libs ${GTEST_BOTH_LIBRARIES} ${GMOCK_LIBRARIES} ${GFLAGS_LIBRARIES})
 
     add_subdirectory(io/test)
     add_subdirectory(thread/test)

@@ -437,10 +437,18 @@ struct LogBuilder {
     }
 };
 
+#if __GNUC__ >= 9
+#define DEFINE_PROLOGUE(level, prolog)                                          \
+    static constexpr const char* _prologue_func = __func__;                     \
+    const static Prologue prolog{                                               \
+        (uint64_t) _prologue_func,  (uint64_t)__FILE__, sizeof(__func__) - 1,   \
+        sizeof(__FILE__) - 1, __LINE__, level};
+#else
 #define DEFINE_PROLOGUE(level, prolog)                                  \
     const static Prologue prolog{                                       \
         (uint64_t) __func__,  (uint64_t)__FILE__, sizeof(__func__) - 1, \
-        sizeof(__FILE__) - 1, __LINE__,           level};
+        sizeof(__FILE__) - 1, __LINE__, level};
+#endif
 
 #define _IS_LITERAL_STRING(x) \
     (sizeof(#x) > 2 && (#x[0] == '"') && (#x[sizeof(#x) - 2] == '"'))
