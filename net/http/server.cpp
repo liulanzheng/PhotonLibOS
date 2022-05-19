@@ -601,6 +601,7 @@ public:
             }
             LOG_DEBUG("Request Accepted", VALUE(req.GetMethod()), VALUE(req.GetTarget()), VALUE(req.Find("Authorization")));
             HTTPServerResponseImpl resp(&stream, &req);
+            resp.resp.version(req.req.version());
             auto ret = m_handler(req, resp);
             switch (ret) {
             case RetType::success:
