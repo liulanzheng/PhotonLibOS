@@ -41,19 +41,23 @@ enum class Protocol {
 class HTTPServerRequest {
 public:
     virtual void SetProtocol(Protocol p) = 0;
-    virtual Protocol GetProtocol() = 0;
-    virtual Verb GetMethod() = 0;
+    virtual Protocol GetProtocol() const = 0;
+    virtual Verb GetMethod() const = 0;
     virtual void SetMethod(Verb v) = 0;
-    virtual std::string_view GetOriginHost() = 0;
-    virtual std::string_view GetTarget() = 0;
+    virtual std::string_view GetOriginHost() const = 0;
+    virtual std::string_view GetTarget() const = 0;
     virtual void SetTarget(std::string_view target) = 0;
-    virtual std::string_view Find(std::string_view key) = 0;
+    virtual std::string_view Find(std::string_view key) const = 0;
     virtual int Insert(std::string_view key, std::string_view value) = 0;
     virtual int Erase(std::string_view key) = 0;
-    virtual HeaderLists GetKVs() = 0;
-    virtual std::string_view Body() = 0;
-    virtual size_t ContentLength() = 0;
-    virtual std::pair<ssize_t, ssize_t> Range() = 0;
+    virtual HeaderLists GetKVs() const = 0;
+    virtual std::string_view Body() const = 0;
+    virtual size_t ContentLength() const = 0;
+    virtual std::pair<ssize_t, ssize_t> Range() const = 0;
+    virtual void KeepAlive(bool alive) = 0;
+    virtual bool KeepAlive() const = 0;
+    virtual void Version(int version) = 0;
+    virtual int Version() const = 0;
 };
 enum class RetType {
     failed = 0,
@@ -65,17 +69,20 @@ public:
     virtual RetType HeaderDone() = 0;
     virtual RetType Done() = 0;
     virtual void SetResult(int status_code) = 0;
-    virtual int GetResult() = 0;
-    virtual std::string_view Find(std::string_view key) = 0;
+    virtual int GetResult() const = 0;
+    virtual std::string_view Find(std::string_view key) const = 0;
     virtual int Insert(std::string_view key, std::string_view value) = 0;
     virtual int Erase(std::string_view key) = 0;
-    virtual HeaderLists GetKVs() = 0;
+    virtual HeaderLists GetKVs() const = 0;
     virtual ssize_t Write(void* buf, size_t count) = 0;
     virtual ssize_t Writev(const struct iovec *iov, int iovcnt) = 0;
     virtual void ContentLength(size_t len) = 0;
     virtual void KeepAlive(bool alive) = 0;
+    virtual bool KeepAlive() const = 0;
+    virtual void Version(int version) = 0;
+    virtual int Version() const = 0;
     virtual int ContentRange(size_t start, size_t end, ssize_t size = -1) = 0;
-    virtual HTTPServerRequest* GetRequest() = 0;
+    virtual HTTPServerRequest* GetRequest() const = 0;
 
 };
 

@@ -80,7 +80,7 @@ public:
     }
     int insert(std::string_view key, std::string_view value, int allow_dup);
     bool value_append(std::string_view value);
-    uint64_t content_length() { return _content_length; }
+    uint64_t content_length() const { return _content_length; }
 
     template<size_t BufCap = 64, typename...Ts>
     int insert_format(std::string_view key, const char* fmt, Ts...xs)
@@ -134,17 +134,17 @@ public:
         _buf_capacity = buf_capacity;
         _buf = (char*)buf;
     }
-    Verb verb() { return (Verb)_verb;}
-    std::string_view target() { return _buf | _target; }
+    Verb verb() const { return (Verb)_verb;}
+    std::string_view target() const { return _buf | _target; }
     std::string_view whole();
-    bool secure() { return _secure; }
-    uint16_t port() { return _port; }
-    std::string_view host() { return _buf | _host; }
-    std::string_view abs_path() { return _buf | _path; }
-    std::string_view query() { return _buf | _query; }
+    bool secure() const { return _secure; }
+    uint16_t port() const { return _port; }
+    std::string_view host() const { return _buf | _host; }
+    std::string_view abs_path() const { return _buf | _path; }
+    std::string_view query() const { return _buf | _query; }
     using RemainSpace = std::pair<char*, size_t>;
     int reset(Verb v, std::string_view url, bool enable_proxy = false);
-    RemainSpace get_remain_space() {
+    RemainSpace get_remain_space() const {
         return RemainSpace(_buf + _buf_size,
                            _buf_capacity - _buf_size - _kv_size * sizeof(KV));
     }
@@ -205,19 +205,19 @@ public:
     int append_bytes(uint16_t size);
     int append_bytes(ISocketStream* s);
 
-    std::string_view version()
+    std::string_view version() const
     {
         return _version | _buf;
     }
-    std::string_view status_message()
+    std::string_view status_message() const
     {
         return _status_message | _buf;
     }
-    std::string_view partial_body()
+    std::string_view partial_body() const
     {
         return _body | _buf;
     }
-    uint16_t status_code()
+    uint16_t status_code() const
     {
         return _status_code;
     }

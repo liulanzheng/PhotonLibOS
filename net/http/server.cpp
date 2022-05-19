@@ -379,26 +379,26 @@ public:
     void SetProtocol(Protocol p) override{
         m_secure = p;
     }
-    Protocol GetProtocol() override {
+    Protocol GetProtocol() const override {
         return m_secure;
     }
-    Verb GetMethod() override {
+    Verb GetMethod() const override {
         auto v = req.method_string();
         return string_to_verb(to_std_sv(v));
     }
-    std::string_view GetOriginHost() override {
+    std::string_view GetOriginHost() const override {
         return m_origin_host;
     }
     void SetMethod(Verb v) override {
         req.method_string(to_boost_sv(verbstr[v]));
     }
-    std::string_view GetTarget() override {
+    std::string_view GetTarget() const override {
         return to_std_sv(req.target());
     }
     void SetTarget(std::string_view target) override {
         req.target(to_boost_sv(target));
     }
-    std::string_view Find(std::string_view key) override {
+    std::string_view Find(std::string_view key) const override {
         return to_std_sv(req[to_boost_sv(key)]);
     }
     int Insert(std::string_view key, std::string_view value) override {
@@ -409,7 +409,7 @@ public:
         req.erase(to_boost_sv(key));
         return 0;
     }
-    HeaderLists GetKVs() override {
+    HeaderLists GetKVs() const override {
         HeaderLists ret;
         for (auto &kv : req) {
             auto key = kv.name_string();
@@ -418,13 +418,13 @@ public:
         }
         return ret;
     }
-    std::string_view Body() override {
+    std::string_view Body() const override {
         return {(char*)req.body().data, req.body().size};
     }
-    size_t ContentLength() override {
+    size_t ContentLength() const override {
         return estring_view(to_std_sv(req["Content-Length"])).to_uint64();
     }
-    std::pair<ssize_t, ssize_t> Range() override {
+    std::pair<ssize_t, ssize_t> Range() const override {
         auto range = to_std_sv(req["Range"]);
         if (range.empty()) return {-1, -1};
         auto eq_pos = range.find("=");
@@ -436,6 +436,18 @@ public:
         if (start_sv.empty()) return {-1, end};
         if (end_sv.empty()) return {start, -1};
         return {start, end};
+    }
+    int Version() const override {
+        return req.version();
+    }
+    void Version(int version) override {
+        req.version(version);
+    }
+    bool KeepAlive() const override {
+        return req.keep_alive();
+    }
+    void KeepAlive(bool alive) override {
+        req.keep_alive(alive);
     }
 };
 
@@ -449,7 +461,8 @@ public:
     bool header_is_done = false, is_done = false;
     HTTPServerResponseImpl(EaseTCPStream* stream, HTTPServerRequestImpl* req)
                                                 : stream(stream), m_req(req) {
-        stream->set_send2_flag(MSG_MORE);
+        Version(req->Version());
+        KeepAlive(req->KeepAlive());
     }
     ~HTTPServerResponseImpl() {
         Done();
@@ -458,6 +471,7 @@ public:
         if (header_is_done) return RetType::success;
         header_is_done = true;
         BeastErrorCode ec{};
+        stream->set_send2_flag(MSG_MORE);
         boost::beast::http::write_header(*stream, rs, ec);
         if (ec) {
             LOG_ERRNO_RETURN(0, RetType::failed, ec.message());
@@ -465,6 +479,7 @@ public:
         return RetType::success;
     }
     RetType Done() override {
+        DEFER(stream->set_send2_flag(0));
         if (is_done) return RetType::success;
         is_done = true;
         if (!header_is_done) HeaderDone();
@@ -476,13 +491,13 @@ public:
         if (header_is_done) return;
         resp.result(status_code);
     }
-    int GetResult() override {
+    int GetResult() const override {
         return resp.result_int();
     }
-    std::string_view Find(std::string_view key) override {
+    std::string_view Find(std::string_view key) const override {
         return to_std_sv(resp[to_boost_sv(key)]);
     }
-    HeaderLists GetKVs() override {
+    HeaderLists GetKVs() const override {
         HeaderLists ret;
         for (auto &kv : resp) {
             auto key = kv.name_string();
@@ -536,8 +551,17 @@ public:
              (size == -1 ? "*" : std::to_string(size));
         return Insert("Content-Range", s);
     }
-    HTTPServerRequest* GetRequest() override {
+    HTTPServerRequest* GetRequest() const override {
         return m_req;
+    }
+    int Version() const override {
+        return resp.version();
+    }
+    void Version(int version) override {
+        resp.version(version);
+    }
+    bool KeepAlive() const override {
+        return resp.keep_alive();
     }
 };
 
@@ -601,7 +625,6 @@ public:
             }
             LOG_DEBUG("Request Accepted", VALUE(req.GetMethod()), VALUE(req.GetTarget()), VALUE(req.Find("Authorization")));
             HTTPServerResponseImpl resp(&stream, &req);
-            resp.resp.version(req.req.version());
             auto ret = m_handler(req, resp);
             switch (ret) {
             case RetType::success:
@@ -612,6 +635,8 @@ public:
                     LOG_DEBUG("Request Failed",  VALUE(req.GetMethod()), VALUE(req.GetTarget()));
                     return -1;
             }
+            if (!resp.resp.keep_alive())
+                break;
         }
         return 0;
     }
