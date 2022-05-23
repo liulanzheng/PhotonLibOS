@@ -186,8 +186,8 @@ static void write_perf(const off_t max_offset, fs::IFile* src_file, IOAlloc* io_
     DEFER(io_alloc->dealloc(buf));
 
     while (!stop_test) {
-        size_t count = 4096;
-        off_t offset = ROUND_DOWN(random64() % max_offset, 4096);
+        size_t count = FLAGS_buf_size;
+        off_t offset = ROUND_DOWN(random64() % max_offset, count);
         int ret = src_file->pwrite(buf, count, offset);
         if (ret != (int) count) {
             LOG_ERROR("write fail, count `, offset `, ret `, errno `", count, offset, ret, ERRNO());
@@ -202,8 +202,8 @@ static void read_perf(const off_t max_offset, fs::IFile* src_file, IOAlloc* io_a
     DEFER(io_alloc->dealloc(buf));
 
     while (!stop_test) {
-        size_t count = 4096;
-        off_t offset = ROUND_DOWN(random64() % max_offset, 4096);
+        size_t count = FLAGS_buf_size;
+        off_t offset = ROUND_DOWN(random64() % max_offset, count);
         int ret = src_file->pread(buf, count, offset);
         if (ret != (int) count) {
             LOG_ERROR("read fail, count `, offset `, ret `, errno `", count, offset, ret, ERRNO());
@@ -659,13 +659,13 @@ void run_echo_server(net::ISocketServer* server) {
         DEFER(free(buf));
 
         while (true) {
-            ssize_t ret;
-            ret = sock->read(buf, FLAGS_buf_size);
-            if (ret != (ssize_t) FLAGS_buf_size) {
+            ssize_t ret1, ret2;
+            ret1 = sock->recv(buf, FLAGS_buf_size);
+            if (ret1 <= 0) {
                 LOG_ERRNO_RETURN(0, -1, "read fail");
             }
-            ret = sock->write(buf, FLAGS_buf_size);
-            if (ret != (ssize_t) FLAGS_buf_size) {
+            ret2 = sock->write(buf, ret1);
+            if (ret2 != ret1) {
                 LOG_ERRNO_RETURN(0, -1, "write fail");
             }
             qps++;

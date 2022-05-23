@@ -143,7 +143,6 @@ if (BUILD_TESTING)
     find_package(gmock REQUIRED)
     find_package(gflags REQUIRED)
 
-    set(CMAKE_BUILD_TYPE Debug)
     set(testing_libs ${GTEST_BOTH_LIBRARIES} ${GMOCK_LIBRARIES} ${GFLAGS_LIBRARIES})
 
     add_subdirectory(io/test)
