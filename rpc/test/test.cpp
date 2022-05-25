@@ -17,6 +17,7 @@ limitations under the License.
 #include "../../rpc/rpc.cpp"
 #include <memory>
 #include <gtest/gtest.h>
+#include <photon/photon.h>
 #include <photon/thread/thread.h>
 #include <photon/common/memory-stream/memory-stream.h>
 #include <photon/common/utility.h>
@@ -320,9 +321,198 @@ TEST(rpc, timeout) {
     log_output_level = 0;
 }
 
+/*** Usage example ***/
+
+#include <photon/net/socket.h>
+#include <photon/rpc/serialize.h>
+
+/**
+ * @brief `TestProtocol` is a example of self-defined rpc protocol.
+ * A protocol should have `IID` and `FID` as identifier, and struct/class
+ * `Request` `Response` inherited `RPC::Message`, defined
+ * details of RPC request and response.
+ * NOTE: RPC will not adjust by endings. DO NOT try to make RPC across different
+ * machine byte order archs.
+ */
+struct TestProtocol {
+    /**
+     * @brief `IID` and `FID` will conbined as a coordinate identitfy,
+     * these numbers will be set into RPC request and response header.
+     * The combination of IID & FID should be identical.
+     */
+    const static uint32_t IID = 0x222;
+    const static uint32_t FID = 0x333;
+
+    struct SomePODStruct {
+        bool foo;
+        size_t bar;
+    };
+
+    /**
+     * @brief `Request` struct defines detail of RPC request,
+     *
+     */
+    struct Request : public photon::rpc::Message {
+        // All POD type fields can keep by what it should be in fields.
+        uint32_t someuint;
+        int64_t someint64;
+        char somechar;
+        SomePODStruct somestruct;
+        // Array type should use RPC::array, do not supports multi-dimensional
+        // arrays.
+        photon::rpc::array<int> intarray;
+        // String should use RPC::string instead.
+        // NOTE: Since RPC::string is implemented by array, do not support
+        // array-of-string `photon::rpc::array<RPC::string>` will leads to
+        // unexpected result.
+        photon::rpc::string somestr;
+        // `photon::rpc::iovec_array` as a special fields, RPC will deal with
+        // inside-buffer contents. it deal with buffer as iovectors
+        photon::rpc::iovec_array buf;
+
+        // After all, using macro `PROCESS_FIELDS` to set up compile time
+        // reflection for those field want to transport by RPC
+        PROCESS_FIELDS(someuint, someint64, somechar, somestruct, intarray,
+                       somestr, buf);
+    };
+
+    struct Response : public photon::rpc::Message {
+        // Since response is also a RPC::Message, keeps rule of `Request`
+
+        size_t len;
+        // `photon::rpc::aligned_iovec_array` will keep buffer data in the head
+        // of RPC message when serializing/deserializing, may help to keep
+        // memory alignment.
+        photon::rpc::aligned_iovec_array buf;
+
+        PROCESS_FIELDS(len, buf);
+    };
+};
+
+/**
+ * @brief Example client, send rpc request and receive response
+ * 
+ * @param ep server endpoint
+ */
+static void example_client(photon::net::EndPoint ep) {
+    // create a tcp rpc connection pool
+    // unused connections will be drop after 10 seconds(10UL*1000*1000)
+    // TCP connection will failed in 1 second(1UL*1000*1000) if not accepted
+    // and connection send/recv will take 5 socneds(5UL*1000*1000) as timedout
+    auto pool = photon::rpc::new_stub_pool(
+        10UL * 1000 * 1000, 1UL * 1000 * 1000, 5UL * 1000 * 1000);
+    // Get a stub (with connection) to endpoint(without tls)
+    auto stub = pool->get_stub(ep, false);
+    // put back stub after finish (without immediatly destruction)
+    DEFER(pool->put_stub(ep, false));
+    // make room for request
+    TestProtocol::Request req;
+
+    // prepare some data
+    int iarr[] = {1, 2, 3, 4};
+
+    // sample of
+    char buf1[] = "some";
+    char buf2[] = "buf";
+    char buf3[] = "content";
+    IOVector iov;
+    iov.push_back(buf1, 4);
+    iov.push_back(buf2, 3);
+    iov.push_back(buf3, 7);
+
+    // set up request
+    req.someuint = 2233U;
+    req.someint64 = 4455LL;
+    req.somestruct = TestProtocol::SomePODStruct{.foo = true, .bar = 32767};
+    req.intarray.assign(iarr, 4);
+    req.somestr.assign("Hello");
+    req.buf.assign(iov.iovec(), iov.iovcnt());
+
+    // make room for response
+    TestProtocol::Response resp;
+    // iovector should pre_allocated
+    IOVector riov;
+    riov.push_back(1024);
+    resp.buf.assign(riov.iovec(), riov.iovcnt());
+
+    // Single step call
+    auto ret = stub->call<TestProtocol>(req, resp);
+    // ret < 0 means RPC failed on send or receive
+    if (ret < 0) {
+        LOG_INFO("RPC fail");
+    } else {
+        LOG_INFO("RPC succ: ", VALUE(resp.len),
+                 VALUE((char*)riov.begin()->iov_base));
+    }
+}
+
+static photon::net::EndPoint ep;
+
+// Server side rpc handler
+struct ExampleService {
+    // public methods named `do_rpc_service` takes rpc requests
+    // and produce response
+    // able to set or operate connection directly(like close or set flags)
+    // iov is temporary buffer created by skeleton with defined allocator
+    // able to use as temporary buffer
+    // return value will be droped
+    int do_rpc_service(TestProtocol::Request* req, TestProtocol::Response* resp,
+                       IOVector* iov, IStream* conn) {
+        LOG_INFO(VALUE(req->someuint));
+        LOG_INFO(VALUE(req->someint64));
+        LOG_INFO(VALUE(req->somestruct.foo), VALUE(req->somestruct.bar));
+        LOG_INFO(VALUE(req->somestr.c_str()));
+        LOG_INFO(VALUE((char*)req->buf.begin()->iov_base));
+
+        iov->push_back((void*)"some response", 14);
+
+        resp->len = 14;
+        resp->buf.assign(iov->iovec(), iov->iovcnt());
+
+        return 0;
+    }
+};
+
+TEST(RPC, one_call_example) {
+    // start server
+
+    // construct rpcservice
+    ExampleService rpcservice;
+
+    // construct skeleton and register TestProtocol handler;
+    auto skeleton = photon::rpc::new_skeleton();
+    DEFER(delete skeleton);
+    // register TestProtocol service, able to register multiple service
+    skeleton->register_service<TestProtocol>(&rpcservice);
+
+    // construct tcp server and start listen
+    auto tcpserver = photon::net::new_tcp_socket_server();
+    DEFER(delete tcpserver);
+    tcpserver->bind();
+    tcpserver->listen();
+
+    auto handler = [&](photon::net::ISocketStream* sock) {
+        // since tcp server will delete socket after finish
+        // skeleton does not own socket
+        LOG_INFO("Accept ", sock->getpeername());
+        skeleton->serve(sock, false);
+        return 0;
+    };
+
+    tcpserver->set_handler(handler);
+    tcpserver->start_loop();
+    auto ep = tcpserver->getsockname();
+    LOG_INFO(VALUE(ep));
+
+    // run example client
+    example_client(ep);
+}
+/*** example finished ***/
+
 int main(int argc, char** arg)
 {
-    ::photon::thread_init();
+    ::photon::init();
+    DEFER(photon::fini());
     ::testing::InitGoogleTest(&argc, arg);
     return RUN_ALL_TESTS();
 }
