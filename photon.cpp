@@ -13,7 +13,7 @@ namespace photon {
 
 static thread_local uint64_t g_event_engine = 0, g_io_engine = 0;
 
-int init(uint64_t event_engine, uint64_t io_engine, uint64_t misc) {
+int init(uint64_t event_engine, uint64_t io_engine) {
     if (thread_init() < 0) return -1;
 
     if (event_engine & INIT_EVENT_EPOLL) {

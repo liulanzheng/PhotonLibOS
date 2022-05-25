@@ -107,7 +107,7 @@ ctest
 
 ## Example
 
-See the example about how to write a Photon program.
+See the [example](example/simple-example.cpp) about how to write a Photon program.
 
 ## Contributing
 Welcome to contribute!

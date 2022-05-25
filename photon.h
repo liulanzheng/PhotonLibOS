@@ -28,9 +28,7 @@ const uint64_t INIT_IO_DEFAULT = INIT_IO_LIBAIO | INIT_IO_LIBCURL;
  *        Ancillary threads will be running in background.
  * @return 0 for success
  */
-int init(uint64_t event_engine = INIT_EVENT_DEFAULT,
-         uint64_t io_engine = INIT_IO_DEFAULT,
-         uint64_t misc = 0);
+int init(uint64_t event_engine = INIT_EVENT_DEFAULT, uint64_t io_engine = INIT_IO_DEFAULT);
 
 /**
  * @brief Destroy/join ancillary threads, and finish the main thread.

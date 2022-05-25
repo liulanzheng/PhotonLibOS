@@ -37,6 +37,7 @@ if (${CMAKE_VERSION} VERSION_LESS 3.14)
     endmacro()
 endif ()
 
+add_subdirectory(example)
 add_subdirectory(third_party)
 
 # Find packages either from cmake-modules or external packages
@@ -48,6 +49,7 @@ find_package(aio REQUIRED)
 find_package(fuse REQUIRED)
 find_package(krb5 REQUIRED)
 find_package(gsasl REQUIRED)
+find_package(gflags REQUIRED)
 
 # Get CPU arch
 execute_process(COMMAND uname -m OUTPUT_VARIABLE ARCH OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -141,7 +143,6 @@ if (BUILD_TESTING)
 
     find_package(GTest REQUIRED)
     find_package(gmock REQUIRED)
-    find_package(gflags REQUIRED)
 
     set(testing_libs ${GTEST_BOTH_LIBRARIES} ${GMOCK_LIBRARIES} ${GFLAGS_LIBRARIES})
 
