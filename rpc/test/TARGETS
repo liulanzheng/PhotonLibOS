@@ -24,4 +24,21 @@ targets = {
             '-lphoton',
         ],
     ),
+    'example_server': cpp_program(
+        incs=[],
+        srcs=['example/server.cpp'],
+        ldflags=[
+            '-lphoton'
+        ],
+    ),
+    'example_client': cpp_program(
+        incs=[],
+        srcs=['example/client.cpp'],
+        static_deps=[
+            'gflags-2.1.2',
+        ],
+        ldflags=[
+            '-lphoton'
+        ],
+    ),
 }
