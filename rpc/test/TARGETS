@@ -26,14 +26,17 @@ targets = {
     ),
     'example_server': cpp_program(
         incs=[],
-        srcs=['example/server.cpp'],
+        srcs=['example/server.cpp', 'example/server_main.cpp'],
+        static_deps=[
+            'gflags-2.1.2',
+        ],
         ldflags=[
             '-lphoton'
         ],
     ),
     'example_client': cpp_program(
         incs=[],
-        srcs=['example/client.cpp'],
+        srcs=['example/client.cpp', 'example/client_main.cpp'],
         static_deps=[
             'gflags-2.1.2',
         ],
