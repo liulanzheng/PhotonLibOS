@@ -37,7 +37,7 @@ if (${CMAKE_VERSION} VERSION_LESS 3.14)
     endmacro()
 endif ()
 
-add_subdirectory(example)
+add_subdirectory(examples)
 add_subdirectory(third_party)
 
 # Find packages either from cmake-modules or external packages
