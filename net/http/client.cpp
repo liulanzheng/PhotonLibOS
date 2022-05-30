@@ -403,14 +403,15 @@ public:
         sock->timeout(tmo.timeout());
         if (op->req_body_writer(sock->sock) < 0)
             LOG_ERROR_RETURN(0, ROUNDTRIP_NEED_RETRY, "ReqBodyCallback failed");
-        LOG_DEBUG("Request sent, wait for response ` `,  Authorization: `", req.verb(), req.target(), req["Authorization"]);
+        LOG_DEBUG("Request sent, wait for response ` `", req.verb(),
+                  req.target());
         auto space = req.get_remain_space();
         auto &resp = op->resp;
         if (space.second > kMinimalHeadersSize) {
             resp.reset(space.first, space.second, false);
         } else {
             auto buf = malloc(kMinimalHeadersSize);
-            resp.reset((char*)buf, kMinimalHeadersSize, true);
+            resp.reset((char *)buf, kMinimalHeadersSize, true);
         }
         while (1) {
             sock->timeout(tmo.timeout());
@@ -420,14 +421,14 @@ public:
                     LOG_DEBUG("abondon reseted connection, force retry");
                     return ROUNDTRIP_FORCE_RETRY;
                 }
-                LOG_ERROR_RETURN(0, ROUNDTRIP_NEED_RETRY, "read response header failed");
+                LOG_ERROR_RETURN(0, ROUNDTRIP_NEED_RETRY,
+                                 "read response header failed");
             }
             if (ret == 0) break;
         }
         op->status_code = resp.status_code();
-        LOG_DEBUG("Got response ` ` code=` || content_length=` || Authorization : `",
-                    req.verb(), req.target(), op->status_code,
-                    resp["Content-Length"], req["Authorization"]);
+        LOG_DEBUG("Got response ` ` code=` || content_length=`", req.verb(),
+                  req.target(), op->status_code, resp["Content-Length"]);
         if (m_cookie_jar) m_cookie_jar->get_cookies_from_headers(req.host(), &resp);
         if (op->status_code < 400 && op->status_code >= 300 && op->follow)
             return redirect(op, sock);
