@@ -65,8 +65,19 @@ uint64_t estring_view::to_uint64() const
 
 uint64_t estring_view::hex_to_uint64() const
 {
-    if (this->length() == 0) return 0;
-    return strtoull(this->data(), NULL, 16);
+    uint64_t ret = 0;
+    for (unsigned char c : *this) {
+        if (c >= '0' && c <= '9') {
+            ret = ret * 16 + (c - '0');
+        } else if (c >= 'A' && c <= 'F') {
+            ret = ret * 16 + (c - 'A' + 10);
+        } else if (c >= 'a' && c <= 'f') {
+            ret = ret * 16 + (c - 'a' + 10);
+        } else {
+            return ret;
+        }
+    }
+    return ret;
 }
 
 std::string& estring::append(uint64_t x)

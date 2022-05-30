@@ -274,6 +274,7 @@ public:
         return split(charset("\r\n"), consecutive_merge);
     }
     uint64_t to_uint64() const;
+    // do not support 0x/0X prefix
     uint64_t hex_to_uint64() const;
 };
 
