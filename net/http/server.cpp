@@ -813,7 +813,7 @@ public:
         auto req_kvs = req.GetKVs();
         for (auto &kv : req_kvs) {
             LOG_DEBUG(kv.first, ": ", kv.second);
-            if (kv.first != "Host") op->req.insert(kv.first, kv.second);
+            if (kv.first != "Host") op->req.insert(kv.first, kv.second, 1);
         }
         if (op->call() != 0) {
             ret = RetType::failed;
