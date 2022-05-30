@@ -65,8 +65,8 @@ uint64_t estring_view::to_uint64() const
 
 uint64_t estring_view::hex_to_uint64() const
 {
-    std::string len = to_string();
-    return strtoull(len.c_str(), NULL, 16);
+    if (this->length() == 0) return 0;
+    return strtoull(this->data(), NULL, 16);
 }
 
 std::string& estring::append(uint64_t x)

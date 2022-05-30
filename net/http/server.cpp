@@ -517,9 +517,12 @@ public:
     int send_chunk(void* buf, size_t count) {
         char chunk_size[10];
         auto size = snprintf(chunk_size, sizeof(chunk_size), "%x\r\n", (unsigned)count);
-        if (stream->sock->write(chunk_size, size) != (ssize_t)size) return -1;
-        if (stream->sock->write(buf, count) != (ssize_t)count) return -1;
-        if (stream->sock->write("\r\n", 2) != 2) return -1;
+        IOVector iovs;
+        iovs.push_back(chunk_size, size);
+        iovs.push_back(buf, count);
+        iovs.push_back(&chunk_size[size - 2], 2);  // "\r\n"
+        if (stream->sock->writev((const iovec *)iovs.iovec(), iovs.iovcnt()) != (ssize_t)iovs.sum())
+            return -1;
         return count;
     }
     ssize_t Write(void* buf, size_t count) override {
