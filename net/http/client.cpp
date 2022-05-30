@@ -15,7 +15,6 @@ limitations under the License.
 */
 
 #include "client.h"
-#include <stdlib.h>
 #include <bitset>
 #include <algorithm>
 #include <random>
@@ -186,8 +185,7 @@ public:
         if (p == std::string_view::npos) return false;
         // Quote from rfc2616#section-3.6.1: The chunk-size field is a string of hex digits
         // indicating the size of the chunk.
-        std::string len = line.substr(0, p).to_string();
-        m_chunked_remain = strtoul(len.c_str(), NULL, 16);
+        m_chunked_remain = line.substr(0, p).hex_to_uint64();
         if (m_chunked_remain != 0 || p == 0) {
             m_cursor += p + 2;
             return true;

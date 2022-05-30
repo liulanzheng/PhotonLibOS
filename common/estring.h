@@ -78,7 +78,7 @@ public:
     {
         return to_string();
     }
-    std::string to_string()
+    std::string to_string() const
     {
         return std::string(data(), length());
     }
@@ -274,6 +274,7 @@ public:
         return split(charset("\r\n"), consecutive_merge);
     }
     uint64_t to_uint64() const;
+    uint64_t hex_to_uint64() const;
 };
 
 inline bool operator == (const std::string_view& sv, const std::string& s)

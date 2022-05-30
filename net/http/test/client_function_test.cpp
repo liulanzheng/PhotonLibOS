@@ -188,9 +188,9 @@ static int digtal_num(int n) {
     return ret;
 }
 void chunked_send(int offset, int size, ISocketStream* sock) {
-    char s[10] = {0};
-    snprintf(s, 10, "%x\r\n", size);
-    sock->write(s, strlen(s));
+    char s[10];
+    auto len = snprintf(s, sizeof(s), "%x\r\n", size);
+    sock->write(s, len);
     auto ret = sock->write(std_data.data() + offset, size);
     EXPECT_EQ(ret, size);
     sock->write("\r\n", 2);
