@@ -117,8 +117,9 @@ constexpr char header_data[] = "HTTP/1.1 200 ok\r\n"
                                "Connection: close\r\n"
                                "\r\n";
 void chunked_send(int offset, int size, net::ISocketStream* sock) {
-    auto s = std::to_string(size) + "\r\n";
-    sock->write(s.data(), s.size());
+    char s[10] = {0};
+    snprintf(s, 10, "%x\r\n", size);
+    sock->write(s, strlen(s));
     auto ret = sock->write(std_data.data() + offset, size);
     EXPECT_EQ(ret, size);
     sock->write("\r\n", 2);

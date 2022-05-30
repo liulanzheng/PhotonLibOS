@@ -515,8 +515,9 @@ public:
         return 0;
     }
     int send_chunk(void* buf, size_t count) {
-        auto s = std::to_string(count) + "\r\n";
-        if (stream->sock->write(s.data(), s.size()) != (ssize_t)s.size()) return -1;
+        char chunk_size[10] = {0};
+        snprintf(chunk_size, 10, "%x\r\n", (unsigned)count);
+        if (stream->sock->write(chunk_size, strlen(chunk_size)) != (ssize_t)strlen(chunk_size)) return -1;
         if (stream->sock->write(buf, count) != (ssize_t)count) return -1;
         if (stream->sock->write("\r\n", 2) != 2) return -1;
         return count;
