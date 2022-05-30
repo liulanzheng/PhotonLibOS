@@ -85,8 +85,12 @@ inline void buf_append(char*& ptr, uint64_t x)
     std::reverse(begin, ptr);
 }
 
-int Headers::insert(std::string_view key, std::string_view value, int)
+int Headers::insert(std::string_view key, std::string_view value, int allow_dup)
 {
+    if (!allow_dup) {
+        auto it = find(key);
+        if (it != end()) return -EEXIST;
+    }
     uint64_t vbegin = _buf_size + key.size() + 2;
     uint64_t new_size = vbegin + value.size() + 2;
     if (new_size + (_kv_size + 1) * sizeof(KV) > _buf_capacity)

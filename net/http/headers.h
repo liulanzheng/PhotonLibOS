@@ -72,13 +72,7 @@ public:
         return 0;
     }
 
-    int insert(std::string_view key, std::string_view value)
-    {
-        auto it = find(key);
-        if (it != end()) return -EEXIST;
-        return insert(key, value, 0);
-    }
-    int insert(std::string_view key, std::string_view value, int allow_dup);
+    int insert(std::string_view key, std::string_view value, int allow_dup=0);
     bool value_append(std::string_view value);
     uint64_t content_length() const { return _content_length; }
 
