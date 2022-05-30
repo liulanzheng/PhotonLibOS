@@ -127,9 +127,9 @@ constexpr char http_response_data[] = "HTTP/1.1 200 4TEST\r\n"
                                       "Transfer-Encoding: chunked\r\n"
                                     //   "Content-Length: 5\r\n"
                                       "\r\n"
-                                      "12\r\n"
+                                      "C\r\n"
                                       "first chunk \r\n"
-                                      "13\r\n"
+                                      "D\r\n"
                                       "second chunk \r\n"
                                       "0\r\n"
                                       "\r\n";
@@ -155,20 +155,20 @@ int chunked_handler_complict(void*, ISocketStream* sock) {
     auto ret = sock->write(header_data, sizeof(header_data) - 1);
     EXPECT_EQ(sizeof(header_data) - 1, ret);
     //-----------------------
-    ret = sock->write("10000\r\n", 7);
+    ret = sock->write("2710\r\n", 6);
     char space_buf[10000];
     ret = sock->write(space_buf, 10000);
     EXPECT_EQ(ret, 10000);
     sock->write("\r\n", 2);
-    sock->write("4090\r\n", 6);
+    sock->write("FFA\r\n", 5);
     ret = sock->write(space_buf, 4090);
     EXPECT_EQ(ret, 4090);
     sock->write("\r\n", 2);
-    sock->write("4086\r\n", 6);
+    sock->write("FF6\r\n", 5);
     ret = sock->write(space_buf, 4086);
     EXPECT_EQ(ret, 4086);
     sock->write("\r\n", 2);
-    sock->write("1024\r\n", 6);
+    sock->write("400\r\n", 5);
     ret = sock->write(space_buf, 1024);
     EXPECT_EQ(ret, 1024);
     sock->write("\r\n", 2);
@@ -188,8 +188,9 @@ static int digtal_num(int n) {
     return ret;
 }
 void chunked_send(int offset, int size, ISocketStream* sock) {
-    auto s = std::to_string(size) + "\r\n";
-    sock->write(s.data(), 2 + digtal_num(size));
+    char s[10] = {0};
+    snprintf(s, 10, "%x\r\n", size);
+    sock->write(s, strlen(s));
     auto ret = sock->write(std_data.data() + offset, size);
     EXPECT_EQ(ret, size);
     sock->write("\r\n", 2);
