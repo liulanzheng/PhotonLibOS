@@ -104,6 +104,8 @@ namespace net
     public:
         virtual ~ISocket() = default;
 
+        virtual int get_native_fd() { return -1; };
+
         virtual int setsockopt(int level, int option_name,
                 const void *option_value, socklen_t option_len) = 0;
         virtual int getsockopt(int level, int option_name,
@@ -192,6 +194,7 @@ namespace net
     extern "C" ISocketServer* new_socket_server_iouring();
     extern "C" ISocketClient* new_uds_client();
     extern "C" ISocketServer* new_uds_server(bool autoremove = false);
+    extern "C" ISocketClient* new_tcp_socket_pool(ISocketClient* client);
 }
 }
 

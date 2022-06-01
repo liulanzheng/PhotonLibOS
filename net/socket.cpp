@@ -25,6 +25,7 @@ limitations under the License.
 #include <sys/un.h>
 #include <unistd.h>
 #include <memory>
+#include <unordered_map>
 
 #include <photon/common/alog.h>
 #include <photon/common/iovector.h>
@@ -101,6 +102,9 @@ public:
         }
         close();
     }
+    virtual int get_native_fd() override {
+        return fd;
+    }
     virtual int close() override {
         auto ret = ::close(fd);
         fd = -1;
@@ -165,7 +169,7 @@ public:
     }
     virtual ssize_t write(const void* buf, size_t count) override {
         photon::scoped_lock lock(m_wmutex);
-        return net::write_n(fd, buf, count, m_timeout);
+        return net::send2_n(fd, buf, count, 0, m_timeout);
     }
     virtual ssize_t readv(const struct iovec* iov, int iovcnt) override {
         SmartCloneIOV<32> ciov(iov, iovcnt);
@@ -181,7 +185,7 @@ public:
     }
     virtual ssize_t writev_mutable(struct iovec* iov, int iovcnt) override {
         photon::scoped_lock lock(m_wmutex);
-        return net::writev_n(fd, iov, iovcnt, m_timeout);
+        return net::sendv2_n(fd, iov, iovcnt, 0, m_timeout);
     }
     virtual ssize_t recv(void* buf, size_t count) override {
         photon::scoped_lock lock(m_rmutex);
@@ -193,11 +197,11 @@ public:
     }
     virtual ssize_t send(const void* buf, size_t count) override {
         photon::scoped_lock lock(m_wmutex);
-        return net::write(fd, buf, count, m_timeout);
+        return net::send2(fd, buf, count, 0, m_timeout);
     }
     virtual ssize_t send(const struct iovec* iov, int iovcnt) override {
         photon::scoped_lock lock(m_wmutex);
-        return net::writev(fd, iov, iovcnt, m_timeout);
+        return net::sendv2(fd, iov, iovcnt, 0, m_timeout);
     }
 
     virtual ssize_t send2(const void* buf, size_t count, int flag) override {
@@ -603,6 +607,262 @@ extern "C" ISocketClient* new_uds_client() {
 }
 extern "C" ISocketServer* new_uds_server(bool autoremove) {
     return new_socketcs<KernelSocketServer>(AF_UNIX, autoremove, "UNIX domain socket server");
+}
+
+class TCPSocketPool;
+
+class PooledTCPSocket : public ISocketStream {
+public:
+    TCPSocketPool* pool;
+    ISocketStream* stream;
+    std::string ep;
+    bool drop;
+
+    PooledTCPSocket(ISocketStream* stream, TCPSocketPool* pool,
+                    const std::string& ep)
+        : pool(pool), stream(stream), ep(ep), drop(false) {}
+    // release socket back to pool when dtor
+    ~PooledTCPSocket() override;
+    // forwarding all actions
+    int shutdown(ShutdownHow how) override {
+        drop = true;
+        return stream->shutdown(how);
+    }
+
+#define FORWARD_SOCK_ACT(how, action, count)                            \
+    if (count == 0) return 0;                                           \
+    auto ret = stream->action;                                          \
+    if (ret < 0 || (ShutdownHow::Read == ShutdownHow::how && ret == 0)) \
+        drop = true;                                                    \
+    return ret
+
+#define FORWARD_SOCK_OP(action) return stream->action;
+
+    int get_native_fd() override { return -1; }
+    int close() override {
+        drop = true;
+        FORWARD_SOCK_OP(close());
+    }
+
+    int getsockname(EndPoint& addr) override {
+        FORWARD_SOCK_OP(getsockname(addr));
+    }
+    int getpeername(EndPoint& addr) override {
+        FORWARD_SOCK_OP(getpeername(addr));
+    }
+
+    int getsockname(char* path, size_t count) override {
+        FORWARD_SOCK_OP(getsockname(path, count));
+    }
+    int getpeername(char* path, size_t count) override {
+        FORWARD_SOCK_OP(getpeername(path, count));
+    }
+    int setsockopt(int level, int option_name, const void* option_value,
+                   socklen_t option_len) override {
+        FORWARD_SOCK_OP(
+            setsockopt(level, option_name, option_value, option_len));
+    }
+    int getsockopt(int level, int option_name, void* option_value,
+                   socklen_t* option_len) override {
+        FORWARD_SOCK_OP(
+            getsockopt(level, option_name, option_value, option_len));
+    }
+    uint64_t timeout() override { FORWARD_SOCK_OP(timeout()); }
+    void timeout(uint64_t tm) override { FORWARD_SOCK_OP(timeout(tm)); }
+
+    ssize_t read(void* buf, size_t count) override {
+        FORWARD_SOCK_ACT(Read, read(buf, count), count);
+    }
+    ssize_t write(const void* buf, size_t count) override {
+        FORWARD_SOCK_ACT(Write, write(buf, count), count);
+    }
+    ssize_t readv(const struct iovec* iov, int iovcnt) override {
+        FORWARD_SOCK_ACT(Read, readv(iov, iovcnt),
+                         iovector_view((struct iovec*)iov, iovcnt).sum());
+    }
+    ssize_t readv_mutable(struct iovec* iov, int iovcnt) override {
+        FORWARD_SOCK_ACT(Read, readv_mutable(iov, iovcnt),
+                         iovector_view((struct iovec*)iov, iovcnt).sum());
+    }
+    ssize_t writev(const struct iovec* iov, int iovcnt) override {
+        FORWARD_SOCK_ACT(Write, writev(iov, iovcnt),
+                         iovector_view((struct iovec*)iov, iovcnt).sum());
+    }
+    ssize_t writev_mutable(struct iovec* iov, int iovcnt) override {
+        FORWARD_SOCK_ACT(Write, writev_mutable(iov, iovcnt),
+                         iovector_view((struct iovec*)iov, iovcnt).sum());
+    }
+    ssize_t recv(void* buf, size_t count) override {
+        FORWARD_SOCK_ACT(Read, recv(buf, count), count);
+    }
+    ssize_t recv(const struct iovec* iov, int iovcnt) override {
+        FORWARD_SOCK_ACT(Read, recv(iov, iovcnt),
+                         iovector_view((struct iovec*)iov, iovcnt).sum());
+    }
+    ssize_t send(const void* buf, size_t count) override {
+        FORWARD_SOCK_ACT(Write, send(buf, count), count);
+    }
+    ssize_t send(const struct iovec* iov, int iovcnt) override {
+        FORWARD_SOCK_ACT(Write, send(iov, iovcnt),
+                         iovector_view((struct iovec*)iov, iovcnt).sum());
+    }
+    ssize_t send2(const void* buf, size_t count, int flag) override {
+        FORWARD_SOCK_ACT(Write, send2(buf, count, flag), count);
+    }
+    ssize_t send2(const struct iovec* iov, int iovcnt, int flag) override {
+        FORWARD_SOCK_ACT(Write, send2(iov, iovcnt, flag),
+                         iovector_view((struct iovec*)iov, iovcnt).sum());
+    }
+    ssize_t sendfile(int in_fd, off_t offset, size_t count) override {
+        FORWARD_SOCK_ACT(Write, sendfile(in_fd, offset, count), count);
+    }
+
+#undef FORWARD_SOCK_ACT
+#undef FORWARD_SOCK_OP
+};
+
+class TCPSocketPool : public ISocketClient {
+protected:
+    CascadingEventEngine* ev;
+    photon::thread* collector;
+    std::unordered_multimap<std::string, ISocketStream*> fdmap;
+    std::unordered_map<int, std::string> fdep;
+    ISocketClient* client;
+
+public:
+    TCPSocketPool(ISocketClient* client)
+        : ev(photon::new_epoll_cascading_engine()), client(client) {
+        collector = (photon::thread*)photon::thread_enable_join(
+            photon::thread_create11(&TCPSocketPool::collect, this));
+    }
+
+    ~TCPSocketPool() override {
+        auto th = collector;
+        collector = nullptr;
+        photon::thread_interrupt((photon::thread*)th);
+        photon::thread_join((photon::join_handle*)th);
+        for (auto fe : fdep) {
+            ev->rm_interest(
+                {(int)fe.first, EVENT_READ, (void*)(uint64_t)fe.first});
+            ::close(fe.first);
+        }
+        delete ev;
+        delete client;
+    }
+
+    void release(const std::string& ep, ISocketStream* stream) {
+        auto fd = stream->get_native_fd();
+        if (fd >= 0) {
+            // able to fetch fd
+            // check by epoll
+            ev->add_interest({fd, EVENT_READ, (void*)(uint64_t)fd});
+            fdep.emplace(fd, ep);
+        }
+        // stream back to pool
+        fdmap.emplace(ep, stream);
+    }
+
+    void collect() {
+        int64_t fds[16];
+        while (collector) {
+            auto ret = ev->wait_for_events((void**)fds, 16, -1UL);
+            for (int i = 0; i < ret; i++) {
+                // since destructed socket should never become readable before
+                // it have been acquired again
+                // if it is readable or RDHUP, both condition should treat as
+                // socket shutdown
+                auto fd = fds[i];
+                auto it = fdep.find(fd);
+                if (it != fdep.end()) {
+                    auto ep = it->second;
+                    for (auto map_it = fdmap.find(ep);
+                         map_it != fdmap.end() && map_it->first == ep;
+                         map_it++) {
+                        if (map_it->second->get_native_fd() == fd) {
+                            fdmap.erase(map_it);
+                            break;
+                        }
+                    }
+                }
+                ev->rm_interest({(int)fd, EVENT_READ, (void*)fd});
+                ::close(fd);
+            }
+        }
+    }
+
+    template<typename SockCTOR>
+    ISocketStream* do_connect(const std::string& key, SockCTOR ctor) {
+        auto it = fdmap.find(key);
+        if (it == fdmap.end()) {
+            ISocketStream* sock = ctor();
+            if (sock) {
+                return new PooledTCPSocket(sock, this, key);
+            }
+            return nullptr;
+        } else {
+            auto fd = it->second->get_native_fd();
+            if (fd >= 0) {
+                fdep.erase(fd);
+                ev->rm_interest({fd, EVENT_READ, (void*)(uint64_t)fd});
+            }
+            auto stream = it->second;
+            fdmap.erase(it);
+            return new PooledTCPSocket(stream, this, key);
+        }
+    }
+
+    virtual ISocketStream* connect(const EndPoint& ep) override {
+        return do_connect(std::string((char*)&ep, sizeof(ep)),
+                          [&] { return client->connect(ep); });
+    }
+
+    virtual ISocketStream* connect(const char* path, size_t count) override {
+        return do_connect(std::string(path, count),
+                          [&] { return client->connect(path, count); });
+    }
+
+    int get_native_fd() override { return -1; }
+
+#define FORWARD_CLIENT_OP(act) return client->act;
+
+    int getsockname(EndPoint& addr) override {
+        FORWARD_CLIENT_OP(getsockname(addr));
+    }
+    int getpeername(EndPoint& addr) override {
+        FORWARD_CLIENT_OP(getpeername(addr));
+    }
+
+    int getsockname(char* path, size_t count) override {
+        FORWARD_CLIENT_OP(getsockname(path, count));
+    }
+    int getpeername(char* path, size_t count) override {
+        FORWARD_CLIENT_OP(getpeername(path, count));
+    }
+    int setsockopt(int level, int option_name, const void* option_value,
+                   socklen_t option_len) override {
+        FORWARD_CLIENT_OP(
+            setsockopt(level, option_name, option_value, option_len));
+    }
+    int getsockopt(int level, int option_name, void* option_value,
+                   socklen_t* option_len) override {
+        FORWARD_CLIENT_OP(
+            getsockopt(level, option_name, option_value, option_len));
+    }
+    uint64_t timeout() override { FORWARD_CLIENT_OP(timeout()); }
+    void timeout(uint64_t tm) override { FORWARD_CLIENT_OP(timeout(tm)); }
+#undef FORWARD_CLIENT_OP
+};
+
+PooledTCPSocket::~PooledTCPSocket() {
+    if (!drop) {
+        pool->release(ep, stream);
+    } else {
+        delete stream;
+    }
+}
+
+extern "C" ISocketClient* new_tcp_socket_pool(ISocketClient* client) {
+    return new TCPSocketPool(client);
 }
 
 }  // namespace net

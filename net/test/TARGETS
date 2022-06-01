@@ -26,6 +26,24 @@ targets = {
             '-lphoton',
         ],
     ),
+    'test_sockpool': cpp_fast_test (
+        testing = ['socket'],
+        incs = [
+            '../',
+            '../../'
+        ], 
+        srcs = [
+            'test_sockpool.cpp',
+        ],
+        static_deps = [
+            'gtest-1.7.0:gtest',
+            'gtest-1.7.0:gtest_main',
+            'gmock-1.7.0:gmock',
+        ],
+        ldflags = [
+            '-lphoton',
+        ],
+    ),
     'test-server': cpp_program (
         incs = [
             '../',
