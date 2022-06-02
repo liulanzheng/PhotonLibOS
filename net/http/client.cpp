@@ -354,11 +354,14 @@ public:
         // LOG_DEBUG(VALUE(whole));
         auto req_size = whole.size();
         if (sock->write(whole.data(), req_size) != (ssize_t)req_size) {
+            sock->close();
             LOG_ERROR_RETURN(0, ROUNDTRIP_NEED_RETRY, "send header failed, retry");
         }
         sock->timeout(tmo.timeout());
-        if (op->req_body_writer(sock.get()) < 0)
+        if (op->req_body_writer(sock.get()) < 0) {
             LOG_ERROR_RETURN(0, ROUNDTRIP_NEED_RETRY, "ReqBodyCallback failed");
+            sock->close();
+        }
         LOG_DEBUG("Request sent, wait for response ` `", req.verb(),
                   req.target());
         auto space = req.get_remain_space();
@@ -373,6 +376,7 @@ public:
             sock->timeout(tmo.timeout());
             auto ret = resp.append_bytes(sock.get());
             if (ret < 0) {
+                sock->close();
                 LOG_ERROR_RETURN(0, ROUNDTRIP_NEED_RETRY,
                                  "read response header failed");
             }
@@ -392,6 +396,7 @@ public:
         }
         if (resp["Transfer-Encoding"] == "chunked") {
             if (resp.space_remain() < LINE_BUFFER_SIZE) {
+                sock->close();
                 LOG_ERROR_RETURN(ENOBUFS, ROUNDTRIP_FAILED, "run out of buffer");
             }
             op->resp_body.reset(new ChunkedResponseStream(sock.release(), resp.partial_body(),
