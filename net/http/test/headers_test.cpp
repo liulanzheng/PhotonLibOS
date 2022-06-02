@@ -88,7 +88,9 @@ public:
         ptr = (char*)rand_stream.data();
         remain = rand_stream.size();
     }
-
+    virtual int get_native_fd() override {
+        return -1;
+    }
     virtual ssize_t recv(void *buf, size_t count) override {
         // assert(count > remain);
         // LOG_DEBUG(remain);

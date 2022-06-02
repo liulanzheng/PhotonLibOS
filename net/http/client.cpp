@@ -55,30 +55,6 @@ public:
     }
 };
 
-// class PooledSocketStream {
-// public:
-//     EndPoint ep;
-//     ISocketStream* sock;
-//     PooledDialer* dialer;
-//     bool closed = false;
-//     explicit PooledSocketStream(EndPoint ep, ISocketStream* sock,
-//                                 PooledDialer* pool)
-//         : ep(ep), sock(sock), dialer(pool) {}
-//     ~PooledSocketStream() {
-//         LOG_DEBUG("Release connection to ` `", ep, VALUE(closed));
-//         if (!closed) {
-//             dialer->release(ep, sock);
-//         } else {
-//             delete sock;
-//         }
-//     }
-//     int close() {
-//         closed = true;
-//         return 0;
-//     }
-//     void timeout(uint64_t tm) { sock->timeout(tm); }
-// };
-
 class ResponseStream : public IStream {
 public:
     ISocketStream *m_stream;

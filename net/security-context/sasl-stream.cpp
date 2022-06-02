@@ -139,6 +139,10 @@ class SaslStream : public net::ISocketStream {
         gsasl_free(decodebuf);
     }
 
+    virtual int get_native_fd() override {
+        return underlay_stream->get_native_fd();
+    }
+
     bool initSasl() {
         int rc = sasl_session->auth_cb(sasl_session->session, underlay_stream);
         if (rc != GSASL_OK)
@@ -346,6 +350,9 @@ class SaslClient : public net::ISocketClient {
             delete underlay;
         }
     }
+    virtual int get_native_fd() override {
+        return underlay->get_native_fd();
+    }
     virtual net::ISocketStream *connect(const net::EndPoint &ep) override {
         return new_sasl_stream(session, underlay->connect(ep), true);
     }
@@ -393,6 +400,9 @@ class SaslServer : public net::ISocketServer {
         if (ownership) {
             delete underlay;
         }
+    }
+    virtual int get_native_fd() override {
+        return underlay->get_native_fd();
     }
     virtual net::ISocketStream *accept() override {
         return new_sasl_stream(session, underlay->accept(), true);

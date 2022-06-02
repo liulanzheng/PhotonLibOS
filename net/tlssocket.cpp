@@ -301,6 +301,9 @@ public:
     virtual ~TLSSocketImpl() override {
         close();
     }
+    virtual int get_native_fd() override {
+        return fd;
+    }
     virtual int close() override {
         if (m_ssl) {
             SSL_shutdown(m_ssl);
@@ -505,6 +508,10 @@ public:
     TLSSocketServer() : TLSSocketImpl(), workth(nullptr) {}
     virtual ~TLSSocketServer() { terminate(); }
 
+    virtual int get_native_fd() override {
+        return fd;
+    }
+
     virtual int start_loop(bool block) override {
         if (workth) LOG_ERROR_RETURN(EALREADY, -1, "Already listening");
         if (block) return accept_loop();
@@ -567,7 +574,9 @@ public:
                            socklen_t option_len) override {
         return opts.put_opt(level, option_name, option_value, option_len);
     }
-
+    virtual int get_native_fd() override {
+        return -1;
+    }
     TLSSocketImpl* create_socket() {
         auto sock = new TLSSocketImpl();
         if (sock->fd < 0 || sock->m_ssl == nullptr) {
