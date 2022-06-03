@@ -301,7 +301,7 @@ public:
     virtual ~TLSSocketImpl() override {
         close();
     }
-    virtual int get_native_fd() override {
+    virtual int get_underlay_handle() override {
         return fd;
     }
     virtual int close() override {
@@ -508,7 +508,7 @@ public:
     TLSSocketServer() : TLSSocketImpl(), workth(nullptr) {}
     virtual ~TLSSocketServer() { terminate(); }
 
-    virtual int get_native_fd() override {
+    virtual int get_underlay_handle() override {
         return fd;
     }
 
@@ -574,7 +574,7 @@ public:
                            socklen_t option_len) override {
         return opts.put_opt(level, option_name, option_value, option_len);
     }
-    virtual int get_native_fd() override {
+    virtual int get_underlay_handle() override {
         return -1;
     }
     TLSSocketImpl* create_socket() {

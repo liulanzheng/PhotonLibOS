@@ -102,7 +102,7 @@ public:
         }
         close();
     }
-    virtual int get_native_fd() override {
+    virtual int get_underlay_handle() override {
         return fd;
     }
     virtual int close() override {
@@ -638,7 +638,7 @@ public:
 
 #define FORWARD_SOCK_OP(action) return stream->action;
 
-    int get_native_fd() override { return -1; }
+    int get_underlay_handle() override { return -1; }
     int close() override {
         drop = true;
         FORWARD_SOCK_OP(close());
@@ -751,7 +751,7 @@ public:
     }
 
     void release(const std::string& ep, ISocketStream* stream) {
-        auto fd = stream->get_native_fd();
+        auto fd = stream->get_underlay_handle();
         if (fd >= 0) {
             // able to fetch fd
             // check by epoll
@@ -778,7 +778,7 @@ public:
                     for (auto map_it = fdmap.find(ep);
                          map_it != fdmap.end() && map_it->first == ep;
                          map_it++) {
-                        if (map_it->second->get_native_fd() == fd) {
+                        if (map_it->second->get_underlay_handle() == fd) {
                             fdmap.erase(map_it);
                             break;
                         }
@@ -800,7 +800,7 @@ public:
             }
             return nullptr;
         } else {
-            auto fd = it->second->get_native_fd();
+            auto fd = it->second->get_underlay_handle();
             if (fd >= 0) {
                 fdep.erase(fd);
                 ev->rm_interest({fd, EVENT_READ, (void*)(uint64_t)fd});
@@ -821,7 +821,7 @@ public:
                           [&] { return client->connect(path, count); });
     }
 
-    int get_native_fd() override { return -1; }
+    int get_underlay_handle() override { return -1; }
 
 #define FORWARD_CLIENT_OP(act) return client->act;
 

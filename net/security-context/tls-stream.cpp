@@ -408,8 +408,8 @@ public:
     }
     virtual uint64_t timeout() override { return underlay_stream->timeout(); }
     virtual void timeout(uint64_t tm) override { underlay_stream->timeout(tm); }
-    virtual int get_native_fd() override {
-        return underlay_stream->get_native_fd();
+    virtual int get_underlay_handle() override {
+        return underlay_stream->get_underlay_handle();
     }
 };
 
@@ -436,7 +436,7 @@ public:
             delete underlay;
         }
     }
-    virtual int get_native_fd() override { return underlay->get_native_fd(); }
+    virtual int get_underlay_handle() override { return underlay->get_underlay_handle(); }
     virtual net::ISocketStream* connect(const net::EndPoint& ep) override {
         return new_tls_stream(ctx, underlay->connect(ep), SecurityRole::Client,
                               true);
@@ -495,7 +495,7 @@ public:
             delete underlay;
         }
     }
-    virtual int get_native_fd() override { return underlay->get_native_fd(); }
+    virtual int get_underlay_handle() override { return underlay->get_underlay_handle(); }
     virtual net::ISocketStream* accept() override {
         return new_tls_stream(ctx, underlay->accept(), SecurityRole::Server,
                               true);

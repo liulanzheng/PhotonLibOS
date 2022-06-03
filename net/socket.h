@@ -104,7 +104,7 @@ namespace net
     public:
         virtual ~ISocket() = default;
 
-        virtual int get_native_fd() = 0;
+        virtual int get_underlay_handle() = 0;
 
         virtual int setsockopt(int level, int option_name,
                 const void *option_value, socklen_t option_len) = 0;
