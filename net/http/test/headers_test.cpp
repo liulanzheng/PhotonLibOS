@@ -88,8 +88,8 @@ public:
         ptr = (char*)rand_stream.data();
         remain = rand_stream.size();
     }
-    virtual int get_underlay_handle() override {
-        return -1;
+    virtual Object* get_underlay_object(int) override {
+        return nullptr;
     }
     virtual ssize_t recv(void *buf, size_t count) override {
         // assert(count > remain);

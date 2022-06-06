@@ -31,6 +31,8 @@ limitations under the License.
 #include <photon/common/iovector.h>
 #include <photon/io/fd-events.h>
 #include <photon/thread/thread11.h>
+#include <photon/thread/list.h>
+#include <photon/thread/timer.h>
 #include <photon/common/utility.h>
 #include <photon/net/abstract_socket.h>
 #include <photon/net/basic_socket.h>
@@ -102,8 +104,8 @@ public:
         }
         close();
     }
-    virtual int get_underlay_handle() override {
-        return fd;
+    virtual Object* get_underlay_object(int) override {
+        return (Object*)(uint64_t)fd;
     }
     virtual int close() override {
         auto ret = ::close(fd);
@@ -638,19 +640,19 @@ public:
 
 #define FORWARD_SOCK_OP(action) return stream->action;
 
-    int get_underlay_handle() override { return -1; }
+    Object* get_underlay_object(int level) override {
+        return level ? stream->get_underlay_object(level - 1) : nullptr;
+    }
     int close() override {
         drop = true;
         FORWARD_SOCK_OP(close());
     }
-
     int getsockname(EndPoint& addr) override {
         FORWARD_SOCK_OP(getsockname(addr));
     }
     int getpeername(EndPoint& addr) override {
         FORWARD_SOCK_OP(getpeername(addr));
     }
-
     int getsockname(char* path, size_t count) override {
         FORWARD_SOCK_OP(getsockname(path, count));
     }
@@ -721,22 +723,39 @@ public:
 #undef FORWARD_SOCK_OP
 };
 
+struct StreamListNode : public intrusive_list_node<StreamListNode> {
+    std::string key;
+    std::unique_ptr<ISocketStream> stream;
+    Timeout expire;
+
+    StreamListNode() : expire(0) {}
+    StreamListNode(std::string_view key, ISocketStream* stream, uint64_t expire)
+        : key(key), stream(stream), expire(expire) {}
+};
+
 class TCPSocketPool : public ISocketClient {
 protected:
     CascadingEventEngine* ev;
     photon::thread* collector;
-    std::unordered_multimap<std::string, ISocketStream*> fdmap;
+    std::unordered_multimap<std::string, StreamListNode*> fdmap;
     std::unordered_map<int, std::string> fdep;
+    intrusive_list<StreamListNode> lru;
     ISocketClient* client;
+    uint64_t expiration;
+    photon::Timer timer;
 
 public:
-    TCPSocketPool(ISocketClient* client)
-        : ev(photon::new_epoll_cascading_engine()), client(client) {
+    TCPSocketPool(ISocketClient* client, uint64_t expiration)
+        : ev(photon::new_epoll_cascading_engine()),
+          client(client),
+          expiration(expiration),
+          timer(0, {this, &TCPSocketPool::evict}) {
         collector = (photon::thread*)photon::thread_enable_join(
             photon::thread_create11(&TCPSocketPool::collect, this));
     }
 
     ~TCPSocketPool() override {
+        timer.stop();
         auto th = collector;
         collector = nullptr;
         photon::thread_interrupt((photon::thread*)th);
@@ -744,14 +763,69 @@ public:
         for (auto fe : fdep) {
             ev->rm_interest(
                 {(int)fe.first, EVENT_READ, (void*)(uint64_t)fe.first});
-            ::close(fe.first);
+        }
+        while (!lru.empty()) {
+            auto node = lru.pop_front();
+            delete node;
         }
         delete ev;
         delete client;
     }
 
+    void drop_from_pool(int fd) {
+        // remove fd interest
+        ev->rm_interest({(int)fd, EVENT_READ, (void*)(int64_t)fd});
+        // find fdep & fdmap and remove
+        auto it = fdep.find(fd);
+        if (it != fdep.end()) {
+            auto ep = it->second;
+            for (auto map_it = fdmap.find(ep);
+                 map_it != fdmap.end() && map_it->first == ep; map_it++) {
+                if (map_it->second->stream->get_underlay_fd() == fd) {
+                    auto node = map_it->second;
+                    fdmap.erase(map_it);
+                    lru.erase(node);
+                    delete node;
+                    break;
+                }
+            }
+            fdep.erase(it);
+        }
+    }
+
+    void drop_from_pool(StreamListNode* node) {
+        // remove fd interest
+        auto fd = node->stream->get_underlay_fd();
+        if (fd >= 0) return drop_from_pool(fd);
+        // or node have no record
+        for (auto map_it = fdmap.find(node->key);
+             map_it != fdmap.end() && map_it->first == node->key; map_it++) {
+            if (map_it->second == node) {
+                fdmap.erase(map_it);
+                lru.erase(node);
+                break;
+            }
+        }
+        delete node;
+    }
+
+    uint64_t evict() {
+        photon::thread_yield_to(photon::CURRENT);
+        auto evict_cnt = fdmap.size() >> 1;
+        auto cnt = 0;
+        while (!lru.empty() && evict_cnt &&
+               lru.front()->expire.expire() <= photon::now) {
+            auto node = lru.front();
+            drop_from_pool(node);
+            evict_cnt--;
+            cnt++;
+        }
+        if (lru.empty() || cnt) return expiration;
+        return lru.front()->expire.timeout();
+    }
+
     void release(const std::string& ep, ISocketStream* stream) {
-        auto fd = stream->get_underlay_handle();
+        auto fd = stream->get_underlay_fd();
         if (fd >= 0) {
             // able to fetch fd
             // check by epoll
@@ -759,7 +833,10 @@ public:
             fdep.emplace(fd, ep);
         }
         // stream back to pool
-        fdmap.emplace(ep, stream);
+        photon::thread_yield_to(photon::CURRENT);
+        auto node = new StreamListNode(ep, stream, expiration);
+        fdmap.emplace(ep, node);
+        lru.push_back(node);
     }
 
     void collect() {
@@ -772,20 +849,7 @@ public:
                 // if it is readable or RDHUP, both condition should treat as
                 // socket shutdown
                 auto fd = fds[i];
-                auto it = fdep.find(fd);
-                if (it != fdep.end()) {
-                    auto ep = it->second;
-                    for (auto map_it = fdmap.find(ep);
-                         map_it != fdmap.end() && map_it->first == ep;
-                         map_it++) {
-                        if (map_it->second->get_underlay_handle() == fd) {
-                            fdmap.erase(map_it);
-                            break;
-                        }
-                    }
-                }
-                ev->rm_interest({(int)fd, EVENT_READ, (void*)fd});
-                ::close(fd);
+                drop_from_pool(fd);
             }
         }
     }
@@ -800,14 +864,17 @@ public:
             }
             return nullptr;
         } else {
-            auto fd = it->second->get_underlay_handle();
+            auto fd = it->second->stream->get_underlay_fd();
             if (fd >= 0) {
                 fdep.erase(fd);
                 ev->rm_interest({fd, EVENT_READ, (void*)(uint64_t)fd});
             }
-            auto stream = it->second;
+            auto node = it->second;
             fdmap.erase(it);
-            return new PooledTCPSocket(stream, this, key);
+            lru.erase(node);
+            auto ret = new PooledTCPSocket(node->stream.release(), this, key);
+            delete node;
+            return ret;
         }
     }
 
@@ -821,7 +888,9 @@ public:
                           [&] { return client->connect(path, count); });
     }
 
-    int get_underlay_handle() override { return -1; }
+    virtual Object* get_underlay_object(int level) override {
+        return level ? client->get_underlay_object(level - 1) : nullptr;
+    }
 
 #define FORWARD_CLIENT_OP(act) return client->act;
 
@@ -831,7 +900,6 @@ public:
     int getpeername(EndPoint& addr) override {
         FORWARD_CLIENT_OP(getpeername(addr));
     }
-
     int getsockname(char* path, size_t count) override {
         FORWARD_CLIENT_OP(getsockname(path, count));
     }
@@ -861,8 +929,8 @@ PooledTCPSocket::~PooledTCPSocket() {
     }
 }
 
-extern "C" ISocketClient* new_tcp_socket_pool(ISocketClient* client) {
-    return new TCPSocketPool(client);
+extern "C" ISocketClient* new_tcp_socket_pool(ISocketClient* client, uint64_t expire) {
+    return new TCPSocketPool(client, expire);
 }
 
 }  // namespace net

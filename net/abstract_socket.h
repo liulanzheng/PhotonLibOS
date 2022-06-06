@@ -48,7 +48,7 @@ class SocketBase : public ISocketStream,
                    public ISocketClient,
                    public ISocketServer {
 public:
-    UNIMPLEMENTED(int get_underlay_handle());
+    UNIMPLEMENTED_PTR(Object* get_underlay_object(int));
     UNIMPLEMENTED(int setsockopt(int level, int option_name,
                                  const void* option_value,
                                  socklen_t option_len))
