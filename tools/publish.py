@@ -36,5 +36,6 @@ print('\nUnpublished files purged. Now you can follow these steps to publish Pho
 print('  1. Commit current change. Push to a branch like publish/yyyy-mm-dd\n')
 print('  2. Apply for the internal opensource process. Pass the code scan\n')
 print('  3. git archive -o photon.tar.gz HEAD\n')
-print('  4. tar xvf photon.tar.gz -C <your/PhotonLibOS/dir>\n')
-print('  5. Commit PhotonLibOS and push to github\n')
+print('  4. cd <your/PhotonLibOS/dir> && rm -rf *\n')
+print('  5. tar xvf photon.tar.gz && rm photon.tar.gz\n')
+print('  6. Commit PhotonLibOS and push to github\n')

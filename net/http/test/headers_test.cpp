@@ -1,4 +1,3 @@
-// $$PHOTON_UNPUBLISHED_FILE$$
 /*
 Copyright 2022 The Photon Authors
 

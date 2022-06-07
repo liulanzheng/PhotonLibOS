@@ -1,4 +1,3 @@
-// $$PHOTON_UNPUBLISHED_FILE$$
 /*
 Copyright 2022 The Photon Authors
 
@@ -383,18 +382,19 @@ TEST(http_client, server_no_resp) {
 }
 
 TEST(http_client, partial_body) {
-    system("mkdir -p /tmp/ease_ut/http_test/");
-    system("echo \"this is a http_client post request body text for socket stream\" > /tmp/ease_ut/http_test/ease-httpclient-posttestfile");
+    system("mkdir -p /tmp/photon-http-client-test/");
+    system("echo \"this is a http_client post request body text for socket stream\" > /tmp/photon-http-client-test/file");
+    DEFER(system("rm -rf /tmp/photon-http-client-test/"));
+
     auto server = new_http_server(18731);
     DEFER(delete server);
-    auto fs = photon::fs::new_localfs_adaptor("/tmp/ease_ut/http_test/");
+    auto fs = photon::fs::new_localfs_adaptor("/tmp/photon-http-client-test/");
     DEFER(delete fs);
     auto fs_handler = new_fs_handler(fs);
     DEFER(delete fs_handler);
     server->SetHandler(fs_handler->GetHandler());
     server->Launch();
-    std::string target_get =
-        "http://localhost:18731/ease-httpclient-posttestfile";
+    std::string target_get = "http://localhost:18731/file";
     auto client = new_http_client();
     DEFER(delete client);
     auto op = client->new_operation(Verb::GET, target_get);
@@ -412,7 +412,7 @@ TEST(http_client, partial_body) {
     EXPECT_EQ(true, buf == "http_clien");
 }
 
-// 只作为手动测试样例
+// Only for manual test
 // TEST(http_client, proxy) {
 //     auto client = new_http_client();
 //     DEFER(delete client);
