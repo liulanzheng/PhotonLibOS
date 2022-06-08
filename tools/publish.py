@@ -2,10 +2,24 @@
 # $$PHOTON_UNPUBLISHED_FILE$$
 
 import os
+import sys
 import subprocess
+
+if len(sys.argv) != 2:
+    print('Usage: ./publish.py <your/PhotonLibOS/dir>')
+    exit(1)
 
 tools_dir = os.path.dirname(os.path.realpath(__file__))
 root_dir = os.path.dirname(tools_dir)
+dst_repo_dir = sys.argv[1]
+
+if not os.path.exists(os.path.join(dst_repo_dir, '.git/')):
+    print('Dst repo not exist')
+    exit(1)
+
+# Step 1: purge unpublished files and commit to a temporary change
+
+os.chdir(root_dir)
 
 tag = '$$PHOTON_UNPUBLISHED_FILE$$'
 
@@ -32,10 +46,21 @@ for file in subprocess.getoutput('find %s -type f' % root_dir).split('\n'):
         print('Purge %s' % file)
         os.remove(file)
 
-print('\nUnpublished files purged. Now you can follow these steps to publish Photon to github:\n')
-print('  1. Commit current change. Push to a branch like publish/yyyy-mm-dd\n')
-print('  2. Apply for the internal opensource process. Pass the code scan\n')
-print('  3. git archive -o photon.tar.gz HEAD\n')
-print('  4. cd <your/PhotonLibOS/dir> && rm -rf *\n')
-print('  5. tar xvf photon.tar.gz && rm photon.tar.gz\n')
-print('  6. Commit PhotonLibOS and push to github\n')
+subprocess.run(['git', 'commit', '-m', 'any_message', '.'])
+
+# Step 2: archive tarball
+subprocess.run(['git', 'archive', '-o', 'photon-publish.tar.gz', 'HEAD'])
+
+# Step 3: overwrite all code
+os.chdir(dst_repo_dir)
+subprocess.run(['rm', '-rf', '*'], shell=True)
+
+tarball = os.path.join(root_dir, 'photon-publish.tar.gz')
+subprocess.run(['tar', 'xvf', tarball, '-C', '.'])
+
+# Step 4: remove tarball
+subprocess.run(['rm', '-rf', tarball])
+
+# Step 5: reset temporary change
+os.chdir(root_dir)
+subprocess.run(['git', 'reset', '--hard', 'HEAD~1'])
