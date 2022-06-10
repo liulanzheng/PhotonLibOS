@@ -32,4 +32,15 @@ targets = {
             '-lphoton',
         ],
     ),
+    'perf_spinlock': cpp_program(
+        incs=[
+            './',
+        ],
+        srcs=[
+            'perf_spinlock.cpp',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+    ),
 }

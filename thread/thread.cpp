@@ -18,6 +18,7 @@ limitations under the License.
 #include <sys/time.h>
 #include <sys/mman.h>
 #include <memory.h>
+#include <emmintrin.h>
 
 #include <cstddef>
 #include <cassert>
@@ -962,15 +963,36 @@ namespace photon
         return nullptr;
     }
 
-    int spinlock::lock()
-    {
-        while (_lock.test_and_set(std::memory_order_acquire));  // acquire lock
+    int spinlock::lock() {
+        while (_lock.exchange(true, std::memory_order_acquire)) {
+            while (_lock.load(std::memory_order_relaxed)) {
+                _mm_pause();
+            }
+        }
         return 0;
     }
-    void spinlock::unlock()
-    {
-        _lock.clear(std::memory_order_release);
+
+    void spinlock::unlock() {
+        _lock.store(false, std::memory_order_release);
     }
+
+    int spinlock::try_lock() {
+        return (!_lock.load(std::memory_order_relaxed) && !_lock.exchange(true, std::memory_order_acquire)) ? 0 : -1;
+    }
+
+    int ticket_spinlock::lock() {
+        const auto ticket = next.fetch_add(1, std::memory_order_relaxed);
+        while (serv.load(std::memory_order_acquire) != ticket) {
+            _mm_pause();
+        }
+        return 0;
+    }
+
+    void ticket_spinlock::unlock() {
+        const auto successor = serv.load(std::memory_order_relaxed) + 1;
+        serv.store(successor, std::memory_order_release);
+    }
+
     inline int waitq_translate_errno(int ret)
     {
         auto perrno = &errno;
