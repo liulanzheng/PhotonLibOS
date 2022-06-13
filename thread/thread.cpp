@@ -439,11 +439,11 @@ namespace photon
     static inline uint32_t _rdtscp()
     {
     #if defined(__x86_64__)
-        uint32_t low, hi, cpuid;
-        asm volatile ( "rdtscp\n" : "=a" (low), "=d" (hi), "=c" (cpuid) : : );
+        uint32_t low, hi;
+        asm volatile ( "rdtsc\n" : "=a" (low), "=d" (hi) : : );
         // assume working in 2Ghz, therefore 1ms ~ 2M = 1<<21
         // keep higher bits of tsc is enough
-        return (cpuid << 12) | (low >> 20);
+        return (hi << 12) | (low >> 20);
     #elif defined(__aarch64__)
         uint64_t val;
         asm volatile("mrs %0, cntvct_el0" : "=r" (val));
