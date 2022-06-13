@@ -446,8 +446,8 @@ namespace photon
             : "=a"(low), "=d"(hi)
             :
             :);
-        // // assume working in 2Ghz, therefore 1ms ~ 2M = 1<<21
-        // // keep higher bits of tsc is enough
+        // assume working in 2Ghz, therefore 1ms ~ 2M = 1<<21
+        // keep higher bits of tsc is enough
         return (hi << 12) | (low >> 20);
     #elif defined(__aarch64__)
         uint64_t val;
