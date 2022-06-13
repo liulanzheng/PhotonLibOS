@@ -440,9 +440,14 @@ namespace photon
     {
     #if defined(__x86_64__)
         uint32_t low, hi;
-        asm volatile ( "rdtsc\n" : "=a" (low), "=d" (hi) : : );
-        // assume working in 2Ghz, therefore 1ms ~ 2M = 1<<21
-        // keep higher bits of tsc is enough
+        asm volatile(
+            "lfence\n"
+            "rdtsc"
+            : "=a"(low), "=d"(hi)
+            :
+            :);
+        // // assume working in 2Ghz, therefore 1ms ~ 2M = 1<<21
+        // // keep higher bits of tsc is enough
         return (hi << 12) | (low >> 20);
     #elif defined(__aarch64__)
         uint64_t val;
