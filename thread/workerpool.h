@@ -16,113 +16,70 @@ limitations under the License.
 
 #pragma once
 
-#include <condition_variable>
-#include <functional>
-#include <future>
-#include <memory>
-#include <mutex>
-#include <queue>
-#include <stdexcept>
-#include <thread>
-#include <vector>
-
+#include <photon/common/object.h>
 #include <photon/thread/thread11.h>
 
-class WorkPool {
-public:
-    WorkPool(size_t);
-    template <class F, class... Args>
-    auto enqueue(F&& f, Args&&... args)
-        -> std::future<typename std::result_of<F(Args...)>::type>;
+namespace photon {
 
-    template <class F, class... Args>
-    auto photon_call(F&& f, Args&&... args) ->
-        typename std::result_of<F(Args...)>::type;
-    ~WorkPool();
+template <typename T>
+struct WorkResult {
+    photon::semaphore sem;
+    T ret;
+    template <typename V>
+    void set(V&& v) {
+        ret = std::move(v);
+        sem.signal(1);
+    }
 
-private:
-    // need to keep track of threads so we can join them
-    std::vector<std::thread> workers;
-    // the task queue
-    std::queue<std::function<void()> > tasks;
-
-    // synchronization
-    std::mutex queue_mutex;
-    std::condition_variable condition;
-    bool stop;
+    T get() {
+        sem.wait(1);
+        return std::move(ret);
+    }
 };
 
-// the constructor just launches some amount of workers
-inline WorkPool::WorkPool(size_t threads) : stop(false) {
-    for (size_t i = 0; i < threads; ++i)
-        workers.emplace_back([this] {
-            for (;;) {
-                std::function<void()> task;
+template <>
+struct WorkResult<void> {
+    photon::semaphore sem;
+    void set(void) { sem.signal(1); }
 
-                {
-                    std::unique_lock<std::mutex> lock(this->queue_mutex);
-                    this->condition.wait(lock, [this] {
-                        return this->stop || !this->tasks.empty();
-                    });
-                    if (this->stop && this->tasks.empty()) return;
-                    task = std::move(this->tasks.front());
-                    this->tasks.pop();
-                }
+    void get() { sem.wait(1); }
+};
 
-                task();
-            }
-        });
-}
-
-// add new work item to the pool
-template <class F, class... Args>
-auto WorkPool::enqueue(F&& f, Args&&... args)
-    -> std::future<typename std::result_of<F(Args...)>::type> {
-    using return_type = typename std::result_of<F(Args...)>::type;
-
-    auto task = std::make_shared<std::packaged_task<return_type()> >(
-        std::bind(std::forward<F>(f), std::forward<Args>(args)...));
-
-    std::future<return_type> res = task->get_future();
-    {
-        std::unique_lock<std::mutex> lock(queue_mutex);
-
-        // don't allow enqueueing after stopping the pool
-        if (stop) throw std::runtime_error("enqueue on stopped WorkPool");
-
-        tasks.emplace([task]() { (*task)(); });
+class WorkPool : public Object {
+public:
+    template <class F, class... Args>
+    auto call(F&& f, Args&&... args) -> typename std::enable_if<
+        !std::is_void<typename std::result_of<F(Args&&...)>::type>::value,
+        typename std::result_of<F(Args&&...)>::type>::type {
+        using return_type = typename std::result_of<F(Args...)>::type;
+        static_assert(!std::is_void<return_type>::value, "...");
+        WorkResult<return_type> result;
+        auto task = [&]() -> void {
+            result.set(f(std::forward<Args>(args)...));
+        };
+        do_call(task);
+        return result.get();
     }
-    condition.notify_one();
-    return res;
-}
 
-template <class F, class... Args>
-auto WorkPool::photon_call(F&& f, Args&&... args) ->
-    typename std::result_of<F(Args...)>::type {
-    photon::semaphore sem(0);
-
-    using return_type = typename std::result_of<F(Args...)>::type;
-
-    std::future<return_type> future;
-
-    auto runtask = [&]() -> return_type {
-        auto ret = f(std::forward<Args>(args)...);
-        sem.signal(1);
-        return ret;
-    };
-
-    future = enqueue(runtask);
-    sem.wait(1);
-    
-    return future.get();
-}
-
-// the destructor joins all threads
-inline WorkPool::~WorkPool() {
-    {
-        std::unique_lock<std::mutex> lock(queue_mutex);
-        stop = true;
+    template <class F, class... Args>
+    auto call(F&& f, Args&&... args) -> typename std::enable_if<
+        std::is_void<typename std::result_of<F(Args...)>::type>::value>::type {
+        using return_type = typename std::result_of<F(Args...)>::type;
+        WorkResult<return_type> result;
+        auto task = [&]() -> void {
+            f(std::forward<Args>(args)...);
+            result.set();
+        };
+        do_call(task);
+        return result.get();
     }
-    condition.notify_all();
-    for (std::thread& worker : workers) worker.join();
-}
+
+protected:
+    // send delegate to run at a workerthread,
+    // Caller should keep callable object and resources alive
+    virtual void do_call(Delegate<void> call) = 0;
+};
+
+WorkPool* new_work_pool(int thread_num, int ev_engine = 0, int io_engine = 0);
+
+}  // namespace photon

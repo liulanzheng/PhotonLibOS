@@ -43,4 +43,15 @@ targets = {
             '-lphoton',
         ],
     ),
+    'perf_workpool': cpp_program(
+        incs=[
+            './',
+        ],
+        srcs=[
+            'perf_workpool.cpp',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+    ),
 }
