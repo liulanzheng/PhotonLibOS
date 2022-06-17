@@ -46,7 +46,7 @@ public:
 
     template <class F, class... Args>
     void async_call(F&& f, Args&&... args) {
-        auto task = new auto([&] { f(std::forward<Args>(args)...); });
+        auto task = new auto([=] { f(std::forward<Args>(args)...); });
         using Task = decltype(task);
         void (*func)(Task) = [](Task _task) {
             (*_task)();
