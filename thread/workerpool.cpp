@@ -18,6 +18,7 @@ limitations under the License.
 
 #include <photon/common/ring.h>
 #include <photon/photon.h>
+#include <photon/thread/thread.h>
 
 #include <thread>
 #include <vector>
@@ -38,21 +39,8 @@ public:
     impl(int thread_num, int ev_engine, int io_engine)
         : stop(false), queue_sem(0), ring(RING_SIZE), th_num(thread_num) {
         for (int i = 0; i < thread_num; ++i)
-            workers.emplace_back([this, ev_engine, io_engine] {
-                photon::init(ev_engine, io_engine);
-                DEFER(photon::fini());
-                for (;;) {
-                    Delegate<void> task;
-                    {
-                        queue_sem.wait(1);
-                        if (this->stop && ring.empty()) return;
-                        photon::locker<photon::ticket_spinlock> lock(
-                            queue_lock);
-                        ring.pop_front(task);
-                    }
-                    task();
-                }
-            });
+            workers.emplace_back(&WorkPool::impl::worker_thread_routine, this,
+                                 ev_engine, io_engine);
     }
 
     ~impl() {
@@ -61,12 +49,37 @@ public:
         for (auto& worker : workers) worker.join();
     }
 
-    void do_call(Delegate<void> call) {
+    void enqueue(Delegate<void> call) {
         {
             photon::locker<photon::ticket_spinlock> lock(queue_lock);
             ring.push_back(call);
         }
         queue_sem.signal(1);
+    }
+
+    void do_call(Delegate<void> call) {
+        photon::semaphore sem(0);
+        auto task = [call, &sem] {
+            call();
+            sem.signal(1);
+        };
+        enqueue(Delegate<void>(task));
+        sem.wait(1);
+    }
+
+    void worker_thread_routine(int ev_engine, int io_engine) {
+        photon::init(ev_engine, io_engine);
+        DEFER(photon::fini());
+        for (;;) {
+            Delegate<void> task;
+            {
+                queue_sem.wait(1);
+                if (this->stop && ring.empty()) return;
+                photon::locker<photon::ticket_spinlock> lock(queue_lock);
+                ring.pop_front(task);
+            }
+            task();
+        }
     }
 };
 

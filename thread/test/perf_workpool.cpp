@@ -18,6 +18,7 @@ limitations under the License.
 #include <photon/fs/localfs.h>
 #include <photon/photon.h>
 #include <photon/thread/workerpool.h>
+#include <photon/thread/thread11.h>
 #include <sys/fcntl.h>
 
 #include <thread>

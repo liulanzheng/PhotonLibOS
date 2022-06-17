@@ -16,8 +16,7 @@ limitations under the License.
 
 #pragma once
 
-#include <photon/common/object.h>
-#include <photon/thread/thread.h>
+#include <photon/common/callback.h>
 
 #include <memory>
 
@@ -34,13 +33,8 @@ public:
 
     template <class F, class... Args>
     void call(F&& f, Args&&... args) {
-        photon::semaphore sem(0);
-        auto task = [&]() -> void {
-            f(std::forward<Args>(args)...);
-            sem.signal(1);
-        };
+        auto task = [&] { f(std::forward<Args>(args)...); };
         do_call(task);
-        sem.wait(1);
         return;
     }
 
