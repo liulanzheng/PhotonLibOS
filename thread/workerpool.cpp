@@ -89,5 +89,6 @@ WorkPool::WorkPool(int thread_num, int ev_engine, int io_engine)
 WorkPool::~WorkPool() {}
 
 void WorkPool::do_call(Delegate<void> call) { pImpl->do_call(call); }
+void WorkPool::enqueue(Delegate<void> call) { pImpl->enqueue(call); }
 
 }  // namespace photon

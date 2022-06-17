@@ -17,11 +17,18 @@ limitations under the License.
 #pragma once
 
 #include <photon/common/callback.h>
+#include <photon/thread/thread11.h>
 
 #include <memory>
 
 namespace photon {
 
+template <typename F>
+static void __async_helper(void* f) {
+    auto func = (F*)f;
+    (*func)();
+    delete func;
+}
 class WorkPool {
 public:
     WorkPool(int thread_num, int ev_engine = 0, int io_engine = 0);
@@ -35,7 +42,17 @@ public:
     void call(F&& f, Args&&... args) {
         auto task = [&] { f(std::forward<Args>(args)...); };
         do_call(task);
-        return;
+    }
+
+    template <class F, class... Args>
+    void async_call(F&& f, Args&&... args) {
+        auto task = new auto([&] { f(std::forward<Args>(args)...); });
+        using Task = decltype(task);
+        void (*func)(Task) = [](Task _task) {
+            (*_task)();
+            delete _task;
+        };
+        enqueue(Delegate<void>((Delegate<void>::Func&)func, task));
     }
 
 protected:
@@ -44,6 +61,7 @@ protected:
     // send delegate to run at a workerthread,
     // Caller should keep callable object and resources alive
     void do_call(Delegate<void> call);
+    void enqueue(Delegate<void> call);
 };
 
 }  // namespace photon

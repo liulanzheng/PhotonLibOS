@@ -1227,6 +1227,13 @@ int jobwork(WorkPool* pool, int i) {
     return 0;
 }
 
+int jobasyncwork(WorkPool* pool, int i) {
+    LOG_INFO("START");
+    this_thread::sleep_for(std::chrono::seconds(2));
+    LOG_INFO("FINISH");
+    return 0;
+}
+
 TEST(workpool, work) {
     std::unique_ptr<WorkPool> pool(new WorkPool(2));
 
@@ -1242,6 +1249,21 @@ TEST(workpool, work) {
     auto duration = std::chrono::system_clock::now() - start;
     EXPECT_GE(duration, std::chrono::seconds(4));
     EXPECT_LE(duration, std::chrono::seconds(5));
+}
+
+TEST(workpool, async_work) {
+    std::unique_ptr<WorkPool> pool(new WorkPool(2));
+
+    std::vector<photon::join_handle*> jhs;
+    auto start = std::chrono::system_clock::now();
+    for (int i = 0; i < 4; i++) {
+        pool->async_call(jobasyncwork, pool.get(), i);
+    }
+    auto duration = std::chrono::system_clock::now() - start;
+    EXPECT_GE(duration, std::chrono::seconds(0));
+    EXPECT_LE(duration, std::chrono::seconds(1));
+    photon::thread_sleep(5);
+    LOG_INFO("DONE");
 }
 
 void* waiter(void* arg) {
