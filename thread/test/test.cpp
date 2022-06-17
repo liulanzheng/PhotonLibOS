@@ -1213,12 +1213,13 @@ TEST(mutex, timeout_is_zero) {
 
 int jobwork(WorkPool* pool, int i) {
     LOG_INFO("LAUNCH");
-    auto ret = pool->call(
-        [](int i) -> int {
+    int ret = 0;
+    pool->call(
+        [&ret](int i) {
             LOG_INFO("START");
             this_thread::sleep_for(std::chrono::seconds(2));
             LOG_INFO("FINISH");
-            return i;
+            ret = i;
         },
         i);
     LOG_INFO("RETURN");
@@ -1227,7 +1228,7 @@ int jobwork(WorkPool* pool, int i) {
 }
 
 TEST(workpool, work) {
-    std::unique_ptr<WorkPool> pool(photon::new_work_pool(2));
+    std::unique_ptr<WorkPool> pool(new WorkPool(2));
 
     std::vector<photon::join_handle*> jhs;
     auto start = std::chrono::system_clock::now();

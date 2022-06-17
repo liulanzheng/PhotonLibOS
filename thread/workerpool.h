@@ -19,67 +19,37 @@ limitations under the License.
 #include <photon/common/object.h>
 #include <photon/thread/thread11.h>
 
+#include <memory>
+
 namespace photon {
 
-template <typename T>
-struct WorkResult {
-    photon::semaphore sem;
-    T ret;
-    template <typename V>
-    void set(V&& v) {
-        ret = std::move(v);
-        sem.signal(1);
-    }
-
-    T get() {
-        sem.wait(1);
-        return std::move(ret);
-    }
-};
-
-template <>
-struct WorkResult<void> {
-    photon::semaphore sem;
-    void set(void) { sem.signal(1); }
-
-    void get() { sem.wait(1); }
-};
-
-class WorkPool : public Object {
+class WorkPool {
 public:
-    template <class F, class... Args>
-    auto call(F&& f, Args&&... args) -> typename std::enable_if<
-        !std::is_void<typename std::result_of<F(Args&&...)>::type>::value,
-        typename std::result_of<F(Args&&...)>::type>::type {
-        using return_type = typename std::result_of<F(Args...)>::type;
-        static_assert(!std::is_void<return_type>::value, "...");
-        WorkResult<return_type> result;
-        auto task = [&]() -> void {
-            result.set(f(std::forward<Args>(args)...));
-        };
-        do_call(task);
-        return result.get();
-    }
+    WorkPool(int thread_num, int ev_engine = 0, int io_engine = 0);
+
+    WorkPool(const WorkPool& other) = delete;
+    WorkPool& operator=(const WorkPool& rhs) = delete;
+
+    ~WorkPool();
 
     template <class F, class... Args>
-    auto call(F&& f, Args&&... args) -> typename std::enable_if<
-        std::is_void<typename std::result_of<F(Args...)>::type>::value>::type {
-        using return_type = typename std::result_of<F(Args...)>::type;
-        WorkResult<return_type> result;
+    void call(F&& f, Args&&... args) {
+        photon::semaphore sem(0);
         auto task = [&]() -> void {
             f(std::forward<Args>(args)...);
-            result.set();
+            sem.signal(1);
         };
         do_call(task);
-        return result.get();
+        sem.wait(1);
+        return;
     }
 
 protected:
+    class impl;  // does not depend on T
+    std::unique_ptr<impl> pImpl;
     // send delegate to run at a workerthread,
     // Caller should keep callable object and resources alive
-    virtual void do_call(Delegate<void> call) = 0;
+    void do_call(Delegate<void> call);
 };
-
-WorkPool* new_work_pool(int thread_num, int ev_engine = 0, int io_engine = 0);
 
 }  // namespace photon
