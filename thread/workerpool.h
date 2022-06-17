@@ -17,7 +17,7 @@ limitations under the License.
 #pragma once
 
 #include <photon/common/object.h>
-#include <photon/thread/thread11.h>
+#include <photon/thread/thread.h>
 
 #include <memory>
 

@@ -14,10 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-#include <photon/common/alog.h>
+#include "workerpool.h"
+
 #include <photon/common/ring.h>
 #include <photon/photon.h>
-#include <photon/thread/workerpool.h>
 
 #include <thread>
 #include <vector>
@@ -26,6 +26,8 @@ namespace photon {
 
 class WorkPool::impl {
 public:
+    static constexpr uint32_t RING_SIZE = 256;
+
     std::vector<std::thread> workers;
     photon::ticket_spinlock queue_lock;
     std::atomic<bool> stop;
@@ -34,7 +36,7 @@ public:
     int th_num;
 
     impl(int thread_num, int ev_engine, int io_engine)
-        : stop(false), queue_sem(0), ring(64), th_num(thread_num) {
+        : stop(false), queue_sem(0), ring(RING_SIZE), th_num(thread_num) {
         for (int i = 0; i < thread_num; ++i)
             workers.emplace_back([this, ev_engine, io_engine] {
                 photon::init(ev_engine, io_engine);
@@ -56,7 +58,7 @@ public:
     ~impl() {
         stop = true;
         queue_sem.signal(th_num);
-        for (std::thread& worker : workers) worker.join();
+        for (auto& worker : workers) worker.join();
     }
 
     void do_call(Delegate<void> call) {
