@@ -17,6 +17,7 @@ limitations under the License.
 #pragma once
 
 #include <photon/common/callback.h>
+#include <photon/common/tuple-assistance.h>
 
 #include <memory>
 #include <utility>
@@ -43,40 +44,19 @@ public:
         do_call(f);
     }
 
-#if __cplusplus < 201703L
-    // Implementation detail of a simplified std::apply from C++17
-    template <typename F, typename Tuple, std::size_t... I>
-    constexpr static decltype(auto) apply_impl(F&& f, Tuple&& t,
-                                               std::index_sequence<I...>) {
-        return static_cast<F&&>(f)(std::get<I>(static_cast<Tuple&&>(t))...);
-    }
-
-    // Implementation of a simplified std::apply from C++17
-    template <typename F, typename Tuple>
-    constexpr static decltype(auto) apply(F&& f, Tuple&& t) {
-        return apply_impl(
-            static_cast<F&&>(f), static_cast<Tuple&&>(t),
-            std::make_index_sequence<
-                std::tuple_size<std::remove_reference_t<Tuple> >::value>{});
-    }
-#else
-    using std::apply;
-#endif
-
     template <typename F, typename... Args>
     void async_call(F&& f, Args&&... args) {
-#if __cplusplus <= 201103L
+#if __cplusplus < 201300L
         // capture by reference in C++11
         // it will acturally copy f and args once
-        auto task = new auto([&] { f(std::forward<Args>(args)...); });
+        auto task = new auto([&]() mutable { f(std::forward<Args>(args)...); });
 #else
         // or by value/move in C++14 on
-        auto task = new auto(
-            [f = std::forward<F>(f),
-             pack = std::make_tuple(std::forward<Args>(args)...)]() mutable {
-                apply([f](auto&&... args) { f(std::forward<Args>(args)...); },
-                      std::move(pack));
-            });
+        auto task = new auto([f = std::forward<F>(f),
+                              pack = std::make_tuple(
+                                  std::forward<Args>(args)...)]() mutable {
+            tuple_assistance::callable<decltype(f)>::apply(std::move(f), pack);
+        });
 #endif
 
         void (*func)(void*);

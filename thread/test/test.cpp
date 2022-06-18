@@ -1217,7 +1217,7 @@ int jobwork(WorkPool* pool, int i) {
     pool->call(
         [&ret](int i) {
             LOG_INFO("START");
-            this_thread::sleep_for(std::chrono::seconds(2));
+            this_thread::sleep_for(std::chrono::seconds(1));
             LOG_INFO("FINISH");
             ret = i;
         },
@@ -1229,7 +1229,7 @@ int jobwork(WorkPool* pool, int i) {
 
 int jobasyncwork(WorkPool* pool, int i) {
     LOG_INFO("START");
-    this_thread::sleep_for(std::chrono::seconds(2));
+    this_thread::sleep_for(std::chrono::seconds(1));
     LOG_INFO("FINISH");
     return 0;
 }
@@ -1247,8 +1247,8 @@ TEST(workpool, work) {
         photon::thread_join(j);
     }
     auto duration = std::chrono::system_clock::now() - start;
-    EXPECT_GE(duration, std::chrono::seconds(4));
-    EXPECT_LE(duration, std::chrono::seconds(5));
+    EXPECT_GE(duration, std::chrono::seconds(2));
+    EXPECT_LE(duration, std::chrono::seconds(3));
 }
 
 TEST(workpool, async_work) {
@@ -1262,7 +1262,7 @@ TEST(workpool, async_work) {
     auto duration = std::chrono::system_clock::now() - start;
     EXPECT_GE(duration, std::chrono::seconds(0));
     EXPECT_LE(duration, std::chrono::seconds(1));
-    photon::thread_sleep(5);
+    photon::thread_sleep(3);
     LOG_INFO("DONE");
 }
 
@@ -1307,12 +1307,12 @@ TEST(workpool, async_work_lambda) {
             [](WorkPool* pool, int i, CopyMoveRecord r) {
                 LOG_INFO("START ", VALUE(__cplusplus), VALUE(r.copy),
                          VALUE(r.move));
-#if __cplusplus <= 201103L
+#if __cplusplus < 201300L
                 EXPECT_EQ(1, r.copy);
 #else
                 EXPECT_EQ(0, r.copy);
 #endif
-                this_thread::sleep_for(std::chrono::seconds(2));
+                this_thread::sleep_for(std::chrono::seconds(1));
                 LOG_INFO("FINISH");
             },
             pool.get(), i, CopyMoveRecord());
@@ -1320,7 +1320,7 @@ TEST(workpool, async_work_lambda) {
     auto duration = std::chrono::system_clock::now() - start;
     EXPECT_GE(duration, std::chrono::seconds(0));
     EXPECT_LE(duration, std::chrono::seconds(1));
-    photon::thread_sleep(5);
+    photon::thread_sleep(3);
     LOG_INFO("DONE");
 }
 
