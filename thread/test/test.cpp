@@ -1266,6 +1266,64 @@ TEST(workpool, async_work) {
     LOG_INFO("DONE");
 }
 
+struct CopyMoveRecord{
+    size_t copy = 0;
+    size_t move = 0;
+    CopyMoveRecord() {
+    }
+    ~CopyMoveRecord() {
+    }
+    CopyMoveRecord(const CopyMoveRecord& rhs) {
+        copy = rhs.copy + 1;
+        move = rhs.move;
+        LOG_INFO("COPY ", this);
+    }
+    CopyMoveRecord(CopyMoveRecord&& rhs) {
+        copy = rhs.copy;
+        move = rhs.move + 1;
+        LOG_INFO("MOVE ", this);
+    }
+    CopyMoveRecord& operator=(const CopyMoveRecord& rhs) {
+        copy = rhs.copy + 1;
+        move = rhs.move;
+        LOG_INFO("COPY ASSIGN ", this);
+        return *this;
+    }
+    CopyMoveRecord& operator=(CopyMoveRecord&& rhs) {
+        copy = rhs.copy;
+        move = rhs.move + 1;
+        LOG_INFO("MOVE ASSIGN", this);
+        return *this;
+    }
+};
+
+TEST(workpool, async_work_lambda) {
+    std::unique_ptr<WorkPool> pool(new WorkPool(2));
+
+    std::vector<photon::join_handle*> jhs;
+    auto start = std::chrono::system_clock::now();
+    for (int i = 0; i < 4; i++) {
+        pool->async_call(
+            [](WorkPool* pool, int i, CopyMoveRecord r) {
+                LOG_INFO("START ", VALUE(__cplusplus), VALUE(r.copy),
+                         VALUE(r.move));
+#if __cplusplus <= 201103L
+                EXPECT_EQ(1, r.copy);
+#else
+                EXPECT_EQ(0, r.copy);
+#endif
+                this_thread::sleep_for(std::chrono::seconds(2));
+                LOG_INFO("FINISH");
+            },
+            pool.get(), i, CopyMoveRecord());
+    }
+    auto duration = std::chrono::system_clock::now() - start;
+    EXPECT_GE(duration, std::chrono::seconds(0));
+    EXPECT_LE(duration, std::chrono::seconds(1));
+    photon::thread_sleep(5);
+    LOG_INFO("DONE");
+}
+
 void* waiter(void* arg) {
     auto p = (int*)arg;
     LOG_INFO("Start", VALUE(*p));
