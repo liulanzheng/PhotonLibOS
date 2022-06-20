@@ -32,11 +32,67 @@ struct tuple_assistance
         typedef seq<S...> type;
     };
 
-    template <class F, bool is_ptr = std::is_pointer<F>::value>
-    struct callable;
+    template <class F>
+    struct function_traits;
+
+    // function pointer
+    template <class R, class... Args>
+    struct function_traits<R (*)(Args...)>
+        : public function_traits<R(Args...)> {};
+
+    template <class R, class... Args>
+    struct function_traits<R(Args...)> {
+        using return_type = R;
+
+        using arguments = std::tuple<Args...>;
+    };
+
+    // member function pointer
+    template <class C, class R, class... Args>
+    struct function_traits<R (C::*)(Args...)>
+        : public function_traits<R(C&, Args...)> {};
+
+    // const member function pointer
+    template <class C, class R, class... Args>
+    struct function_traits<R (C::*)(Args...) const>
+        : public function_traits<R(C&, Args...)> {};
+
+    // member object pointer
+    template <class C, class R>
+    struct function_traits<R(C::*)> : public function_traits<R(C&)> {};
+
+    template <typename T>
+    struct __remove_first_type_in_tuple {};
+
+    template <typename T, typename... Ts>
+    struct __remove_first_type_in_tuple<std::tuple<T, Ts...>> {
+        typedef std::tuple<Ts...> type;
+    };
+
+    // functor
+    template <class F>
+    struct function_traits {
+    private:
+        using call_type = function_traits<decltype(&F::operator())>;
+
+    public:
+        using return_type = typename call_type::return_type;
+
+        using arguments =
+            typename __remove_first_type_in_tuple<typename call_type::arguments>::type;
+    };
 
     template <class F>
-    struct callable<F, false> {
+    struct function_traits<F&> : public function_traits<F> {};
+
+    template <class F>
+    struct function_traits<F&&> : public function_traits<F> {};
+
+    template <class F>
+    struct callable {
+        using return_type = typename function_traits<F>::return_type;
+        using arguments = typename function_traits<F>::arguments;
+
         template<typename...Ts>
         static decltype(auto) apply(F f, std::tuple<Ts...>& args)
         {
@@ -48,31 +104,6 @@ struct tuple_assistance
         template<int...S, typename...Ts>
         static decltype(auto) do_apply(seq<S...>, F f, std::tuple<Ts...>& args)
         {
-            return f(std::forward<Ts>(std::get<S>(args))...);
-        }
-    };
-    template <class R, class...A>
-    struct callable<R (*)(A...), true>
-    {
-        typedef R (*F)(A...);
-
-        typedef R return_type;
-
-        typedef std::tuple<A...> arguments;
-
-        template<typename...Ts>
-        static return_type apply(F f, std::tuple<Ts...>& args)
-        {
-            typedef typename gens<sizeof...(Ts)>::type S;
-            return do_apply(S(), f, args);
-        }
-
-    protected:
-        template<int...S, typename...Ts>
-        static return_type do_apply(seq<S...>, F f, std::tuple<Ts...>& args)
-        {
-//            return f(std::get<S>(args)...);
-//            return f(std::move(std::get<S>(args))...);
             return f(std::forward<Ts>(std::get<S>(args))...);
         }
     };
