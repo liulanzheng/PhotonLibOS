@@ -255,8 +255,10 @@ int ResponseHeaders::append_bytes(ISocketStream* s) {
         return -1;
     }
     auto transfer_bytes = s->recv(_buf + _buf_size, _MAX_TRANSFER_BYTES);
-    return (transfer_bytes < 0) ? transfer_bytes
-                                : append_bytes((uint16_t)transfer_bytes);
+    auto ret = (transfer_bytes < 0) ? transfer_bytes
+                                    : append_bytes((uint16_t)transfer_bytes);
+    if (ret != 1 && transfer_bytes == 0) return -1;
+    return ret;
 }
 int ResponseHeaders::append_bytes(uint16_t size)
 {
