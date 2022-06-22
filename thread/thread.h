@@ -102,7 +102,7 @@ namespace photon
     class MasterEventEngine;
     struct vcpu_base {
         MasterEventEngine* master_event_engine;
-        uint32_t nthreads;
+        std::atomic<uint32_t> nthreads;
         uint32_t id;
     };
 
@@ -144,9 +144,10 @@ namespace photon
 
     /**
      * @brief Migrate a READY state thread to another vcpu
-     * 
+     *
      * @param th photon thead
-     * @param vcpuid target thread ind
+     * @param vcpu target vcpu ptr, if `vcpu` is nullptr, th will be migrated to
+     * unspecified vcpu
      * @return int 0 for success and -1 for failure
      */
     int thread_migrate(thread* th, vcpu_base* vcpu);

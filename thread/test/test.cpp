@@ -1457,7 +1457,7 @@ TEST(smp, join_on_smp) {
                 sem.signal(1);
             }
             cv.wait_no_lock();
-            LOG_INFO("STD thread done, ", VALUE(::CURRENT->vcpu->nthreads));
+            LOG_INFO("STD thread done, ", VALUE(::CURRENT->vcpu->nthreads.load()));
         });
     }
     sem.wait(3);

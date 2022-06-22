@@ -324,20 +324,6 @@ namespace photon
         SleepQueue sleepq;
 
         thread* idle_worker;
-
-        spinlock lock;
-
-        uint32_t inc_nthreads() {
-            SCOPED_LOCK(lock);
-            nthreads++;
-            return nthreads;
-        }
-
-        uint32_t dec_nthreads() {
-            SCOPED_LOCK(lock);
-            nthreads--;
-            return nthreads;
-        }
     };
 
     inline void thread::dequeue_ready_atomic(states newstat)
@@ -397,7 +383,7 @@ namespace photon
         th->cond.notify_all();
         assert(!th->single());
         auto next = CURRENT = th->remove_from_list();
-        th->vcpu->dec_nthreads();
+        th->vcpu->nthreads--;
         if (!th->joinable)
         {
             photon_switch_context_defer_die(th,
@@ -431,7 +417,7 @@ namespace photon
         th->state = states::READY;
         auto vcpu = current->vcpu;
         th->vcpu = vcpu;
-        vcpu->inc_nthreads();
+        vcpu->nthreads++;
         current->insert_tail(th);
         th->retval = current;
         thread_yield_to(th);
@@ -1394,20 +1380,21 @@ namespace photon
 
     int thread_migrate(photon::thread* th, vcpu_base* v) {
         auto vc = (vcpu_t*)v;
-        if (vc == nullptr) {
-            vc = &vcpus[(CURRENT->vcpu - &vcpus[0] + 1) % _n_vcpu];
-        }
         if (th->state != READY) {
             LOG_ERROR_RETURN(EINVAL, -1,
                              "Try to migrate thread `, which is not ready.", th)
         }
+        if (vc == nullptr) {
+            vc = &vcpus[(CURRENT->vcpu - &vcpus[0] + 1) % _n_vcpu];
+        }
+        if (vc == CURRENT->vcpu) return 0;
         if (th->vcpu != CURRENT->vcpu) {
             LOG_ERROR_RETURN(
                 EINVAL, -1,
                 "Try to migrate thread `, which is not on current vcpu.", th)
         }
-        CURRENT->vcpu->dec_nthreads();
-        vc->inc_nthreads();
+        CURRENT->vcpu->nthreads--;
+        vc->nthreads++;
         th->remove_from_list();
         th->state = STANDBY;
         th->vcpu = vc;
