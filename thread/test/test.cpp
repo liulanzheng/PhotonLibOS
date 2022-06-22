@@ -1333,6 +1333,42 @@ void* waiter(void* arg) {
     return nullptr;
 }
 
+void* somework(void* arg) {
+    auto vcpu = (photon::vcpu_base*)arg;
+    LOG_INFO("Work on `", photon::get_vcpu());
+    EXPECT_NE(vcpu, photon::get_vcpu());
+    return nullptr;
+}
+
+TEST(photon, migrate) {
+    vcpu_base* vcpu = nullptr;
+    photon::thread *th;
+    photon::semaphore sem;
+    std::thread worker([&vcpu, &sem, &th]{
+        photon::thread_init();
+        DEFER(photon::thread_fini());
+        th = CURRENT;
+        vcpu = photon::get_vcpu();
+        sem.signal(1);
+        LOG_TEMP("WORKER READY ", CURRENT);
+        photon::thread_suspend();
+        LOG_TEMP("WORKER DONE ", CURRENT);
+    });
+    sem.wait(1);
+    auto task = photon::thread_create(somework, photon::get_vcpu());
+    photon::thread_enable_join(task);
+    LOG_TEMP("task READY ", task);
+    auto ret = photon::thread_migrate(task, vcpu);
+    LOG_TEMP("migrate DONE ", ret);
+    photon::thread_join(task);
+    photon::thread_sleep(1);
+    LOG_TEMP("task join");
+    photon::thread_interrupt(th);
+    LOG_TEMP("worker interrupt");
+    worker.join();
+    LOG_TEMP("worker join");
+}
+
 TEST(photon, wait_all) {
     struct timeval tv;
     gettimeofday(&tv, NULL);

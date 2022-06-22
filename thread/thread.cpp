@@ -324,6 +324,20 @@ namespace photon
         SleepQueue sleepq;
 
         thread* idle_worker;
+
+        spinlock lock;
+
+        uint32_t inc_nthreads() {
+            SCOPED_LOCK(lock);
+            nthreads++;
+            return nthreads;
+        }
+
+        uint32_t dec_nthreads() {
+            SCOPED_LOCK(lock);
+            nthreads--;
+            return nthreads;
+        }
     };
 
     inline void thread::dequeue_ready_atomic(states newstat)
@@ -374,17 +388,16 @@ namespace photon
 
     static void thread_stub()
     {
-        auto& current = CURRENT;
-        thread_yield_to((thread*)current->retval);
-        current->go();
+        auto th = CURRENT;
+        thread_yield_to((thread*)th->retval);
+        th->go();
 
-        auto th = current;
         th->lock.lock();
         th->state = states::DONE;
         th->cond.notify_all();
-        assert(!current->single());
-        auto next = current = th->remove_from_list();
-        th->vcpu->nthreads--;
+        assert(!th->single());
+        auto next = CURRENT = th->remove_from_list();
+        th->vcpu->dec_nthreads();
         if (!th->joinable)
         {
             photon_switch_context_defer_die(th,
@@ -418,7 +431,7 @@ namespace photon
         th->state = states::READY;
         auto vcpu = current->vcpu;
         th->vcpu = vcpu;
-        vcpu->nthreads++;
+        vcpu->inc_nthreads();
         current->insert_tail(th);
         th->retval = current;
         thread_yield_to(th);
@@ -1378,6 +1391,30 @@ namespace photon
     }
 
     static std::atomic<uint32_t> _n_vcpu{0};
+
+    int thread_migrate(photon::thread* th, vcpu_base* v) {
+        auto vc = (vcpu_t*)v;
+        if (vc == nullptr) {
+            vc = &vcpus[(CURRENT->vcpu - &vcpus[0] + 1) % _n_vcpu];
+        }
+        if (th->state != READY) {
+            LOG_ERROR_RETURN(EINVAL, -1,
+                             "Try to migrate thread `, which is not ready.", th)
+        }
+        if (th->vcpu != CURRENT->vcpu) {
+            LOG_ERROR_RETURN(
+                EINVAL, -1,
+                "Try to migrate thread `, which is not on current vcpu.", th)
+        }
+        CURRENT->vcpu->dec_nthreads();
+        vc->inc_nthreads();
+        th->remove_from_list();
+        th->state = STANDBY;
+        th->vcpu = vc;
+        th->idx = -1;
+        vc->move_to_standbyq_atomic(th);
+        return 0;
+    }
 
     int thread_init()
     {
