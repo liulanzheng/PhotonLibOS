@@ -46,21 +46,21 @@ for file in subprocess.getoutput('find %s -type f' % root_dir).split('\n'):
         print('Purge %s' % file)
         os.remove(file)
 
-subprocess.run(['git', 'commit', '-m', 'any_message', '.'])
+subprocess.run(['git', 'commit', '-m', 'any_message', '.'], check=True)
 
 # Step 2: archive tarball
-subprocess.run(['git', 'archive', '-o', 'photon-publish.tar.gz', 'HEAD'])
+subprocess.run(['git', 'archive', '-o', 'photon-publish.tar.gz', 'HEAD'], check=True)
 
 # Step 3: overwrite all code
 os.chdir(dst_repo_dir)
-subprocess.run(['rm', '-rf', '*'], shell=True)
+subprocess.run('rm -rf *', shell=True, check=True)
 
 tarball = os.path.join(root_dir, 'photon-publish.tar.gz')
-subprocess.run(['tar', 'xvf', tarball, '-C', '.'])
+subprocess.run(['tar', 'xf', tarball, '-C', '.'], check=True)
 
 # Step 4: remove tarball
-subprocess.run(['rm', '-rf', tarball])
+subprocess.run(['rm', '-rf', tarball], check=True)
 
 # Step 5: reset temporary change
 os.chdir(root_dir)
-subprocess.run(['git', 'reset', '--hard', 'HEAD~1'])
+subprocess.run(['git', 'reset', '--hard', 'HEAD~1'], check=True)
