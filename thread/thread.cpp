@@ -1379,21 +1379,21 @@ namespace photon
     static std::atomic<uint32_t> _n_vcpu{0};
 
     int thread_migrate(photon::thread* th, vcpu_base* v) {
-        auto vc = (vcpu_t*)v;
         if (th->state != READY) {
             LOG_ERROR_RETURN(EINVAL, -1,
                              "Try to migrate thread `, which is not ready.", th)
         }
-        if (vc == nullptr) {
-            vc = &vcpus[(CURRENT->vcpu - &vcpus[0] + 1) % _n_vcpu];
-        }
-        if (vc == CURRENT->vcpu) return 0;
         if (th->vcpu != CURRENT->vcpu) {
             LOG_ERROR_RETURN(
                 EINVAL, -1,
                 "Try to migrate thread `, which is not on current vcpu.", th)
         }
-        CURRENT->vcpu->nthreads--;
+        if (v == nullptr) {
+            v = &vcpus[(th->vcpu - &vcpus[0] + 1) % _n_vcpu];
+        }
+        if (v == th->vcpu) return 0;
+        auto vc = (vcpu_t*)v;
+        th->vcpu->nthreads--;
         vc->nthreads++;
         th->remove_from_list();
         th->state = STANDBY;
