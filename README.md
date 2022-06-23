@@ -125,6 +125,8 @@ make -j
 ctest
 ```
 
+Note the examples are also built from testing. When running performance test, remember to remove CMAKE_BUILD_TYPE=Debug.
+
 ## Who is using Photon
 
 - [containerd/overlaybd](https://github.com/containerd/overlaybd) The storage backend of accelerated container image, providing a layering block-level image format, designed for container, secure container and virtual machine.
