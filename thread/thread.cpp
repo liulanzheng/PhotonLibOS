@@ -372,17 +372,22 @@ namespace photon
         void(*th_die)(thread*)) asm ("_photon_switch_context_defer_die");
     inline void switch_context(thread* from, thread* to);
 
-    static void thread_stub()
-    {
-        auto th = CURRENT;
-        thread_yield_to((thread*)th->retval);
-        th->go();
-
+    // Since thread may be moved from one vcpu to another
+    // thread local CURRENT *** MUST *** re-load before cleanup
+    // We found that in GCC ,compile with -O3 may leads compiler
+    // load CURRENT address only once, that will leads improper result 
+    // to ready list after thread migration.
+    // Here seperate a standalone function threqad_stub_cleanup, and forbidden
+    // inline optimization for it, to make sure load CURRENT again before clean up
+    __attribute__((noinline))
+    static void thread_stub_cleanup() {
+        auto &current = CURRENT;
+        auto th = current;
         th->lock.lock();
         th->state = states::DONE;
         th->cond.notify_all();
-        assert(!th->single());
-        auto next = CURRENT = th->remove_from_list();
+        assert(!current->single());
+        auto next = current = th->remove_from_list();
         th->vcpu->nthreads--;
         if (!th->joinable)
         {
@@ -391,6 +396,14 @@ namespace photon
         } else {
             switch_context_defer(th, next, &spinlock_unlock, (void*)&th->lock);
         }
+    }
+
+    static void thread_stub()
+    {
+        auto th = CURRENT;
+        thread_yield_to((thread*)th->retval);
+        th->go();
+        thread_stub_cleanup();
     }
 
     thread* thread_create(void* (*start)(void*), void* arg, uint64_t stack_size)
