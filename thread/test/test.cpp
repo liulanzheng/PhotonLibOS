@@ -1343,15 +1343,15 @@ void* somework(void* arg) {
 TEST(photon, migrate) {
     vcpu_base* vcpu = nullptr;
     photon::thread *th;
-    photon::semaphore sem;
-    std::thread worker([&vcpu, &sem, &th]{
+    photon::semaphore sem, semdone;
+    std::thread worker([&vcpu, &sem, &th, &semdone]{
         photon::thread_init();
         DEFER(photon::thread_fini());
         th = CURRENT;
         vcpu = photon::get_vcpu();
         sem.signal(1);
         LOG_TEMP("WORKER READY ", CURRENT);
-        photon::thread_suspend();
+        semdone.wait(1);
         LOG_TEMP("WORKER DONE ", CURRENT);
     });
     sem.wait(1);
@@ -1361,9 +1361,8 @@ TEST(photon, migrate) {
     auto ret = photon::thread_migrate(task, vcpu);
     LOG_TEMP("migrate DONE ", ret);
     photon::thread_join(task);
-    photon::thread_sleep(1);
     LOG_TEMP("task join");
-    photon::thread_interrupt(th);
+    semdone.signal(1);
     LOG_TEMP("worker interrupt");
     worker.join();
     LOG_TEMP("worker join");
