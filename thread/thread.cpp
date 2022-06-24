@@ -496,6 +496,7 @@ namespace photon
     {
         assert(from->vcpu == to->vcpu);
         to->state   = states::RUNNING;
+        to->vcpu->switch_count ++;
         photon_switch_context(from->stack.pointer_ref(), to->stack.pointer_ref());
     }
     inline void switch_context(thread* from, states new_state, thread* to)
@@ -509,6 +510,7 @@ namespace photon
     {
         assert(from->vcpu == to->vcpu);
         to->state   = states::RUNNING;
+        to->vcpu->switch_count ++;
         photon_switch_context_defer(from->stack.pointer_ref(),
             to->stack.pointer_ref(), defer, arg);
     }

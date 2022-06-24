@@ -1472,6 +1472,19 @@ TEST(smp, join_on_smp) {
     LOG_INFO("std threads joined");
 }
 
+TEST(makesure_yield, basic) {
+    volatile bool mark = true;
+    photon::thread_create11([&]{
+        photon::thread_usleep(100*1000);
+        mark=false;
+    });
+    while (mark) {
+        SCOPE_MAKESURE_YIELD;
+        _mm_pause();
+    }
+    EXPECT_EQ(false, mark);
+}
+
 int main(int argc, char** arg)
 {
     ::testing::InitGoogleTest(&argc, arg);
