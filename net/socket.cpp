@@ -829,7 +829,8 @@ public:
         if (fd >= 0) {
             // able to fetch fd
             // check by epoll
-            if (wait_for_fd_readable(fd, 0)) {
+            if (wait_for_fd_readable(fd, 0) == 0) {
+                LOG_TEMP("refuse put in pool");
                 return false;
             }
             ev->add_interest({fd, EVENT_READ, (void*)(uint64_t)fd});
@@ -877,7 +878,8 @@ public:
             auto node = it->second;
             fdmap.erase(it);
             lru.erase(node);
-            if (wait_for_fd_readable(fd, 0)) {
+            if (fd >= 0 && wait_for_fd_readable(fd, 0) == 0) {
+                LOG_TEMP("destruct node");
                 delete node;
                 goto again;
             }
@@ -931,7 +933,7 @@ public:
 };
 
 PooledTCPSocket::~PooledTCPSocket() {
-    if (drop || pool->release(ep, stream)) {
+    if (drop || !pool->release(ep, stream)) {
         delete stream;
     }
 }
