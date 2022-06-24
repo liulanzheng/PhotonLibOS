@@ -128,6 +128,31 @@ namespace photon
         return thread_create11(DEFAULT_STACK_SIZE, f, obj, std::forward<ARGUMENTS>(args)...);
     }
 
+    template <typename FUNCTOR, typename... ARGUMENTS>
+    inline typename std::enable_if<
+        !std::is_void<decltype(&FUNCTOR::operator())>::value, thread>::type*
+    thread_create11(FUNCTOR& f, ARGUMENTS&&... args) {
+        return thread_create11(&FUNCTOR::operator(), &f,
+                               std::forward<ARGUMENTS>(args)...);
+    }
+
+    template <typename FUNCTOR, typename... ARGUMENTS>
+    static void __functor_call_and_dtor(FUNCTOR* f, ARGUMENTS&&... args) {
+        (*f)(std::forward<ARGUMENTS>(args)...);
+        delete f;
+    }
+
+    template <typename FUNCTOR, typename... ARGUMENTS>
+    inline typename std::enable_if<
+        !std::is_void<decltype(&FUNCTOR::operator())>::value, thread>::type*
+    thread_create11(FUNCTOR&& f, ARGUMENTS&&... args) {
+        // rvalue functor, able to move to heap
+        auto func = new FUNCTOR(std::move(f));
+
+        return thread_create11(&__functor_call_and_dtor<FUNCTOR, ARGUMENTS...>,
+                               func, std::forward<ARGUMENTS>(args)...);
+    }
+
     template<typename Callable>
     inline int thread_usleep_defer(uint64_t timeout, Callable&& callback) {
         Delegate<void> delegate(callback);
