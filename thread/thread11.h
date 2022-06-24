@@ -129,32 +129,27 @@ namespace photon
     }
 
     template <typename FUNCTOR, typename... ARGUMENTS>
-    inline typename std::enable_if<
-        std::is_same<std::decay_t<FUNCTOR>, FUNCTOR>::value &&
-            !std::is_void<decltype(&FUNCTOR::operator())>::value,
-        thread>::type*
-    thread_create11(FUNCTOR& f, ARGUMENTS&&... args) {
-        return thread_create11(&FUNCTOR::operator(), &f,
-                               std::forward<ARGUMENTS>(args)...);
-    }
-
-    template <typename FUNCTOR, typename... ARGUMENTS>
-    static void __functor_call_and_dtor(FUNCTOR* f, ARGUMENTS&&... args) {
-        (*f)(std::forward<ARGUMENTS>(args)...);
-        delete f;
+    static void __functor_call_helper(FUNCTOR&& f, ARGUMENTS&&... args) {
+        f(std::forward<ARGUMENTS>(args)...);
     }
 
     template <typename FUNCTOR, typename... ARGUMENTS>
     inline typename std::enable_if<
-        std::is_same<std::decay_t<FUNCTOR>, FUNCTOR>::value &&
-            !std::is_void<decltype(&FUNCTOR::operator())>::value,
-        thread>::type*
+        !std::is_void<decltype(&FUNCTOR::operator())>::value, thread>::type*
+    thread_create11(uint64_t stack_size, FUNCTOR&& f, ARGUMENTS&&... args) {
+        // takes `f` as parameter to helper function
+        // thread_create11 will make sure parameters copy is completed
+        return thread_create11(
+            stack_size, &__functor_call_helper<FUNCTOR, ARGUMENTS...>,
+            std::forward<FUNCTOR>(f), std::forward<ARGUMENTS>(args)...);
+    }
+
+    template <typename FUNCTOR, typename... ARGUMENTS>
+    inline typename std::enable_if<
+        !std::is_void<decltype(&FUNCTOR::operator())>::value, thread>::type*
     thread_create11(FUNCTOR&& f, ARGUMENTS&&... args) {
-        // rvalue functor, able to move to heap
-        auto func = new FUNCTOR(std::move(f));
-
-        return thread_create11(&__functor_call_and_dtor<FUNCTOR, ARGUMENTS...>,
-                               func, std::forward<ARGUMENTS>(args)...);
+        return thread_create11(DEFAULT_STACK_SIZE, std::forward<FUNCTOR>(f),
+                               std::forward<ARGUMENTS>(args)...);
     }
 
     template<typename Callable>
