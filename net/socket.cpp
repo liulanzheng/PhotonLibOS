@@ -826,13 +826,12 @@ public:
 
     bool release(const std::string& ep, ISocketStream* stream) {
         auto fd = stream->get_underlay_fd();
-        auto ret = wait_for_fd_readable(fd, 0);
-        if (ret) {
-            return false;
-        }
         if (fd >= 0) {
             // able to fetch fd
             // check by epoll
+            if (wait_for_fd_readable(fd, 0)) {
+                return false;
+            }
             ev->add_interest({fd, EVENT_READ, (void*)(uint64_t)fd});
             fdep.emplace(fd, ep);
         }
@@ -861,6 +860,7 @@ public:
 
     template<typename SockCTOR>
     ISocketStream* do_connect(const std::string& key, SockCTOR ctor) {
+    again:
         auto it = fdmap.find(key);
         if (it == fdmap.end()) {
             ISocketStream* sock = ctor();
@@ -877,6 +877,10 @@ public:
             auto node = it->second;
             fdmap.erase(it);
             lru.erase(node);
+            if (wait_for_fd_readable(fd, 0)) {
+                delete node;
+                goto again;
+            }
             auto ret = new PooledTCPSocket(node->stream.release(), this, key);
             delete node;
             return ret;
