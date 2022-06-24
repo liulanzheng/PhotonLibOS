@@ -617,11 +617,11 @@ class PooledTCPSocket : public ISocketStream {
 public:
     TCPSocketPool* pool;
     ISocketStream* stream;
-    std::string ep;
+    EndPoint ep;
     bool drop;
 
     PooledTCPSocket(ISocketStream* stream, TCPSocketPool* pool,
-                    const std::string& ep)
+                    const EndPoint& ep)
         : pool(pool), stream(stream), ep(ep), drop(false) {}
     // release socket back to pool when dtor
     ~PooledTCPSocket() override;
@@ -724,12 +724,12 @@ public:
 };
 
 struct StreamListNode : public intrusive_list_node<StreamListNode> {
-    std::string key;
+    EndPoint key;
     std::unique_ptr<ISocketStream> stream;
     Timeout expire;
 
     StreamListNode() : expire(0) {}
-    StreamListNode(std::string_view key, ISocketStream* stream, uint64_t expire)
+    StreamListNode(EndPoint key, ISocketStream* stream, uint64_t expire)
         : key(key), stream(stream), expire(expire) {}
 };
 
@@ -737,8 +737,8 @@ class TCPSocketPool : public ISocketClient {
 protected:
     CascadingEventEngine* ev;
     photon::thread* collector;
-    std::unordered_multimap<std::string, StreamListNode*> fdmap;
-    std::unordered_map<int, std::string> fdep;
+    std::unordered_multimap<EndPoint, StreamListNode*> fdmap;
+    std::unordered_map<int, EndPoint> fdep;
     intrusive_list<StreamListNode> lru;
     ISocketClient* client;
     uint64_t expiration;
@@ -824,7 +824,7 @@ public:
         return lru.front()->expire.timeout();
     }
 
-    bool release(const std::string& ep, ISocketStream* stream) {
+    bool release(EndPoint ep, ISocketStream* stream) {
         auto fd = stream->get_underlay_fd();
         if (fd >= 0) {
             // able to fetch fd
@@ -859,8 +859,8 @@ public:
         }
     }
 
-    template<typename SockCTOR>
-    ISocketStream* do_connect(const std::string& key, SockCTOR ctor) {
+    template <typename SockCTOR>
+    ISocketStream* do_connect(EndPoint key, SockCTOR ctor) {
     again:
         auto it = fdmap.find(key);
         if (it == fdmap.end()) {
@@ -890,13 +890,12 @@ public:
     }
 
     virtual ISocketStream* connect(const EndPoint& ep) override {
-        return do_connect(std::string((char*)&ep, sizeof(ep)),
-                          [&] { return client->connect(ep); });
+        return do_connect(ep, [&] { return client->connect(ep); });
     }
 
     virtual ISocketStream* connect(const char* path, size_t count) override {
-        return do_connect(std::string(path, count),
-                          [&] { return client->connect(path, count); });
+        LOG_ERROR_RETURN(ENOSYS, nullptr,
+                         "Socket pool supports TCP-like socket only");
     }
 
     virtual Object* get_underlay_object(int level) override {
