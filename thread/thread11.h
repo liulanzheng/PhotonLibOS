@@ -130,7 +130,9 @@ namespace photon
 
     template <typename FUNCTOR, typename... ARGUMENTS>
     inline typename std::enable_if<
-        !std::is_void<decltype(&FUNCTOR::operator())>::value, thread>::type*
+        std::is_same<std::decay_t<FUNCTOR>, FUNCTOR>::value &&
+            !std::is_void<decltype(&FUNCTOR::operator())>::value,
+        thread>::type*
     thread_create11(FUNCTOR& f, ARGUMENTS&&... args) {
         return thread_create11(&FUNCTOR::operator(), &f,
                                std::forward<ARGUMENTS>(args)...);
@@ -144,7 +146,9 @@ namespace photon
 
     template <typename FUNCTOR, typename... ARGUMENTS>
     inline typename std::enable_if<
-        !std::is_void<decltype(&FUNCTOR::operator())>::value, thread>::type*
+        std::is_same<std::decay_t<FUNCTOR>, FUNCTOR>::value &&
+            !std::is_void<decltype(&FUNCTOR::operator())>::value,
+        thread>::type*
     thread_create11(FUNCTOR&& f, ARGUMENTS&&... args) {
         // rvalue functor, able to move to heap
         auto func = new FUNCTOR(std::move(f));
