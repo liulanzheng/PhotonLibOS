@@ -826,6 +826,11 @@ public:
 
     void release(const std::string& ep, ISocketStream* stream) {
         auto fd = stream->get_underlay_fd();
+        auto ret = wait_for_fd_readable(fd, 0);
+        if (ret) {
+            delete stream;
+            return;
+        }
         if (fd >= 0) {
             // able to fetch fd
             // check by epoll
