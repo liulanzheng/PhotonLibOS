@@ -43,6 +43,13 @@ static uint32_t (*crc32c_func)(const uint8_t*, size_t, uint32_t) = nullptr;
 
 static void crc_init() __attribute__((constructor));
 
+#if (defined(__aarch64__) && defined(__ARM_FEATURE_CRC32))
+#define __builtin_ia32_crc32di __builtin_aarch64_crc32cx
+#define __builtin_ia32_crc32si __builtin_aarch64_crc32cw
+#define __builtin_ia32_crc32hi __builtin_aarch64_crc32ch
+#define __builtin_ia32_crc32qi __builtin_aarch64_crc32cb
+#endif
+
 static uint32_t crc32c_hw(const uint8_t *data, size_t nbytes, uint32_t crc) {
   uint32_t sum = crc;
   size_t offset = 0;
@@ -742,12 +749,12 @@ static uint32_t crc32c_sw(const uint8_t *buffer, size_t nbytes, uint32_t crc) {
 }
 
 static void crc_init() {
-  __builtin_cpu_init();
-  if (__builtin_cpu_supports("sse4.2")) {
-    crc32c_func = crc32c_hw;
-  } else {
-    crc32c_func = crc32c_sw;
-  }
+#if ((defined(__x86_64__) || defined(__i386__)) && defined(__SSE4_2__) ||                          \
+     (defined(__aarch64__) && defined(__ARM_FEATURE_CRC32)))
+  crc32c_func = crc32c_hw;
+#else
+  crc32c_func = crc32c_sw;
+#endif
 }
 
 uint32_t crc32c_extend(const void *data, size_t nbytes, uint32_t crc) {
