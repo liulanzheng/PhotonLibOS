@@ -129,7 +129,7 @@ namespace photon
     }
 
     template <typename FUNCTOR, typename... ARGUMENTS>
-    static void __functor_call_helper(FUNCTOR&& f, ARGUMENTS&&... args) {
+    inline void __functor_call_helper(FUNCTOR&& f, ARGUMENTS&&... args) {
         f(std::forward<ARGUMENTS>(args)...);
     }
 
@@ -148,8 +148,9 @@ namespace photon
     inline typename std::enable_if<
         !std::is_void<decltype(&FUNCTOR::operator())>::value, thread>::type*
     thread_create11(FUNCTOR&& f, ARGUMENTS&&... args) {
-        return thread_create11(DEFAULT_STACK_SIZE, std::forward<FUNCTOR>(f),
-                               std::forward<ARGUMENTS>(args)...);
+        return thread_create11<FUNCTOR, ARGUMENTS...>(
+            DEFAULT_STACK_SIZE, std::forward<FUNCTOR>(f),
+            std::forward<ARGUMENTS>(args)...);
     }
 
     template<typename Callable>
