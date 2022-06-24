@@ -23,16 +23,18 @@ limitations under the License.
 
 #pragma once
 
-
 uint32_t crc32c(const void *data, size_t nbytes);
-uint32_t crc32c(const std::string &text);
 
 uint32_t crc32c_extend(const void *data, size_t nbytes, uint32_t crc);
-uint32_t crc32c_extend(const std::string &text, uint32_t crc);
 
-namespace testing {
-uint32_t crc32c_slow(const void *data, size_t nbytes, uint32_t crc);
-uint32_t crc32c_fast(const void *data, size_t nbytes, uint32_t crc);
-} // namespace testing
+uint32_t crc32c(const std::string &text) {
+  return crc32c_extend(text.data(), text.size(), 0);
+}
 
+uint32_t crc32c_extend(const std::string &text, uint32_t crc) {
+  return crc32c_extend(text.data(), text.size(), crc);
+}
 
+uint32_t crc32c_sw(const uint8_t *buffer, size_t nbytes, uint32_t crc);
+
+uint32_t crc32c_hw(const uint8_t *data, size_t nbytes, uint32_t crc);

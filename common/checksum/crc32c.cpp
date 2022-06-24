@@ -30,18 +30,24 @@ limitations under the License.
  * limitations under the License.
  */
 
-#include <stdint.h>
-#include <unistd.h>
-
-#include <algorithm>
-#include <iostream>
-
 #include "crc32c.h"
-
 
 static uint32_t (*crc32c_func)(const uint8_t*, size_t, uint32_t) = nullptr;
 
-static void crc_init() __attribute__((constructor));
+__attribute__((constructor)) static void crc_init() {
+#if ((defined(__x86_64__) || defined(__i386__)) && defined(__SSE4_2__))
+  __builtin_cpu_init();
+  if (__builtin_cpu_supports("sse4.2")) {
+    crc32c_func = crc32c_hw;
+  } else {
+    crc32c_func = crc32c_sw;
+  }
+#elif (defined(__aarch64__) && defined(__ARM_FEATURE_CRC32))
+  crc32c_func = crc32c_hw;
+#else
+  crc32c_func = crc32c_sw;
+#endif
+}
 
 #if (defined(__aarch64__) && defined(__ARM_FEATURE_CRC32))
 #define __builtin_ia32_crc32di __builtin_aarch64_crc32cx
@@ -50,7 +56,7 @@ static void crc_init() __attribute__((constructor));
 #define __builtin_ia32_crc32qi __builtin_aarch64_crc32cb
 #endif
 
-static uint32_t crc32c_hw(const uint8_t *data, size_t nbytes, uint32_t crc) {
+uint32_t crc32c_hw(const uint8_t *data, size_t nbytes, uint32_t crc) {
   uint32_t sum = crc;
   size_t offset = 0;
 
@@ -740,7 +746,7 @@ static uint32_t multitable_crc32c(uint32_t crc32c, const unsigned char *buffer,
   return (crc32c_sb8_64_bit(crc32c, buffer, length, to_even_word));
 }
 
-static uint32_t crc32c_sw(const uint8_t *buffer, size_t nbytes, uint32_t crc) {
+uint32_t crc32c_sw(const uint8_t *buffer, size_t nbytes, uint32_t crc) {
   if (nbytes < 4) {
     return (singletable_crc32c(crc, buffer, nbytes));
   } else {
@@ -748,39 +754,10 @@ static uint32_t crc32c_sw(const uint8_t *buffer, size_t nbytes, uint32_t crc) {
   }
 }
 
-static void crc_init() {
-#if ((defined(__x86_64__) || defined(__i386__)) && defined(__SSE4_2__) ||                          \
-     (defined(__aarch64__) && defined(__ARM_FEATURE_CRC32)))
-  crc32c_func = crc32c_hw;
-#else
-  crc32c_func = crc32c_sw;
-#endif
-}
-
 uint32_t crc32c_extend(const void *data, size_t nbytes, uint32_t crc) {
   return crc32c_func(reinterpret_cast<const uint8_t*>(data), nbytes, crc);
-}
-
-uint32_t crc32c_extend(const std::string& text, uint32_t crc) {
-  return crc32c_extend(text.data(), text.size(), crc);
 }
 
 uint32_t crc32c(const void *data, size_t nbytes) {
   return crc32c_extend(reinterpret_cast<const uint8_t*>(data), nbytes, 0);
 }
-
-uint32_t crc32c(const std::string& text) {
-  return crc32c_extend(text.data(), text.size(), 0);
-}
-
-namespace testing {
-
-uint32_t crc32c_slow(const void *data, size_t nbytes, uint32_t crc) {
-  return crc32c_sw(reinterpret_cast<const uint8_t*>(data), nbytes, crc);
-}
-
-uint32_t crc32c_fast(const void *data, size_t nbytes, uint32_t crc) {
-  return crc32c_hw(reinterpret_cast<const uint8_t*>(data), nbytes, crc);
-}
-
-}  // namespace testing
