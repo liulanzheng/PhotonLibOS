@@ -824,12 +824,11 @@ public:
         return lru.front()->expire.timeout();
     }
 
-    void release(const std::string& ep, ISocketStream* stream) {
+    bool release(const std::string& ep, ISocketStream* stream) {
         auto fd = stream->get_underlay_fd();
         auto ret = wait_for_fd_readable(fd, 0);
         if (ret) {
-            delete stream;
-            return;
+            return false;
         }
         if (fd >= 0) {
             // able to fetch fd
@@ -842,6 +841,7 @@ public:
         auto node = new StreamListNode(ep, stream, expiration);
         fdmap.emplace(ep, node);
         lru.push_back(node);
+        return true;
     }
 
     void collect() {
@@ -927,9 +927,7 @@ public:
 };
 
 PooledTCPSocket::~PooledTCPSocket() {
-    if (!drop) {
-        pool->release(ep, stream);
-    } else {
+    if (drop || pool->release(ep, stream)) {
         delete stream;
     }
 }
