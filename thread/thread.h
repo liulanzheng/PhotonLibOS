@@ -104,7 +104,7 @@ namespace photon
         MasterEventEngine* master_event_engine;
         std::atomic<uint32_t> nthreads;
         uint32_t id;
-        uint64_t switch_count;
+        volatile uint64_t switch_count;
     };
 
     // A helper struct in order to make some function calls inline.
