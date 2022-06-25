@@ -1480,7 +1480,11 @@ TEST(makesure_yield, basic) {
     });
     while (mark) {
         SCOPE_MAKESURE_YIELD;
+#ifdef __aarch64__
+        asm volatile("isb"::);
+#else
         _mm_pause();
+#endif
     }
     EXPECT_EQ(false, mark);
 }

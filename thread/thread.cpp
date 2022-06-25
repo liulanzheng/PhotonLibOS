@@ -18,7 +18,9 @@ limitations under the License.
 #include <sys/time.h>
 #include <sys/mman.h>
 #include <memory.h>
+#ifndef __aarch64__
 #include <emmintrin.h>
+#endif
 
 #include <cstddef>
 #include <cassert>
@@ -980,7 +982,11 @@ namespace photon
     int spinlock::lock() {
         while (_lock.exchange(true, std::memory_order_acquire)) {
             while (_lock.load(std::memory_order_relaxed)) {
+#ifdef __aarch64__
+                asm volatile("isb"::);
+#else
                 _mm_pause();
+#endif
             }
         }
         return 0;
@@ -997,7 +1003,11 @@ namespace photon
     int ticket_spinlock::lock() {
         const auto ticket = next.fetch_add(1, std::memory_order_relaxed);
         while (serv.load(std::memory_order_acquire) != ticket) {
+#ifdef __aarch64__
+            asm volatile("isb"::);
+#else
             _mm_pause();
+#endif
         }
         return 0;
     }
