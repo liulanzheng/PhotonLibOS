@@ -983,7 +983,7 @@ namespace photon
         while (_lock.exchange(true, std::memory_order_acquire)) {
             while (_lock.load(std::memory_order_relaxed)) {
 #ifdef __aarch64__
-                asm volatile("isb"::);
+                asm volatile("isb" : : : "memory");
 #else
                 _mm_pause();
 #endif
@@ -1004,7 +1004,7 @@ namespace photon
         const auto ticket = next.fetch_add(1, std::memory_order_relaxed);
         while (serv.load(std::memory_order_acquire) != ticket) {
 #ifdef __aarch64__
-            asm volatile("isb"::);
+            asm volatile("isb" : : : "memory");
 #else
             _mm_pause();
 #endif

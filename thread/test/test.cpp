@@ -1481,7 +1481,7 @@ TEST(makesure_yield, basic) {
     while (mark) {
         SCOPE_MAKESURE_YIELD;
 #ifdef __aarch64__
-        asm volatile("isb"::);
+        asm volatile("isb" : : : "memory");
 #else
         _mm_pause();
 #endif
