@@ -14,10 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-/*
- * Alibaba Group Inc. 2019 Copyrights
- */
-
 #include <cstdint>
 #include <string>
 
