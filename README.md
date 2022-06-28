@@ -127,10 +127,19 @@ ctest
 
 Note the examples are also built from testing. When running performance test, remember to remove CMAKE_BUILD_TYPE=Debug.
 
-## Who is using Photon
+## About Photon
+
+Photon was originally created from the storage team of Alibaba Cloud since 2017. It's a production ready library, and has
+been deployed to hundreds of thousands of hosts as the infrastructure of cloud software. We would like to make a
+commitment that Photon will be continuously updated, as long as those cloud software still evolve.
+
+Some open source projects are using Photon as well, for instance:
 
 - [containerd/overlaybd](https://github.com/containerd/overlaybd) The storage backend of accelerated container image, providing a layering block-level image format, designed for container, secure container and virtual machine.
-- [data-accelerator/photon-libtcmu](https://github.com/data-accelerator/photon-libtcmu) A TCMU implementation, reworked from libtcmu, acting as a iSCSI target.
+- [data-accelerator/photon-libtcmu](https://github.com/data-accelerator/photon-libtcmu) A TCMU implementation, reworked from tcmu-runner, acting as a iSCSI target.
 
-## Commitment
-TODO: Add our commitment to this project, including history, current status in Alibaba Cloud, and future vision.
+Any addition to this list is appreciated, if you have been using Photon, or just enlightened by its coroutine design.
+
+## Future work
+
+We are building an independent website for developers to view the documents. Please stay tuned.
