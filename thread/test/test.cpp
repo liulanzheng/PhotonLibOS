@@ -1473,7 +1473,7 @@ TEST(smp, join_on_smp) {
 }
 
 TEST(makesure_yield, basic) {
-    volatile bool mark = true;
+    static volatile bool mark = true;
     photon::thread_create11([&]{
         photon::thread_usleep(100*1000);
         mark=false;
