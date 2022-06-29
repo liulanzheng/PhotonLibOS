@@ -137,7 +137,8 @@ namespace photon
 
     template <typename FUNCTOR, typename... ARGUMENTS>
     inline typename std::enable_if<
-        !std::is_void<decltype(&FUNCTOR::operator())>::value, thread*>::type
+        !std::is_void<decltype(&std::decay<FUNCTOR>::type::operator())>::value,
+        thread*>::type
     thread_create11(uint64_t stack_size, FUNCTOR&& f, ARGUMENTS&&... args) {
         // takes `f` as parameter to helper function
         // thread_create11 will make sure parameters copy is completed
@@ -149,7 +150,8 @@ namespace photon
 
     template <typename FUNCTOR, typename... ARGUMENTS>
     inline typename std::enable_if<
-        !std::is_void<decltype(&FUNCTOR::operator())>::value, thread*>::type
+        !std::is_void<decltype(&std::decay<FUNCTOR>::type::operator())>::value,
+        thread*>::type
     thread_create11(FUNCTOR&& f, ARGUMENTS&&... args) {
         return thread_create11<FUNCTOR, ARGUMENTS...>(
             DEFAULT_STACK_SIZE, std::forward<FUNCTOR>(f),
