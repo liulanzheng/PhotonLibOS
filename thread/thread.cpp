@@ -598,7 +598,8 @@ namespace photon
         } else if (th->vcpu != t0->vcpu) {
             LOG_ERROR_RETURN(EINVAL, , VALUE(th), " must be at same vcpu as CURRENT!");
         } else if (th->state == states::STANDBY) {
-            resume_threads();
+            while (th->state == states::STANDBY)
+                resume_threads();
             assert(th->state == states::READY);
         }
         if (th->state != states::READY) {
