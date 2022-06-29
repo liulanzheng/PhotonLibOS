@@ -1489,6 +1489,26 @@ TEST(makesure_yield, basic) {
     EXPECT_EQ(false, mark);
 }
 
+
+TEST(thread11, lambda) {
+    photon::semaphore sem(0);
+    photon::thread_create11([&]{
+        sem.signal(1);
+    });
+    EXPECT_EQ(0, sem.wait(1, 1UL*1000*1000));
+    auto lambda = [](photon::semaphore &sem){
+        sem.signal(1);
+    };
+    photon::thread_create11(lambda, sem);
+    EXPECT_EQ(0, sem.wait(1, 1UL*1000*1000));
+    auto lambda2 = [&sem]{
+        sem.signal(1);
+    };
+    photon::thread_create11(lambda2);
+    EXPECT_EQ(0, sem.wait(1, 1UL*1000*1000));    
+}
+
+
 int main(int argc, char** arg)
 {
     ::testing::InitGoogleTest(&argc, arg);
