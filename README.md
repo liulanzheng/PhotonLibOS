@@ -8,8 +8,8 @@ The role of LibOS is to connect user apps and the kernel. Following the principl
 we designed Photon's API to be as consistent as possible with glibc and POSIX semantics.
 This flattens the learning curve for lib users and brings convenience when migrating legacy codebases.
 
-Photon's runtime is driven by a coroutine lib. According to out tests, it has the fastest I/O performance in the
-open source world, even among different programing languages.
+Photon's runtime is driven by a coroutine lib. Out tests show that it has the **best** I/O performance in the
+open source world by the year of 2022, even among different programing languages.
 
 As to the project vision, we hope that Photon would help programs run as *fast* and *agile*
 as the [photon](https://en.wikipedia.org/wiki/Photon) particle, which exactly is the naming came from.
