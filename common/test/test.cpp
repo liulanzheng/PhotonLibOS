@@ -1603,11 +1603,11 @@ TEST(ObjectCache, ctor_may_yield_and_null) {
         photon::thread_create(&ph_act, &ocache);
     }
     thread_usleep(110UL * 1000);
-    EXPECT_EQ(1, ocache.m_map.size());
+    EXPECT_EQ(1, ocache._set.size());
     ocache.expire();
     thread_usleep(1100UL * 1000);
     ocache.expire();
-    EXPECT_EQ(0, ocache.m_map.size());
+    EXPECT_EQ(0, ocache._set.size());
 
 }
 
@@ -1713,7 +1713,7 @@ TEST(ExpireContainer, expire_container) {
     memset(key2, 0, sizeof(key2));
     auto it = expire.find(key);
     EXPECT_NE(expire.end(), it);
-    auto ref = it->second;
+    auto ref = *it;
     EXPECT_EQ(0, strcmp(ref->key().data(), key));
     EXPECT_EQ(-1, GetPayload<1>(ref->payload));
     EXPECT_FALSE(GetPayload<2>(ref->payload));
@@ -1737,7 +1737,7 @@ TEST(ExpireList, expire_container) {
     expire.keep_alive(key, true);
     auto it = expire.find(key);
     EXPECT_NE(expire.end(), it);
-    auto ref = it->second;
+    auto ref = *it;
     EXPECT_EQ(0, strcmp(ref->key().data(), key));
     expire.expire();
     it = expire.find(key);
