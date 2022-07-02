@@ -236,6 +236,58 @@ TEST(cs, uds) {
     s_client_test(stream);
 }
 
+TEST(Socket, nested) {
+    ASSERT_GE(net::et_poller_init(), 0);
+    DEFER(net::et_poller_fini());
+
+    auto ctx = net::new_tls_context(cert_str, key_str, passphrase_str);
+    ASSERT_NE(ctx, nullptr);
+    DEFER(net::delete_tls_context(ctx));
+
+    auto server = net::new_tls_server(ctx, net::new_et_tcp_socket_server(), true);
+    DEFER(delete server);
+
+    server->set_handler({s_handler, ctx});
+    ASSERT_EQ(0, server->bind());
+    ASSERT_EQ(0, server->listen());
+    ASSERT_EQ(0, server->start_loop(false));
+
+    net::EndPoint ep1, ep2;
+    ASSERT_EQ(0, server->getsockname(ep1));
+    LOG_INFO("Sock address: `", ep1);
+
+    auto client = net::new_et_tcp_socket_client();
+    auto tls_client = net::new_tls_client(ctx, client, true);
+    DEFER(delete client);
+
+    auto pooled_client = net::new_tcp_socket_pool(tls_client);
+    DEFER(delete pooled_client);
+
+    auto conn = pooled_client->connect(ep1);
+    ASSERT_NE(conn, nullptr);
+
+    ASSERT_EQ(0, conn->getpeername(ep2));
+    LOG_INFO("Peer address: `", ep2);
+
+    ASSERT_EQ(ep1.port, ep2.port);
+
+    s_client_test(conn);
+
+    auto u1 = pooled_client->get_underlay_object(0);
+    ASSERT_EQ(u1, tls_client);
+
+    auto u2 = pooled_client->get_underlay_object(1);
+    ASSERT_EQ(u2, client);
+
+    auto u3 = pooled_client->get_underlay_object(2);
+    ASSERT_EQ(u3, nullptr);
+
+    auto u4 = server->get_underlay_object(1);
+    auto u5 = server->get_underlay_object(-1);
+    auto fd = server->get_underlay_fd();
+    ASSERT_TRUE((uint64_t) u4 == (uint64_t) u5 && (uint64_t) u4 == (uint64_t) fd);
+}
+
 int main(int argc, char** arg) {
     photon::thread_init();
     DEFER(photon::thread_fini());

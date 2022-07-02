@@ -286,7 +286,7 @@ public:
         for (const auto& x : buffers) {
             iovs.push_back((void*)x.data(), x.size());
         }
-        ssize_t ret = sock->send2((const struct iovec*)iovs.iovec(),
+        ssize_t ret = sock->send((const struct iovec*)iovs.iovec(),
                                   (int)iovs.iovcnt(), send2_flag);
         if (ret < 0) {
             LOG_ERROR(VALUE(ret), ERRNO());
@@ -298,7 +298,7 @@ public:
     template <class ConstBuffer>
     typename std::enable_if<has_data<ConstBuffer>::value, size_t>::type
     write_some(ConstBuffer const& buffer) {
-        ssize_t ret = sock->send2((const void*)buffer.data(),
+        ssize_t ret = sock->send((const void*)buffer.data(),
                                   (size_t)buffer.size(), send2_flag);
         if (ret < 0) {
             LOG_ERROR(VALUE(ret), ERRNO());

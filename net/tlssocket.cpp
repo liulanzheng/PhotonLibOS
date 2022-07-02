@@ -34,7 +34,7 @@ limitations under the License.
 #include <photon/thread/thread11.h>
 #include <photon/common/timeout.h>
 #include <photon/common/utility.h>
-#include "abstract_socket.h"
+#include "base_socket.h"
 #include "basic_socket.h"
 #include "socket.h"
 
@@ -281,16 +281,16 @@ ssize_t ssl_set_pkey_file(const char* path) {
     return 0;
 }
 
-class TLSSocketImpl : public SocketBase {
+class TLSSocketStreamDeprecated : public SocketStreamBase {
 public:
-    int fd;
+    int fd = -1;
     uint64_t m_timeout = -1;
     photon::mutex m_rmutex, m_wmutex;
     SSL* m_ssl;
-    explicit TLSSocketImpl(int fd) : fd(fd), m_ssl(SSL_new(g_ctx)) {
+    explicit TLSSocketStreamDeprecated(int fd) : fd(fd), m_ssl(SSL_new(g_ctx)) {
         if (m_ssl) SSL_set_fd(m_ssl, fd);
     }
-    TLSSocketImpl()
+    TLSSocketStreamDeprecated()
         : fd(net::socket(AF_INET, SOCK_STREAM, 0)), m_ssl(SSL_new(g_ctx)) {
         if (fd > 0) {
             int val = 1;
@@ -298,11 +298,11 @@ public:
         }
         if (m_ssl) SSL_set_fd(m_ssl, fd);
     }
-    virtual ~TLSSocketImpl() override {
+    virtual ~TLSSocketStreamDeprecated() override {
         close();
     }
-    virtual Object* get_underlay_object(int) override {
-        return (Object*)(uint64_t)fd;
+    virtual Object* get_underlay_object(uint64_t recursion = 0) override {
+        return (Object*) (uint64_t) fd;
     }
     virtual int close() override {
         if (m_ssl) {
@@ -324,28 +324,6 @@ public:
         return ssl_connect(m_ssl, m_timeout);
     }
     int do_ssl_accept() { return ssl_accept(m_ssl, m_timeout); }
-    int do_accept() { return net::accept(fd, nullptr, nullptr, m_timeout); }
-    int do_accept(EndPoint& remote_endpoint) {
-        struct sockaddr_in addr_in;
-        socklen_t len = sizeof(addr_in);
-        int cfd = net::accept(fd, (struct sockaddr*)&addr_in, &len, m_timeout);
-        if (cfd < 0 || len != sizeof(addr_in)) return -1;
-
-        remote_endpoint.from_sockaddr_in(addr_in);
-        return cfd;
-    }
-    virtual ISocketStream* accept(EndPoint* remote_endpoint) override {
-        int cfd = remote_endpoint ? do_accept(*remote_endpoint) : do_accept();
-        if (cfd < 0) return nullptr;
-        auto code = photon::wait_for_fd_readable(cfd, m_timeout);
-        if (code < 0) return nullptr;
-        auto ret = new TLSSocketImpl(cfd);
-        if (ret->do_ssl_accept()) {  // failed
-            delete ret;
-            return nullptr;
-        }
-        return ret;
-    }
     // read, write keeps "have to read/write N bytes"
     virtual ssize_t read(void* buf, size_t count) override {
         photon::scoped_lock lock(m_rmutex);
@@ -392,11 +370,11 @@ public:
         // there might be a faster implementaion in derived class
         return writev(iov, iovcnt);
     }
-    virtual ssize_t recv(void* buf, size_t count) override {
+    virtual ssize_t recv(void* buf, size_t count, int flags = 0) override {
         photon::scoped_lock lock(m_rmutex);
         return ssl_read(m_ssl, buf, count, m_timeout);
     }
-    virtual ssize_t recv(const struct iovec* iov, int iovcnt) override {
+    virtual ssize_t recv(const struct iovec* iov, int iovcnt, int flags = 0) override {
         Timeout tmo(m_timeout);
         auto iovec = IOVector(iov, iovcnt);  // make copy, might change
         ssize_t ret = 0;
@@ -414,11 +392,11 @@ public:
         return ret;
     }
 
-    virtual ssize_t send(const void* buf, size_t count) override {
+    virtual ssize_t send(const void* buf, size_t count, int flags = 0) override {
         photon::scoped_lock lock(m_wmutex);
         return ssl_write(m_ssl, buf, count, m_timeout);
     }
-    virtual ssize_t send(const struct iovec* iov, int iovcnt) override {
+    virtual ssize_t send(const struct iovec* iov, int iovcnt, int flags = 0) override {
         Timeout tmo(m_timeout);
         auto iovec = IOVector(iov, iovcnt);  // make copy, might change
         ssize_t ret = 0;
@@ -435,11 +413,6 @@ public:
         }
         return ret;
     }
-    virtual int bind(uint16_t port, IPAddr addr) override {
-        auto addr_in = EndPoint{addr, port}.to_sockaddr_in();
-        return ::bind(fd, (struct sockaddr*)&addr_in, sizeof(addr_in));
-    }
-    virtual int listen(int backlog) override { return ::listen(fd, backlog); }
     typedef int (*Getter)(int sockfd, struct sockaddr* addr,
                           socklen_t* addrlen);
     int do_getname(EndPoint& addr, Getter getter) {
@@ -456,7 +429,7 @@ public:
     virtual int getpeername(EndPoint& addr) override {
         return do_getname(addr, &::getpeername);
     }
-    virtual uint64_t timeout() override { return m_timeout; }
+    virtual uint64_t timeout() const override { return m_timeout; }
     virtual void timeout(uint64_t tm) override { m_timeout = tm; }
     virtual int setsockopt(int level, int option_name, const void* option_value,
                            socklen_t option_len) override {
@@ -473,12 +446,13 @@ public:
     }
 };
 
-class TLSSocketServer : public TLSSocketImpl {
+class TLSSocketServerDeprecated : public SocketServerBase {
 protected:
     Handler m_handler;
+    photon::thread* workth = nullptr;
+    bool waiting = false;
 
-    photon::thread* workth;
-    bool waiting;
+    int m_listen_fd = -1;
 
     int accept_loop() {
         if (workth) LOG_ERROR_RETURN(EALREADY, -1, "Already listening");
@@ -490,7 +464,7 @@ protected:
             waiting = false;
             if (!workth) return 0;
             if (sess) {
-                photon::thread_create11(&TLSSocketServer::handler, this, sess);
+                photon::thread_create11(&TLSSocketServerDeprecated::handler, this, sess);
             } else {
                 photon::thread_usleep(1000);
             }
@@ -504,18 +478,25 @@ protected:
     }
 
 public:
-    explicit TLSSocketServer(int fd) : TLSSocketImpl(fd), workth(nullptr) {}
-    TLSSocketServer() : TLSSocketImpl(), workth(nullptr) {}
-    virtual ~TLSSocketServer() { terminate(); }
+    TLSSocketServerDeprecated() = default;
 
-    virtual Object* get_underlay_object(int) override {
-        return (Object*)(uint64_t)fd;
+    virtual ~TLSSocketServerDeprecated() {
+        terminate();
+
+        if (m_listen_fd >= 0) {
+            ::shutdown(m_listen_fd, static_cast<int>(ShutdownHow::ReadWrite));
+        }
+        if (m_listen_fd < 0) {
+            return;
+        }
+        ::close(m_listen_fd);
+        m_listen_fd = -1;
     }
 
     virtual int start_loop(bool block) override {
         if (workth) LOG_ERROR_RETURN(EALREADY, -1, "Already listening");
         if (block) return accept_loop();
-        auto th = photon::thread_create11(&TLSSocketServer::accept_loop, this);
+        auto th = photon::thread_create11(&TLSSocketServerDeprecated::accept_loop, this);
         photon::thread_yield_to(th);
         return 0;
     }
@@ -537,53 +518,117 @@ public:
     }
 
     virtual int bind(uint16_t port, IPAddr addr) override {
-        return TLSSocketImpl::bind(port, addr);
+        if (setup_listen_fd() != 0) {
+            return -1;
+        }
+        auto addr_in = EndPoint{addr, port}.to_sockaddr_in();
+        return ::bind(m_listen_fd, (struct sockaddr*) &addr_in, sizeof(addr_in));
     }
+
     virtual int bind(const char* path, size_t count) override {
-        LOG_ERROR_RETURN(EINVAL, -1, "Not implemeted");
+        errno = ENOSYS;
+        return -1;
     }
+
     virtual int listen(int backlog) override {
-        return TLSSocketImpl::listen(backlog);
+        return ::listen(m_listen_fd, backlog);
     }
 
-    virtual ISocketStream* accept(EndPoint* remote_endpoint) override {
-        return TLSSocketImpl::accept(remote_endpoint);
-    }
-    virtual ISocketStream* accept() override {
-        return TLSSocketImpl::accept(nullptr);
-    }
-    bool is_socket(const char* path) const {
-        struct stat statbuf;
-        if (0 == stat(path, &statbuf)) return S_ISSOCK(statbuf.st_mode) != 0;
-        return false;
+    int do_accept() { return net::accept(m_listen_fd, nullptr, nullptr, m_timeout); }
+
+    int do_accept(EndPoint& remote_endpoint) {
+        struct sockaddr_in addr_in;
+        socklen_t len = sizeof(addr_in);
+        int cfd = net::accept(m_listen_fd, (struct sockaddr*) &addr_in, &len, m_timeout);
+        if (cfd < 0 || len != sizeof(addr_in)) return -1;
+        remote_endpoint.from_sockaddr_in(addr_in);
+        return cfd;
     }
 
-    virtual uint64_t timeout() override { return TLSSocketImpl::timeout(); }
-    virtual void timeout(uint64_t x) override {
-        return TLSSocketImpl::timeout(x);
+    virtual ISocketStream* accept(EndPoint* remote_endpoint = nullptr) override {
+        int cfd = remote_endpoint ? do_accept(*remote_endpoint) : do_accept();
+        if (cfd < 0) return nullptr;
+        auto code = photon::wait_for_fd_readable(cfd, m_timeout);
+        if (code < 0) return nullptr;
+        auto ret = new TLSSocketStreamDeprecated(cfd);
+        if (ret->do_ssl_accept()) {  // failed
+            delete ret;
+            return nullptr;
+        }
+        return ret;
+    }
+
+    Object* get_underlay_object(uint64_t recursion = 0) override {
+        return (Object*) (uint64_t) m_listen_fd;
+    }
+
+    int getsockname(EndPoint& addr) override {
+        return do_getname(addr, &::getsockname);
+    }
+
+    int getpeername(EndPoint& addr) override {
+        return do_getname(addr, &::getpeername);
+    }
+
+    int getsockname(char* path, size_t count) override {
+        return do_getname(path, count, &::getsockname);
+    }
+
+    int getpeername(char* path, size_t count) override {
+        return do_getname(path, count, &::getpeername);
+    }
+
+private:
+    using Getter = int (*)(int sockfd, struct sockaddr* addr, socklen_t* addrlen);
+
+    int do_getname(EndPoint& addr, Getter getter) const {
+        struct sockaddr_in addr_in;
+        socklen_t len = sizeof(addr_in);
+        int ret = getter(m_listen_fd, (struct sockaddr*) &addr_in, &len);
+        if (ret < 0 || len != sizeof(addr_in)) return -1;
+        addr.from_sockaddr_in(addr_in);
+        return 0;
+    }
+
+    int do_getname(char* path, size_t count, Getter getter) const {
+        struct sockaddr_un addr_un;
+        socklen_t len = sizeof(addr_un);
+        int ret = getter(m_listen_fd, (struct sockaddr*) &addr_un, &len);
+        // if len larger than size of addr_un, or less than prefix in addr_un
+        if (ret < 0 || len > sizeof(addr_un) || len <= sizeof(addr_un.sun_family))
+            return -1;
+        strncpy(path, addr_un.sun_path, count);
+        return 0;
+    }
+
+    int setup_listen_fd() {
+        m_listen_fd = net::socket(AF_INET, SOCK_STREAM, 0);
+        if (m_listen_fd < 0) {
+            LOG_ERRNO_RETURN(0, -1, "fail to setup listen fd");
+        }
+        int val = 1;
+        if (::setsockopt(m_listen_fd, IPPROTO_TCP, TCP_NODELAY, &val, sizeof(val)) != 0) {
+            LOG_ERRNO_RETURN(EINVAL, -1, "failed to setsockopt of TCP_NODELAY");
+        }
+        for (auto& opt : m_opts) {
+            auto ret = ::setsockopt(m_listen_fd, opt.level, opt.opt_name, opt.opt_val, opt.opt_len);
+            if (ret < 0) {
+                LOG_ERRNO_RETURN(EINVAL, -1, "failed to setsockopt ", VALUE(opt.level), VALUE(opt.opt_name));
+            }
+        }
+        return 0;
     }
 };
 
-// factory class
-class TLSSocketClient : public SocketBase {
+class TLSSocketClientDeprecated : public SocketClientBase {
 public:
-    SockOptBuffer opts;
-    uint64_t m_timeout = -1;
-
-    virtual int setsockopt(int level, int option_name, const void* option_value,
-                           socklen_t option_len) override {
-        return opts.put_opt(level, option_name, option_value, option_len);
-    }
-    virtual Object* get_underlay_object(int) override {
-        return (Object*)-1UL;
-    }
-    TLSSocketImpl* create_socket() {
-        auto sock = new TLSSocketImpl();
+    TLSSocketStreamDeprecated* create_socket() {
+        auto sock = new TLSSocketStreamDeprecated();
         if (sock->fd < 0 || sock->m_ssl == nullptr) {
             delete sock;
             LOG_ERROR_RETURN(0, nullptr, "Failed to create socket fd");
         }
-        for (auto& opt : opts) {
+        for (auto& opt : m_opts) {
             auto ret = sock->setsockopt(opt.level, opt.opt_name, opt.opt_val,
                                         opt.opt_len);
             if (ret < 0) {
@@ -596,31 +641,35 @@ public:
         return sock;
     }
 
-    virtual ISocketStream* connect(const EndPoint& ep) override {
+    virtual ISocketStream* connect(EndPoint remote, EndPoint local = EndPoint()) override {
+        if (!local.empty()) {
+            errno = ENOSYS;
+            return nullptr;
+        }
         auto sock = create_socket();
         if (!sock) return nullptr;
-        auto ret = sock->fdconnect(ep);
+        auto ret = sock->fdconnect(remote);
         if (ret < 0) {
             delete sock;
-            LOG_ERROR_RETURN(0, nullptr, "Failed to connect to ", ep);
+            LOG_ERROR_RETURN(0, nullptr, "Failed to connect to ", remote);
         }
         return sock;
     }
-    virtual uint64_t timeout() override { return m_timeout; }
-    virtual void timeout(uint64_t tm) override { m_timeout = tm; }
+
+    virtual ISocketStream* connect(const char* path, size_t count = 0) override {
+        errno = ENOSYS;
+        return nullptr;
+    }
 };
 
-net::ISocketClient* new_tls_socket_client() { return new TLSSocketClient(); }
+net::ISocketClient* new_tls_socket_client() {
+    return new TLSSocketClientDeprecated();
+}
 
 net::ISocketServer* new_tls_socket_server() {
     if (g_ctx == nullptr)
         LOG_ERROR_RETURN(ENXIO, nullptr, "libssl have not initialized");
-    auto ret = new TLSSocketServer();
-    if (ret->fd < 0 || ret->m_ssl == nullptr) {
-        delete ret;
-        LOG_ERROR_RETURN(0, nullptr, "SSL create failed");
-    }
-    return ret;
+    return new TLSSocketServerDeprecated();
 }
 
 }  // namespace net

@@ -24,7 +24,6 @@ limitations under the License.
 #include <photon/common/iovector.h>
 #include <photon/common/string_view.h>
 #include <photon/fs/filesystem.h>
-#include <photon/net/etsocket.h>
 #include <photon/net/socket.h>
 #include <photon/net/tlssocket.h>
 #include <photon/net/utils.h>

@@ -20,8 +20,8 @@ limitations under the License.
 #include <gtest/gtest.h>
 #include <photon/net/http/server.h>
 #include <photon/net/http/client.h>
+#include <photon/net/socket.h>
 #include <photon/io/fd-events.h>
-#include <photon/net/etsocket.h>
 #include <photon/thread/thread11.h>
 #include <photon/common/alog-stdstring.h>
 #include <photon/fs/localfs.h>

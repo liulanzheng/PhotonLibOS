@@ -161,38 +161,38 @@ ssize_t zerocopy_n(int fd, iovec* iov, int iovcnt, uint32_t& num_calls, uint64_t
     return doiov_n(v, LAMBDA_TIMEOUT(sendmsg_zerocopy(fd, v.iov, v.iovcnt, num_calls, timeout)));
 }
 
-ssize_t send2(int fd, const void *buf, size_t count, int flag, uint64_t timeout) {
+ssize_t send(int fd, const void *buf, size_t count, int flag, uint64_t timeout) {
     return doio(LAMBDA(::send(fd, buf, count, flag | MSG_NOSIGNAL)),
                     LAMBDA_TIMEOUT(photon::wait_for_fd_writable(fd, timeout)));
 }
 
-ssize_t sendv2(int fd, const struct iovec *iov, int iovcnt, int flag, uint64_t timeout) {
+ssize_t sendv(int fd, const struct iovec *iov, int iovcnt, int flag, uint64_t timeout) {
     msghdr msg = {};
     msg.msg_iov = (struct iovec*)iov;
     msg.msg_iovlen = iovcnt;
     return doio(LAMBDA(::sendmsg(fd, &msg, flag | MSG_NOSIGNAL)),
                        LAMBDA_TIMEOUT(photon::wait_for_fd_writable(fd, timeout)));
 }
-ssize_t send2_n(int fd, const void *buf, size_t count, int flag, uint64_t timeout) {
+ssize_t send_n(int fd, const void *buf, size_t count, int flag, uint64_t timeout) {
     return doio_n((void *&)buf, count,
-                LAMBDA_TIMEOUT(send2(fd, (const void*)buf, (size_t)count, flag, timeout)));
+                LAMBDA_TIMEOUT(send(fd, (const void*)buf, (size_t)count, flag, timeout)));
 }
 
-ssize_t sendv2_n(int fd, struct iovec *iov, int iovcnt, int flag, uint64_t timeout) {
+ssize_t sendv_n(int fd, struct iovec *iov, int iovcnt, int flag, uint64_t timeout) {
     iovector_view v(iov, iovcnt);
-    return doiov_n(v, LAMBDA_TIMEOUT(sendv2(fd, (struct iovec*)v.iov, (int)v.iovcnt, flag, timeout)));
+    return doiov_n(v, LAMBDA_TIMEOUT(sendv(fd, (struct iovec*)v.iov, (int)v.iovcnt, flag, timeout)));
 }
 ssize_t write(int fd, const void *buf, size_t count, uint64_t timeout) {
-    return send2(fd, buf, count, 0, timeout);
+    return send(fd, buf, count, 0, timeout);
 }
 ssize_t writev(int fd, const struct iovec *iov, int iovcnt, uint64_t timeout) {
-    return sendv2(fd, iov, iovcnt, 0, timeout);
+    return sendv(fd, iov, iovcnt, 0, timeout);
 }
 ssize_t write_n(int fd, const void *buf, size_t count, uint64_t timeout) {
-    return send2_n(fd, buf, count, 0, timeout);
+    return send_n(fd, buf, count, 0, timeout);
 }
 ssize_t writev_n(int fd, struct iovec *iov, int iovcnt, uint64_t timeout) {
-    return sendv2_n(fd, iov, iovcnt, 0, timeout);
+    return sendv_n(fd, iov, iovcnt, 0, timeout);
 }
 }  // namespace net
 }

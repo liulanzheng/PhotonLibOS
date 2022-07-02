@@ -23,15 +23,13 @@ limitations under the License.
 #include <photon/thread/thread11.h>
 #include <photon/net/socket.h>
 #include <photon/net/tlssocket.h>
-#include <photon/net/etsocket.h>
 #include <photon/net/curl.h>
 #include <photon/net/utils.h>
 
 #define protected public
 #define private public
-#include "../socket.cpp"
+#include "../kernel_socket.cpp"
 #include "../tlssocket.cpp"
-#include "../etsocket.cpp"
 #undef protected
 #undef private
 
@@ -41,7 +39,7 @@ using namespace net;
 char uds_path[] = "/tmp/udstest.sock";
 
 void handler(ISocketStream* sock) {
-    EXPECT_NE(nullptr, sock);
+    ASSERT_NE(nullptr, sock);
     LOG_DEBUG("Accepted");
     photon::thread_yield();
     char recv[256];
@@ -54,11 +52,10 @@ void handler(ISocketStream* sock) {
 void uds_server() {
     auto sock = new_uds_server(true);
     DEFER({ delete (sock); });
-    auto ret = sock->bind(uds_path);
-    ret |= sock->listen(100);
-    LOG_DEBUG(VALUE(ret), VALUE(errno));
+    ASSERT_EQ(0, sock->bind(uds_path));
+    ASSERT_EQ(0, sock->listen(100));
     char path[PATH_MAX];
-    sock->getsockname(path, PATH_MAX);
+    ASSERT_EQ(0, sock->getsockname(path, PATH_MAX));
     EXPECT_EQ(0, strcmp(path, uds_path));
     LOG_DEBUG("Listening `", path);
     handler(sock->accept());
@@ -79,9 +76,11 @@ void uds_client() {
     LOG_DEBUG("Connected `", path);
     char buff[] = "Hello";
     char recv[256];
-    sock->send("Hello", 5);
+    ssize_t ret = sock->send("Hello", 5);
+    ASSERT_EQ(ret, 5);
     LOG_DEBUG("SEND `", buff);
-    sock->recv(recv, 5);
+    ret = sock->recv(recv, 5);
+    ASSERT_EQ(ret, 5);
     LOG_DEBUG("RECV `", recv);
     EXPECT_EQ(0, memcmp(recv, buff, 5));
 }
@@ -116,6 +115,7 @@ void tcp_client() {
     DEFER({ delete cli; });
     LOG_DEBUG("Connecting");
     auto sock = cli->connect(ep);
+    ASSERT_NE(sock, nullptr);
     DEFER(delete sock);
     LOG_DEBUG(VALUE(sock), VALUE(errno));
     EndPoint epget = sock->getpeername();
@@ -592,10 +592,12 @@ int test_socket_server() {
     while (true) {
         struct sockaddr_in addr;
         socklen_t len = sizeof(addr);
-        puts("before accept");
+        LOG_DEBUG("before accept");
         int64_t cfd = net::accept(fd, (sockaddr*)&addr, &len);
-        puts("after accept");
-        if (cfd < 0) LOG_ERRNO_RETURN(0, -1, "failed to photon::accept()");
+        LOG_DEBUG("after accept");
+        if (cfd < 0) {
+            return -1;
+        }
 
         LOG_INFO("new connection from ", addr);
         photon::thread_create(&serve_connection, (void*)cfd);
@@ -678,6 +680,60 @@ TEST(utils, gethostbyname) {
     for (auto &x : addrs) {
         LOG_INFO(VALUE(x));
     }
+}
+
+TEST(ZeroCopySocket, basic) {
+    if (!zerocopy_available()) {
+        return;
+    }
+    ASSERT_EQ(zerocopy_init(), 0);
+    DEFER(zerocopy_fini());
+
+    EndPoint ep_src(IPAddr("127.0.0.1"), 13659), ep_dst;
+    const size_t size = 8192;
+    char send_buf[size], recv_buf[size];
+    memset(send_buf, 'x', size);
+    bool ok = false;
+    ISocketServer* server;
+
+    auto handler = [&](ISocketStream* stream) -> int {
+        if (stream->recv(recv_buf, size) != (ssize_t) size) {
+            ok = false;
+            LOG_ERRNO_RETURN(0, -1, "recv fail");
+        }
+        ok = true;
+        return 0;
+    };
+
+    auto run_server = [&] {
+        server = new_zerocopy_tcp_server();
+        DEFER(delete server);
+        ASSERT_EQ(server->bind(), 0);
+        ep_dst = server->getsockname();
+        server->set_handler(handler);
+        ASSERT_EQ(server->listen(), 0);
+        ASSERT_EQ(server->start_loop(true), 0);
+    };
+
+    auto server_th = photon::thread_create11(run_server);
+    photon::thread_enable_join(server_th);
+    photon::thread_sleep(1);
+
+    auto client = new_tcp_socket_client();
+    DEFER(delete client);
+    auto conn = client->connect(ep_dst, ep_src);
+    ASSERT_NE(conn, nullptr);
+    DEFER(delete conn);
+
+    ssize_t ret = conn->send(send_buf, size);
+    ASSERT_EQ(ret, size);
+
+    photon::thread_sleep(1);
+    ASSERT_TRUE(ok);
+    ASSERT_EQ(memcmp(send_buf, recv_buf, size), 0);
+
+    server->terminate();
+    photon::thread_join((join_handle*) server_th);
 }
 
 int main(int argc, char** arg) {

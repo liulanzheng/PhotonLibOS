@@ -315,6 +315,6 @@ if [[ $RUN_TEST == 1 ]]; then
         echo "Failed tests num $job_pool_nerrors"
         exit $job_pool_nerrors
     else
-        alimake -i test -a test -b $MODE
+        alimake -i test -a test -b $MODE -j $JOBS
     fi
 fi
