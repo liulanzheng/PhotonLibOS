@@ -25,8 +25,10 @@ limitations under the License.
 
 #include <cerrno>
 #include <memory>
+#include <tuple>
 #include <type_traits>
 #include <unordered_set>
+#include <utility>
 
 /**
  * @brief ExpireContainerBase is basic class for all expire containers
@@ -113,7 +115,7 @@ public:
     size_t expiration() { return _expiration; }
 };
 
-template<size_t idx, typename Tuple>
+template <size_t idx, typename Tuple>
 decltype(auto) GetPayload(Tuple& tuple) {
     return std::get<idx - 1>(tuple);
 }
@@ -153,6 +155,7 @@ public:
         auto item = new Item(key, std::forward<Gs>(xs)...);
         auto ret = Base::insert(item);
         if (!ret) {
+            delete item;
             return end();
         }
         enqueue(item);
