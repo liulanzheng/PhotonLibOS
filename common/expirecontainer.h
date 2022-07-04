@@ -227,9 +227,7 @@ protected:
 // or findout the object, add reference count; when object release, reduce
 // refcount. if some resource is not referenced, it will be put back to gc list
 // waiting to release.
-template <typename KeyType, typename ValPtr,
-          typename Deleter = typename std::default_delete<
-              typename std::remove_pointer<ValPtr>::type>>
+template <typename KeyType, typename ValPtr>
 class ObjectCache : public ObjectCacheBase {
 protected:
     using Base = ObjectCacheBase;
@@ -245,7 +243,7 @@ protected:
             item->_recycle = nullptr;
             return item;
         }
-        ~Item() override { Deleter()((ValPtr)this->_obj); }
+        ~Item() override { delete (ValPtr)this->_obj; }
     };
 
     using ItemKey = typename Item::ItemKey;
@@ -258,6 +256,7 @@ public:
     template <typename Constructor>
     Item* ref_acquire(const InterfaceKey& key, const Constructor& ctor) {
         auto _ctor = [&]() -> void* { return ctor(); };
+        // _ctor can always implicit cast to `Delegate<void*>`
         return (Item*)Base::ref_acquire(Item(key), _ctor);
     }
 
@@ -319,8 +318,6 @@ public:
     }
 
     Borrow borrow(const InterfaceKey& key) {
-        return borrow(key, [] {
-            return new typename std::remove_pointer<ValPtr>::type();
-        });
+        return borrow(key, [] { return new ValEntity(); });
     }
 };
