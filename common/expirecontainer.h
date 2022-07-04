@@ -23,7 +23,6 @@ limitations under the License.
 #include <photon/thread/thread.h>
 #include <photon/thread/timer.h>
 
-#include <cerrno>
 #include <memory>
 #include <tuple>
 #include <type_traits>
