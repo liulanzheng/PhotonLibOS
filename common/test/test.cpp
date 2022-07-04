@@ -1715,10 +1715,11 @@ TEST(ExpireContainer, expire_container) {
     EXPECT_NE(expire.end(), it);
     auto ref = *it;
     EXPECT_EQ(0, strcmp(ref->key().data(), key));
-    EXPECT_EQ(-1, GetPayload<1>(ref->payload));
-    EXPECT_FALSE(GetPayload<2>(ref->payload));
-    GetPayload<2>(ref->payload) = true;
-    EXPECT_TRUE(GetPayload<2>(ref->payload));
+    EXPECT_EQ(0, strcmp(ref->get_payload<0>().data(), key));
+    EXPECT_EQ(-1, ref->get_payload<1>());
+    EXPECT_FALSE(ref->get_payload<2>());
+    ref->get_payload<2>() = true;
+    EXPECT_TRUE(ref->get_payload<2>());
     expire.expire();
     it = expire.find(key);
     EXPECT_NE(expire.end(), it);

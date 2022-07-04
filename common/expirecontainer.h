@@ -115,11 +115,6 @@ public:
     size_t expiration() { return _expiration; }
 };
 
-template <size_t idx, typename Tuple>
-decltype(auto) GetPayload(Tuple& tuple) {
-    return std::get<idx - 1>(tuple);
-}
-
 template <typename KeyType, typename... Ts>
 class ExpireContainer : public ExpireContainerBase {
 public:
@@ -140,6 +135,17 @@ protected:
         template <typename... Gs>
         Item(const InterfaceKey& key, Gs&&... gs)
             : KeyedItem(key), payload(std::forward<Gs>(gs)...) {}
+
+        template <size_t idx,
+                  typename = typename std::enable_if<(idx > 0)>::type>
+        decltype(auto) get_payload() {
+            return std::get<idx - 1>(payload);
+        }
+        template <size_t idx,
+                  typename = typename std::enable_if<(idx == 0)>::type>
+        InterfaceKey get_payload() {
+            return KeyedItem::_key;
+        }
     };
     intrusive_list<Item>& list() { return (intrusive_list<Item>&)_list; }
 
