@@ -96,8 +96,11 @@ protected:
     ExpireContainerBase(uint64_t expiration, uint64_t recycle_timeout);
     ~ExpireContainerBase() { clear(); }
 
-    bool insert(Item* item);
-    Item* find(const Item& key_item);
+    using iterator = decltype(_set)::iterator;
+    std::pair<iterator, bool> insert(Item* item);
+    iterator begin() { return _set.begin(); }
+    iterator end() { return _set.end(); }
+    iterator find(const Item& key_item);
 
     bool keep_alive(const Item& item, bool insert_if_not_exists);
 
@@ -147,29 +150,39 @@ protected:
         }
     };
     intrusive_list<Item>& list() { return (intrusive_list<Item>&)_list; }
+    using ItemPtr = std::unique_ptr<Item>;
 
 public:
-    using iterator = typename Item::iterator;
     using ItemKey = typename Item::ItemKey;
     using InterfaceKey = typename Item::InterfaceKey;
-    iterator begin() { return this->list().begin(); }
-    iterator end() { return this->list().end(); }
+
+    struct iterator : public Base::iterator {
+        using Base::iterator::iterator;
+        iterator(const Base::iterator& rhs) : Base::iterator(rhs) {}
+        ItemPtr& operator*() const {
+            return (ItemPtr&)Base::iterator::operator*();
+        }
+
+        ItemPtr* operator->() const {
+            return (ItemPtr*)Base::iterator::operator->();
+        }
+    };
+    iterator begin() { return Base::begin(); }
+    iterator end() { return Base::end(); }
+    iterator find(const InterfaceKey& key) {
+        return Base::find(KeyedItem(key));
+    }
 
     template <typename... Gs>
     iterator insert(const InterfaceKey& key, Gs&&... xs) {
         auto item = new Item(key, std::forward<Gs>(xs)...);
-        auto ret = Base::insert(item);
-        if (!ret) {
+        auto pr = Base::insert(item);
+        if (!pr.second) {
             delete item;
             return end();
         }
         enqueue(item);
-        return {item, item};
-    }
-
-    iterator find(const InterfaceKey& key) {
-        auto ptr = (Item*)Base::find(KeyedItem(key));
-        return {ptr, ptr};
+        return pr.first;
     }
 };
 
@@ -190,8 +203,11 @@ public:
 class ObjectCacheBase : public ExpireContainerBase {
 protected:
     using Base = ExpireContainerBase;
+    using Base::Base;
     using Base::KeyedItem;
-    using ExpireContainerBase::ExpireContainerBase;
+    // using Base::iterator;
+    // using Base::begin;
+    // using Base::end;
 
     class Item : public Base::Item {
     public:
@@ -208,22 +224,39 @@ protected:
 
     photon::condition_variable blocker;
 
+    using ItemPtr = std::unique_ptr<Item>;
+
     // in case of missing, ref_acquire() performs a 2 phase construction:
     // (1) creating an item with _obj==nullptr, preventing
     //     concurrent construction of objects with the same key;
     // (2) construction of the object itself, and possibly do
     //     clean-up in case of failure
-    Item* ref_acquire(const Base::Item& key_item, Delegate<void*> ctor);
+    Item* ref_acquire(const Item& key_item, Delegate<void*> ctor);
 
     int ref_release(Item* item, bool recycle = false);
 
-    void* acquire(const Base::Item& key_item, Delegate<void*> ctor) {
+    void* acquire(const Item& key_item, Delegate<void*> ctor) {
         auto ret = ref_acquire(key_item, ctor);
         return ret ? ret->_obj : nullptr;
     }
 
     // the argument `key` plays the roles of (type-erased) key
-    int release(const Base::Item& key_item, bool recycle = false);
+    int release(const Item& key_item, bool recycle = false);
+
+    struct iterator : public Base::iterator {
+        using Base::iterator::iterator;
+        iterator(const Base::iterator& rhs) : Base::iterator(rhs) {}
+        ItemPtr& operator*() const {
+            return (ItemPtr&)Base::iterator::operator*();
+        }
+
+        ItemPtr* operator->() const {
+            return (ItemPtr*)Base::iterator::operator->();
+        }
+    };
+    iterator begin() { return Base::begin(); }
+    iterator end() { return Base::end(); }
+    iterator find(const Item& key_item) { return Base::find(key_item); }
 };
 
 // Resource pool based on reference count
@@ -253,6 +286,7 @@ protected:
 
     using ItemKey = typename Item::ItemKey;
     using InterfaceKey = typename Item::InterfaceKey;
+    using ItemPtr = std::unique_ptr<Item>;
 
 public:
     ObjectCache(uint64_t expiration, uint64_t recycle_timeout = -1UL)
@@ -265,7 +299,9 @@ public:
         return (Item*)Base::ref_acquire(Item(key), _ctor);
     }
 
-    using Base::ref_release;
+    int ref_release(Item* item, bool recycle = false) {
+        return Base::ref_release(item, recycle);
+    }
 
     template <typename Constructor>
     ValPtr acquire(const InterfaceKey& key, const Constructor& ctor) {
@@ -275,6 +311,23 @@ public:
 
     int release(const InterfaceKey& key, bool recycle = false) {
         return Base::release(Item(key), recycle);
+    }
+
+    struct iterator : public Base::iterator {
+        using Base::iterator::iterator;
+        iterator(const Base::iterator& rhs) : Base::iterator(rhs) {}
+        ItemPtr& operator*() const {
+            return (ItemPtr&)Base::iterator::operator*();
+        }
+
+        ItemPtr* operator->() const {
+            return (ItemPtr*)Base::iterator::operator->();
+        }
+    };
+    iterator begin() { return Base::begin(); }
+    iterator end() { return Base::end(); }
+    iterator find(const InterfaceKey& key) {
+        return Base::find(KeyedItem(key));
     }
 
     class Borrow {

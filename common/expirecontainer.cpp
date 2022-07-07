@@ -24,15 +24,16 @@ ExpireContainerBase::ExpireContainerBase(uint64_t expiration,
       _timer(recycle_timeout, {this, &ExpireContainerBase::expire}, true,
              8UL * 1024 * 1024) {}
 
-bool ExpireContainerBase::insert(Item* item) {
-    return _set.emplace(item).second;
+std::pair<ExpireContainerBase::iterator, bool> ExpireContainerBase::insert(
+    Item* item) {
+    return _set.emplace(item);
 }
 
-ExpireContainerBase::Item* ExpireContainerBase::find(const Item& key_item) {
+ExpireContainerBase::iterator ExpireContainerBase::find(const Item& key_item) {
     ItemPtr tp((Item*)&key_item);
     auto it = _set.find(tp);
     (void)tp.release();
-    return (it != _set.end()) ? it->get() : nullptr;
+    return it;
 }
 
 void ExpireContainerBase::clear() {
@@ -44,7 +45,6 @@ uint64_t ExpireContainerBase::expire() {
     photon::scoped_lock lock(_mtx);
     while (!_list.empty() && _list.front()->_timeout.expire() < photon::now) {
         auto p = _list.pop_front();
-        LOG_TEMP("Expire ` ` `", p, p->_timeout.expire(), photon::now);
         ItemPtr ptr(p);
         _set.erase(ptr);
         (void)ptr.release();  // p has been deleted inside erase()
@@ -55,32 +55,35 @@ uint64_t ExpireContainerBase::expire() {
 bool ExpireContainerBase::keep_alive(const Item& x, bool insert_if_not_exists) {
     DEFER(expire());
     photon::scoped_lock lock(_mtx);
-    auto ptr = find(x);
-    if (insert_if_not_exists) {
-        LOG_TEMP("Inserted")
-        ptr = x.construct();
-        insert(ptr);
+    auto it = find(x);
+    if (it == _set.end() && insert_if_not_exists) {
+        auto ptr = x.construct();
+        auto pr = insert(ptr);
+        if (!pr.second) delete ptr;
+        it = pr.first;
     }
-    if (!ptr) return false;
-    enqueue(ptr);
+    if (it == _set.end()) return false;
+    enqueue(it->get());
     return true;
 }
 
-ObjectCacheBase::Item* ObjectCacheBase::ref_acquire(const Base::Item& key_item,
+ObjectCacheBase::Item* ObjectCacheBase::ref_acquire(const Item& key_item,
                                                     Delegate<void*> ctor) {
-    Base::Item* holder = nullptr;
+    Base::iterator holder;
     Item* item = nullptr;
     do {
         photon::scoped_lock lock(_mtx);
         holder = Base::find(key_item);
-        if (!holder) {
-            holder = key_item.construct();
-            insert(holder);
+        if (holder == Base::end()) {
+            auto x = key_item.construct();
+            auto pr = insert(x);
+            if (!pr.second) delete x;
+            holder = pr.first;
         }
-        _list.pop(holder);
-        item = (Item*)holder;
+        _list.pop(holder->get());
+        item = (Item*)holder->get();
         if (item->_recycle) {
-            holder = nullptr;
+            holder = end();
             item = nullptr;
             blocker.wait(lock);
         } else {
@@ -122,7 +125,7 @@ int ObjectCacheBase::ref_release(ObjectCacheBase::Item* item, bool recycle) {
         {
             photon::scoped_lock lock(_mtx);
             assert(item->_refcnt == 0);
-            ItemPtr ptr(item);
+            Base::ItemPtr ptr(item);
             _set.erase(ptr);
             (void)ptr.release();
         }
@@ -132,9 +135,9 @@ int ObjectCacheBase::ref_release(ObjectCacheBase::Item* item, bool recycle) {
 }
 
 // the argument `key` plays the roles of (type-erased) key
-int ObjectCacheBase::release(const ObjectCacheBase::Base::Item& key_item,
+int ObjectCacheBase::release(const ObjectCacheBase::Item& key_item,
                              bool recycle) {
     auto item = find(key_item);
-    if (!item) return -1;
-    return ref_release((Item*)item, recycle);
+    if (item == end()) return -1;
+    return ref_release(item->get(), recycle);
 }

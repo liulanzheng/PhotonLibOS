@@ -1713,11 +1713,10 @@ TEST(ExpireContainer, expire_container) {
     memset(key2, 0, sizeof(key2));
     auto it = expire.find(key);
     EXPECT_NE(expire.end(), it);
-    auto ref = *it;
+    auto ref = it->get();
     EXPECT_EQ(0, strcmp(ref->key().data(), key));
-    EXPECT_EQ(0, strcmp(ref->get_payload<0>().data(), key));
-    EXPECT_EQ(-1, ref->get_payload<1>());
-    EXPECT_FALSE(ref->get_payload<2>());
+    EXPECT_EQ(-1, (ref->get_payload<1>()));
+    EXPECT_FALSE((ref->get_payload<2>()));
     ref->get_payload<2>() = true;
     EXPECT_TRUE(ref->get_payload<2>());
     expire.expire();
@@ -1738,7 +1737,7 @@ TEST(ExpireList, expire_container) {
     expire.keep_alive(key, true);
     auto it = expire.find(key);
     EXPECT_NE(expire.end(), it);
-    auto ref = *it;
+    auto ref = it->get();
     EXPECT_EQ(0, strcmp(ref->key().data(), key));
     expire.expire();
     it = expire.find(key);
