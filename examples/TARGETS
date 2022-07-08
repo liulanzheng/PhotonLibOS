@@ -1,0 +1,15 @@
+# $$PHOTON_UNPUBLISHED_FILE$$
+
+targets = {
+    'net-perf': cpp_program(
+        incs=[],
+        srcs=['perf/net-perf.cpp'],
+        static_deps=[
+            'gtest-1.7.0:gtest',
+            'gflags-2.1.2',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+    ),
+}
