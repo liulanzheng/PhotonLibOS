@@ -102,6 +102,18 @@ protected:
     iterator end() { return _set.end(); }
     iterator find(const Item& key_item);
 
+    template <typename T>
+    struct TypedIterator : public iterator {
+        TypedIterator(const iterator& rhs) : iterator(rhs) {}
+        std::unique_ptr<T>& operator*() const {
+            return (std::unique_ptr<T>&)iterator::operator*();
+        }
+
+        std::unique_ptr<T>* operator->() const {
+            return (std::unique_ptr<T>*)iterator::operator->();
+        }
+    };
+
     bool keep_alive(const Item& item, bool insert_if_not_exists);
 
     void enqueue(Item* item) {
@@ -156,17 +168,7 @@ public:
     using ItemKey = typename Item::ItemKey;
     using InterfaceKey = typename Item::InterfaceKey;
 
-    struct iterator : public Base::iterator {
-        using Base::iterator::iterator;
-        iterator(const Base::iterator& rhs) : Base::iterator(rhs) {}
-        ItemPtr& operator*() const {
-            return (ItemPtr&)Base::iterator::operator*();
-        }
-
-        ItemPtr* operator->() const {
-            return (ItemPtr*)Base::iterator::operator->();
-        }
-    };
+    using iterator = typename ExpireContainerBase::TypedIterator<Item>;
     iterator begin() { return Base::begin(); }
     iterator end() { return Base::end(); }
     iterator find(const InterfaceKey& key) {
@@ -243,17 +245,7 @@ protected:
     // the argument `key` plays the roles of (type-erased) key
     int release(const Item& key_item, bool recycle = false);
 
-    struct iterator : public Base::iterator {
-        using Base::iterator::iterator;
-        iterator(const Base::iterator& rhs) : Base::iterator(rhs) {}
-        ItemPtr& operator*() const {
-            return (ItemPtr&)Base::iterator::operator*();
-        }
-
-        ItemPtr* operator->() const {
-            return (ItemPtr*)Base::iterator::operator->();
-        }
-    };
+    using iterator = typename ExpireContainerBase::TypedIterator<Item>;
     iterator begin() { return Base::begin(); }
     iterator end() { return Base::end(); }
     iterator find(const Item& key_item) { return Base::find(key_item); }
@@ -313,17 +305,7 @@ public:
         return Base::release(Item(key), recycle);
     }
 
-    struct iterator : public Base::iterator {
-        using Base::iterator::iterator;
-        iterator(const Base::iterator& rhs) : Base::iterator(rhs) {}
-        ItemPtr& operator*() const {
-            return (ItemPtr&)Base::iterator::operator*();
-        }
-
-        ItemPtr* operator->() const {
-            return (ItemPtr*)Base::iterator::operator->();
-        }
-    };
+    using iterator = typename ExpireContainerBase::TypedIterator<Item>;
     iterator begin() { return Base::begin(); }
     iterator end() { return Base::end(); }
     iterator find(const InterfaceKey& key) {
