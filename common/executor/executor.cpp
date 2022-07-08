@@ -42,7 +42,7 @@ public:
     int wait_for_event(EventLoop *) {
         std::atomic_thread_fence(std::memory_order_acquire);
         sem.wait(1);
-        waiting.store(false, std::memory_order_release);
+        waiting.store(true, std::memory_order_release);
         return quiting ? -1 : 1;
     }
 
@@ -62,15 +62,16 @@ public:
     int on_event(EventLoop *) {
         CallArg arg;
         arg.backth = photon::CURRENT;
-        std::atomic_thread_fence(std::memory_order_acquire);
+        size_t cnt = 0;
         while (!queue.empty()) {
-            while (!queue.pop(arg.task))
+            while (!queue.pop(arg.task)) {
                 photon::thread_yield();
+            }
             auto th =
                 pool->thread_create(&ExecutorImpl::do_event, (void *)&arg);
             photon::thread_yield_to(th);
+            cnt ++;
         }
-        waiting.store(true, std::memory_order_release);
         return 0;
     }
 
@@ -83,9 +84,12 @@ public:
         loop->async_run();
         photon::thread_usleep(-1);
         LOG_INFO("worker finished");
-        while (!queue.empty()) photon::thread_usleep(1000);
+        while (!queue.empty()) {
+        LOG_INFO(VALUE(queue.head.load()), VALUE(queue.tail.load()));
+            photon::thread_usleep(1000);
+        }
         quiting = true;
-        sem.signal(-1);
+        sem.signal(1);
         delete loop;
         photon::delete_thread_pool(pool);
         pool = nullptr;
@@ -99,9 +103,11 @@ ExecutorImpl *_new_executor() { return new ExecutorImpl(); }
 void _delete_executor(ExecutorImpl *e) { delete e; }
 
 void _issue(ExecutorImpl *e, Delegate<void> act) {
-    e->queue.send(act);
-    if (e->waiting.load(std::memory_order_acquire))
+    while (!e->queue.push(act)) ::sched_yield();
+    bool cond = true;
+    if (e->waiting.compare_exchange_weak(cond, false, std::memory_order_acq_rel)) {
         e->sem.signal(1);
+    }
 }
 
 }  // namespace photon

@@ -1,3 +1,19 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 #include <fcntl.h>
 #include <gtest/gtest.h>
 #include <photon/common/alog.h>
@@ -9,6 +25,7 @@
 #include <photon/fs/localfs.h>
 #include <photon/thread/thread.h>
 #include <sched.h>
+#include <immintrin.h>
 
 #include <chrono>
 #include <thread>
@@ -18,7 +35,7 @@ using namespace photon;
 std::atomic<int> count(0), start(0);
 
 static constexpr int th_num = 1;
-static constexpr int app_num = 1000;
+static constexpr int app_num = 10000;
 
 int ftask(photon::Executor *eth, int i) {
     eth->async_perform(new auto ([i] {
@@ -57,11 +74,18 @@ TEST(std_executor, perf) {
     ths.reserve(th_num);
     for (int i = 0; i < th_num; i++) {
         ths.emplace_back([&] {
-            for (int i = 0; i < app_num; i++) {
+            for (int j = 0; j < app_num; j++) {
+        cpu_set_t cpuset;
+        CPU_ZERO(&cpuset);
+        CPU_SET(i, &cpuset);
+        pthread_setaffinity_np(pthread_self(),
+                                        sizeof(cpu_set_t), &cpuset);
                 auto start = std::chrono::high_resolution_clock::now();
-                eth.async_perform(new auto ([&] { cnt++; }));
+                eth.async_perform(new auto ([&] { cnt++; if (cnt % 10000 == 0) printf("%d\n", cnt);}));
                 auto end = std::chrono::high_resolution_clock::now();
                 dura = dura + (end - start);
+                // for (auto x = 0; x < 32; x++)
+                //     _mm_pause();
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
         });

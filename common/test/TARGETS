@@ -58,5 +58,16 @@ targets = {
         ldflags=[
             '-lphoton',
         ],
+    ),
+    'test_lockfree' : cpp_program(
+        incs = [ './' ],
+        srcs = [ './test_lockfree.cpp' ],
+        static_deps = [
+            'boost-1.69.0'
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
     )
+
 }

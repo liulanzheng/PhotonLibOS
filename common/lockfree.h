@@ -54,64 +54,51 @@ public:
     constexpr static size_t size = Capacity_2expN<N>::capacity;
     constexpr static size_t mask = Capacity_2expN<N>::mask;
 
-    struct Entry {
+    struct alignas(CACHELINE_SIZE) Entry {
+        std::atomic_bool commit;
         T x;
-        alignas(CACHELINE_SIZE) std::atomic_bool commit;
     };
 
     static_assert(sizeof(Entry) % CACHELINE_SIZE == 0,
                   "Entry should aligned to cacheline");
-    Entry arr[size];
+    alignas(CACHELINE_SIZE) Entry arr[size];
     static_assert(sizeof(arr) % CACHELINE_SIZE == 0,
                   "Entry should aligned to cacheline");
 
-    alignas(CACHELINE_SIZE) std::atomic<size_t> rtail;
-    alignas(CACHELINE_SIZE) std::atomic<size_t> rhead;
-    alignas(CACHELINE_SIZE) std::atomic<size_t> wtail;
-    alignas(CACHELINE_SIZE) std::atomic<size_t> whead;
+    alignas(CACHELINE_SIZE) std::atomic<size_t> tail;
+    alignas(CACHELINE_SIZE) std::atomic<size_t> head;
 
     template <typename TI>
     bool push(TI&& x) {
         // try to push forward read head to make room for write
-        auto h = rhead.load(std::memory_order_relaxed);
-        while (
-            !arr[h & mask].commit.load(std::memory_order_relaxed) &&
-            rhead.compare_exchange_weak(h, h + 1, std::memory_order_acq_rel))
-            ;
-        // auto h = rhead.load(std::memory_order_relaxed);
-        auto t = wtail.load(std::memory_order_relaxed);
-        // return failure if might be full
-        if ((h & mask) == ((t + 1) & mask)) return false;
+        size_t t = tail.load();
+        do {
+            if (((t+1)&mask) == head.load() || arr[t & mask].commit.load()) {
+                return false;
+            }
+        }  while (!tail.compare_exchange_weak(t, t+1, std::memory_order_acq_rel));
         // acquire write tail, return failure if cannot acquire position
-        if (!wtail.compare_exchange_weak(t, t + 1, std::memory_order_acq_rel,
-                                         std::memory_order_relaxed))
-            return false;
         auto& item = arr[t & mask];
-        item.x = std::forward<TI>(x);
-        // mark push done
-        item.commit.store(true, std::memory_order_relaxed);
+        item.x = x;
+        item.commit.store(true, std::memory_order_release);
         return true;
     }
 
     bool pop(T& x) {
-        // try to push forward write head
-        auto t = whead.load(std::memory_order_relaxed);
-        while (
-            arr[t & mask].commit.load(std::memory_order_relaxed) &&
-            whead.compare_exchange_weak(t, t + 1, std::memory_order_acq_rel))
-            ;
-        auto h = rtail.load(std::memory_order_relaxed);
-        // auto t = whead.load(std::memory_order_relaxed);
-        // return failure if might be empty
-        if (h == t) return false;
-        // acquire read tail, return failure if cannot acquire position
-        if (!rtail.compare_exchange_weak(h, h + 1, std::memory_order_acq_rel,
-                                         std::memory_order_relaxed))
-            return false;
+        // take a reading ticket
+        size_t h = head.load();
+        do {
+            if ((h & mask) == (tail.load() & mask)) return false;
+        } while (!head.compare_exchange_weak(h, h+1, std::memory_order_acq_rel));
+        // h will hold old value if CAS succeed
         auto& item = arr[h & mask];
-        x = std::move(item.x);
-        // mark read done
-        item.commit.store(false, std::memory_order_relaxed);
+        // spin on single item commit
+        while (!item.commit.load()) {
+            ::sched_yield();
+        }
+        x = item.x;
+        // marked as uncommited
+        item.commit.store(false, std::memory_order_release);
         return true;
     }
 
@@ -127,22 +114,64 @@ public:
     }
 
     bool empty() {
-        auto wh = whead.load(std::memory_order_relaxed);
-        while (
-            arr[wh & mask].commit.load(std::memory_order_relaxed) &&
-            whead.compare_exchange_weak(wh, wh + 1, std::memory_order_acq_rel))
-            ;
-        return (whead.load(std::memory_order_relaxed) ==
-                rtail.load(std::memory_order_relaxed));
+        return (head.load() & mask) == (tail.load() & mask);
     }
 
     bool full() {
-        auto rh = rhead.load(std::memory_order_relaxed);
-        while (
-            !arr[rh & mask].commit.load(std::memory_order_relaxed) &&
-            rhead.compare_exchange_weak(rh, rh + 1, std::memory_order_acq_rel))
-            ;
-        return (rhead.load(std::memory_order_relaxed) & mask) ==
-               ((wtail.load(std::memory_order_relaxed) + 1) & mask);
+        return ((tail.load()+1)&mask) == head.load() || arr[tail.load() & mask].commit.load();
+    }
+};
+
+template <typename T, size_t N>
+class LockfreeSPSCRingQueue {
+public:
+    constexpr static size_t CACHELINE_SIZE = 64;
+
+    constexpr static size_t size = Capacity_2expN<N>::capacity;
+    constexpr static size_t mask = Capacity_2expN<N>::mask;
+
+    T arr[size];
+
+    alignas(CACHELINE_SIZE) std::atomic<size_t> tail;
+    alignas(CACHELINE_SIZE) std::atomic<size_t> head;
+
+    template <typename TI>
+    bool push(TI&& x) {
+        // try to push forward read head to make room for write
+        if (((tail.load()+1)&mask) == head.load()) {
+            return false;
+        }
+        auto t = tail.fetch_add(1);
+        // acquire write tail, return failure if cannot acquire position
+        arr[t & mask] = x;
+        return true;
+    }
+
+    bool pop(T& x) {
+        // take a reading ticket
+        if ((head.load() & mask) == (tail.load() & mask)) return false;
+        // h will hold old value if CAS succeed
+        auto h = head.fetch_add(1);
+        arr[h & mask] = x;
+        return true;
+    }
+
+    T recv() {
+        T ret;
+        while (!pop(ret)) ::sched_yield();
+        return ret;
+    }
+
+    template <typename TI>
+    void send(TI&& x) {
+        while (!push(std::forward<TI>(x))) ::sched_yield();
+    }
+
+    bool empty() {
+        return (head.load() & mask) == (tail.load() & mask);
+    }
+
+    bool full() {
+        return ((tail.load()+1)&mask) == head.load();
     }
 };
