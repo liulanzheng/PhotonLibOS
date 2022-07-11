@@ -96,6 +96,7 @@ int test_queue(const char *name, QType &queue) {
             pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
             for (int x = 0; x < items_num / sender_num; x++) {
                 LType::lock(wlock);
+                bqueue.empty();
                 while (!bqueue.push(x)) {
                     CPUPause::pause();
                 }

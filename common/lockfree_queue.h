@@ -30,6 +30,10 @@ template <size_t x>
 struct Capacity_2expN {
     constexpr static size_t capacity = Capacity_2expN<(x >> 1)>::capacity << 1;
     constexpr static size_t mask = capacity - 1;
+    constexpr static size_t shift = Capacity_2expN<(x >> 1)>::shift + 1;
+    constexpr static size_t lshift = Capacity_2expN<(x >> 1)>::lshift - 1;
+
+    static_assert(shift + lshift == sizeof(size_t)*8, "...");
 };
 
 template <size_t x>
@@ -42,13 +46,12 @@ template <>
 struct Capacity_2expN<0> {
     constexpr static size_t capacity = 2;
     constexpr static size_t mask = 1;
+    constexpr static size_t shift = 1;
+    constexpr static size_t lshift = 8 * sizeof(size_t) - shift;
 };
 
 template <>
-struct Capacity_2expN<1> {
-    constexpr static size_t capacity = 2;
-    constexpr static size_t mask = 1;
-};
+struct Capacity_2expN<1> : public Capacity_2expN<0> {};
 
 struct PauseBase {};
 
@@ -90,6 +93,8 @@ public:
 
     constexpr static size_t capacity = Capacity_2expN<N>::capacity;
     constexpr static size_t mask = Capacity_2expN<N>::mask;
+    constexpr static size_t shift = Capacity_2expN<N>::shift;
+    constexpr static size_t lshift = Capacity_2expN<N>::lshift;
 
     alignas(CACHELINE_SIZE) std::atomic<size_t> tail;
     alignas(CACHELINE_SIZE) std::atomic<size_t> head;
@@ -110,9 +115,27 @@ public:
         while (!Derived::push(x)) Pause::pause();
     }
 
-    bool empty() { return (head & mask) == (tail & mask); }
+    bool empty() { return check_empty(head, tail); }
 
-    bool full() { return ((tail + 1) & mask) == head; }
+    bool full() { return check_full(head, tail); }
+
+protected:
+
+    inline __attribute__((always_inline)) bool check_mask_equal(size_t x, size_t y) {
+        return (x << lshift) == (y << lshift);
+    }
+
+    inline __attribute__((always_inline)) bool check_empty(size_t h, size_t t) {
+        return check_mask_equal(h, t);
+    }
+
+    inline __attribute__((always_inline)) bool check_full(size_t h, size_t t) {
+        return check_mask_equal(h, t + 1);
+    }
+
+    inline __attribute__((always_inline)) size_t pos(size_t x) {
+        return x & mask;
+    }
 };
 
 template <typename T, size_t N, typename BusyPause = CPUPause>
@@ -125,19 +148,19 @@ public:
 
     constexpr static size_t CACHELINE_SIZE = 64;
 
-    using Base::capacity;
     using Base::head;
-    using Base::mask;
     using Base::tail;
+    using Base::empty;
+    using Base::full;
 
-    struct alignas(Base::CACHELINE_SIZE) Entry {
+    struct alignas(CACHELINE_SIZE) Entry {
         T x;
         std::atomic_bool commit;
     };
 
     static_assert(sizeof(Entry) % CACHELINE_SIZE == 0,
                   "Entry should aligned to cacheline");
-    alignas(CACHELINE_SIZE) Entry arr[capacity];
+    alignas(CACHELINE_SIZE) Entry arr[Base::capacity];
     static_assert(sizeof(arr) % CACHELINE_SIZE == 0,
                   "Entry should aligned to cacheline");
 
@@ -145,13 +168,17 @@ public:
         // try to push forward read head to make room for write
         size_t t = tail.load();
         do {
-            if (((t + 1) & mask) == head || arr[t & mask].commit) {
+            if (Base::check_full(head, t)) {
                 return false;
             }
         } while (
             !tail.compare_exchange_weak(t, t + 1, std::memory_order_acq_rel));
         // acquire write tail, return failure if cannot acquire position
-        auto& item = arr[t & mask];
+        auto& item = arr[Base::pos(t)];
+        std::atomic_thread_fence(std::memory_order_acquire);
+        while (item.commit) {
+            BusyPause::pause();
+        }
         item.x = x;
         item.commit.store(true, std::memory_order_release);
         return true;
@@ -161,12 +188,13 @@ public:
         // take a reading ticket
         size_t h = head.load();
         do {
-            if ((h & mask) == (tail & mask)) return false;
+            if (Base::check_empty(h, tail)) return false;
         } while (
             !head.compare_exchange_weak(h, h + 1, std::memory_order_acq_rel));
         // h will hold old value if CAS succeed
-        auto& item = arr[h & mask];
+        auto& item = arr[Base::pos(h)];
         // spin on single item commit
+        std::atomic_thread_fence(std::memory_order_acquire);
         while (!item.commit) {
             BusyPause::pause();
         }
@@ -176,11 +204,6 @@ public:
         return true;
     }
 
-    bool empty() { return (head & mask) == (tail & mask); }
-
-    bool full() {
-        return ((tail + 1) & mask) == head || arr[tail & mask].commit;
-    }
 };
 
 template <typename T, size_t N, typename BusyPause = CPUPause>
@@ -190,30 +213,28 @@ class LockfreeSPSCRingQueue
 public:
     using Base = LockfreeRingQueueBase<LockfreeSPSCRingQueue<T, N, BusyPause>,
                                        T, N, BusyPause>;
-    using Base::capacity;
     using Base::head;
-    using Base::mask;
     using Base::tail;
+    using Base::empty;
+    using Base::full;
 
-    T arr[capacity];
+    T arr[Base::capacity];
 
     bool push(T x) {
         // try to push forward read head to make room for write
-        if (((tail + 1) & mask) == head) {
+        if (full()) {
             return false;
         }
-        auto t = tail.fetch_add(1);
-        // acquire write tail, return failure if cannot acquire position
-        arr[t & mask] = x;
+        auto t = tail.fetch_add(1, std::memory_order_acq_rel);
+        arr[Base::pos(t)] = x;
         return true;
     }
 
     bool pop(T& x) {
         // take a reading ticket
-        if ((head & mask) == (tail & mask)) return false;
-        // h will hold old value if CAS succeed
-        auto h = head.fetch_add(1);
-        arr[h & mask] = x;
+        if (empty()) return false;
+        auto h = head.fetch_add(1, std::memory_order_acq_rel);
+        arr[Base::pos(h)] = x;
         return true;
     }
 };
