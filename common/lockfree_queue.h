@@ -234,7 +234,7 @@ public:
         // take a reading ticket
         if (empty()) return false;
         auto h = head.fetch_add(1, std::memory_order_acq_rel);
-        arr[Base::pos(h)] = x;
+        x = arr[Base::pos(h)];
         return true;
     }
 };
