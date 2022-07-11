@@ -68,8 +68,17 @@ struct ThreadPause : PauseBase {
     }
 };
 
-template <typename T, size_t N, typename BusyPause = CPUPause>
-class LockfreeRingQueue {
+namespace photon {
+void thread_yield();
+}
+struct PhotonPause : PauseBase {
+    inline static __attribute__((always_inline)) void pause() {
+        photon::thread_yield();
+    }
+};
+
+template <typename Derived, typename T, size_t N, typename BusyPause>
+class LockfreeRingQueueBase {
 public:
 #if __cplusplus >= 201402L
     static_assert(std::is_trivially_copyable<T>::value,
@@ -80,22 +89,58 @@ public:
 
     constexpr static size_t CACHELINE_SIZE = 64;
 
-    constexpr static size_t size = Capacity_2expN<N>::capacity;
+    constexpr static size_t capacity = Capacity_2expN<N>::capacity;
     constexpr static size_t mask = Capacity_2expN<N>::mask;
 
-    struct alignas(CACHELINE_SIZE) Entry {
+    alignas(CACHELINE_SIZE) std::atomic<size_t> tail;
+    alignas(CACHELINE_SIZE) std::atomic<size_t> head;
+
+    template <typename Pause = BusyPause>
+    T recv() {
+        static_assert(std::is_base_of<PauseBase, Pause>::value,
+                      "BusyPause should be derived by PauseBase");
+        T ret;
+        while (!Derived::pop(ret)) Pause::pause();
+        return ret;
+    }
+
+    template <typename Pause = BusyPause>
+    void send(const T& x) {
+        static_assert(std::is_base_of<PauseBase, Pause>::value,
+                      "BusyPause should be derived by PauseBase");
+        while (!Derived::push(x)) Pause::pause();
+    }
+
+    bool empty() { return (head & mask) == (tail & mask); }
+
+    bool full() { return ((tail + 1) & mask) == head; }
+};
+
+template <typename T, size_t N, typename BusyPause = CPUPause>
+class LockfreeRingQueue
+    : public LockfreeRingQueueBase<LockfreeRingQueue<T, N, BusyPause>, T, N,
+                                   BusyPause> {
+public:
+    using Base = LockfreeRingQueueBase<LockfreeRingQueue<T, N, BusyPause>, T, N,
+                                       BusyPause>;
+
+    constexpr static size_t CACHELINE_SIZE = 64;
+
+    using Base::capacity;
+    using Base::mask;
+    using Base::head;
+    using Base::tail;
+
+    struct alignas(Base::CACHELINE_SIZE) Entry {
         T x;
         std::atomic_bool commit;
     };
 
     static_assert(sizeof(Entry) % CACHELINE_SIZE == 0,
                   "Entry should aligned to cacheline");
-    alignas(CACHELINE_SIZE) Entry arr[size];
+    alignas(CACHELINE_SIZE) Entry arr[capacity];
     static_assert(sizeof(arr) % CACHELINE_SIZE == 0,
                   "Entry should aligned to cacheline");
-
-    alignas(CACHELINE_SIZE) std::atomic<size_t> tail;
-    alignas(CACHELINE_SIZE) std::atomic<size_t> head;
 
     bool push(T x) {
         // try to push forward read head to make room for write
@@ -132,17 +177,6 @@ public:
         return true;
     }
 
-    T recv() {
-        T ret;
-        while (!pop(ret)) BusyPause::pause();
-        return ret;
-    }
-
-    template <typename TI>
-    void send(TI&& x) {
-        while (!push(std::forward<TI>(x))) BusyPause::pause();
-    }
-
     bool empty() { return (head & mask) == (tail & mask); }
 
     bool full() {
@@ -151,24 +185,18 @@ public:
 };
 
 template <typename T, size_t N, typename BusyPause = CPUPause>
-class LockfreeSPSCRingQueue {
+class LockfreeSPSCRingQueue
+    : public LockfreeRingQueueBase<LockfreeSPSCRingQueue<T, N, BusyPause>, T, N,
+                                   BusyPause> {
 public:
-#if __cplusplus >= 201402L
-    static_assert(std::is_trivially_copyable<T>::value,
-                  "T should be trivially copyable");
-#endif
-    static_assert(std::is_base_of<PauseBase, BusyPause>::value,
-                  "BusyPause should be derived by PauseBase");
+    using Base = LockfreeRingQueueBase<LockfreeSPSCRingQueue<T, N, BusyPause>, T, N,
+                                       BusyPause>;
+    using Base::capacity;
+    using Base::mask;
+    using Base::head;
+    using Base::tail;
 
-    constexpr static size_t CACHELINE_SIZE = 64;
-
-    constexpr static size_t size = Capacity_2expN<N>::capacity;
-    constexpr static size_t mask = Capacity_2expN<N>::mask;
-
-    T arr[size];
-
-    alignas(CACHELINE_SIZE) std::atomic<size_t> tail;
-    alignas(CACHELINE_SIZE) std::atomic<size_t> head;
+    T arr[capacity];
 
     bool push(T x) {
         // try to push forward read head to make room for write
@@ -189,19 +217,4 @@ public:
         arr[h & mask] = x;
         return true;
     }
-
-    T recv() {
-        T ret;
-        while (!pop(ret)) BusyPause::pause();
-        return ret;
-    }
-
-    template <typename TI>
-    void send(TI&& x) {
-        while (!push(std::forward<TI>(x))) BusyPause::pause();
-    }
-
-    bool empty() { return (head & mask) == (tail & mask); }
-
-    bool full() { return ((tail + 1) & mask) == head; }
 };
