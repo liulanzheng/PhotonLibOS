@@ -80,10 +80,9 @@ struct PhotonPause : PauseBase {
 template <typename Derived, typename T, size_t N, typename BusyPause>
 class LockfreeRingQueueBase {
 public:
-#if __cplusplus >= 201402L
-    static_assert(std::is_trivially_copyable<T>::value,
+    static_assert(std::has_trivial_copy_constructor<T>::value &&
+                      std::has_trivial_copy_assign<T>::value,
                   "T should be trivially copyable");
-#endif
     static_assert(std::is_base_of<PauseBase, BusyPause>::value,
                   "BusyPause should be derived by PauseBase");
 
@@ -127,8 +126,8 @@ public:
     constexpr static size_t CACHELINE_SIZE = 64;
 
     using Base::capacity;
-    using Base::mask;
     using Base::head;
+    using Base::mask;
     using Base::tail;
 
     struct alignas(Base::CACHELINE_SIZE) Entry {
@@ -189,11 +188,11 @@ class LockfreeSPSCRingQueue
     : public LockfreeRingQueueBase<LockfreeSPSCRingQueue<T, N, BusyPause>, T, N,
                                    BusyPause> {
 public:
-    using Base = LockfreeRingQueueBase<LockfreeSPSCRingQueue<T, N, BusyPause>, T, N,
-                                       BusyPause>;
+    using Base = LockfreeRingQueueBase<LockfreeSPSCRingQueue<T, N, BusyPause>,
+                                       T, N, BusyPause>;
     using Base::capacity;
-    using Base::mask;
     using Base::head;
+    using Base::mask;
     using Base::tail;
 
     T arr[capacity];
