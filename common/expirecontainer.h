@@ -101,6 +101,7 @@ protected:
     iterator begin() { return _set.begin(); }
     iterator end() { return _set.end(); }
     iterator find(const Item& key_item);
+    iterator __find_no_lock(const Item& key_item);
 
     template <typename T>
     struct TypedIterator : public iterator {
