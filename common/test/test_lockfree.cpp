@@ -26,10 +26,10 @@ limitations under the License.
 #include <thread>
 #include <vector>
 
-#include "../lockfree.h"
+#include "../lockfree_queue.h"
 
 static constexpr size_t sender_num = 16;
-static constexpr size_t receiver_num = 1;
+static constexpr size_t receiver_num = 16;
 static constexpr size_t items_num = 3000000;
 static_assert(items_num % sender_num == 0,
               "item_num should able to divided by sender_num");
@@ -81,7 +81,7 @@ int test_queue(const char *name, QType &queue) {
                 int t;
                 LType::lock(rlock);
                 while (!bqueue.pop(t)) {
-                    ::sched_yield();
+                    CPUPause::pause();
                 }
                 LType::unlock(rlock);
                 rcnt[i]++;
@@ -97,11 +97,11 @@ int test_queue(const char *name, QType &queue) {
             for (int x = 0; x < items_num / sender_num; x++) {
                 LType::lock(wlock);
                 while (!bqueue.push(x)) {
-                    ::sched_yield();
+                    CPUPause::pause();
                 }
                 LType::unlock(wlock);
                 scnt[i]++;
-                // std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                ThreadPause::pause();
             }
         });
     }
@@ -112,12 +112,13 @@ int test_queue(const char *name, QType &queue) {
            receiver_num, items_num,
            std::chrono::duration_cast<std::chrono::microseconds>(end - begin)
                .count());
+    std::this_thread::sleep_for(std::chrono::seconds(1));
     return 0;
 }
 
 int main() {
     test_queue<NoLock>("BoostQueue", bqueue);
-    test_queue<WithLock>("BoostSPSCQueue", squeue);
     test_queue<NoLock>("PhotonQueue", queue);
+    test_queue<WithLock>("BoostSPSCQueue", squeue);
     test_queue<WithLock>("PhotonSPSCQueue", cqueue);
 }

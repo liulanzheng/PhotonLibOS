@@ -7,7 +7,7 @@
 #include <photon/thread/thread-pool.h>
 #include <photon/thread/thread11.h>
 
-#include "../lockfree.h"
+#include "../lockfree_queue.h"
 #include <thread>
 #include <atomic>
 

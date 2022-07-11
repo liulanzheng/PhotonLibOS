@@ -61,6 +61,11 @@ public:
         });
     }
 
+    // `task` accept on heap lambda or functor pointer
+    // Usually could able to call as
+    // `e.async_perform(new auto ([]{ ... })`
+    // to create a new lambda object on heap without move from stack.
+    // The task object will be delete after work done
     template <typename Context = StdContext, typename Func>
     void async_perform(Func *task) {
         void (*func)(void*);

@@ -22,6 +22,10 @@ limitations under the License.
 #include <thread>
 #include <utility>
 
+#ifndef __aarch64__
+#include <immintrin.h>
+#endif
+
 template <size_t x>
 struct Capacity_2expN {
     constexpr static size_t capacity = Capacity_2expN<(x >> 1)>::capacity << 1;
@@ -46,17 +50,42 @@ struct Capacity_2expN<1> {
     constexpr static size_t mask = 1;
 };
 
-template <typename T, size_t N>
+struct PauseBase {};
+
+struct CPUPause : PauseBase {
+    inline static __attribute__((always_inline)) void pause() {
+#ifdef __aarch64__
+        asm volatile("isb" : : : "memory");
+#else
+        _mm_pause();
+#endif
+    }
+};
+
+struct ThreadPause : PauseBase {
+    inline static __attribute__((always_inline)) void pause() {
+        std::this_thread::yield();
+    }
+};
+
+template <typename T, size_t N, typename BusyPause = CPUPause>
 class LockfreeRingQueue {
 public:
+#if __cplusplus >= 201402L
+    static_assert(std::is_trivially_copyable<T>::value,
+                  "T should be trivially copyable");
+#endif
+    static_assert(std::is_base_of<PauseBase, BusyPause>::value,
+                  "BusyPause should be derived by PauseBase");
+
     constexpr static size_t CACHELINE_SIZE = 64;
 
     constexpr static size_t size = Capacity_2expN<N>::capacity;
     constexpr static size_t mask = Capacity_2expN<N>::mask;
 
     struct alignas(CACHELINE_SIZE) Entry {
-        std::atomic_bool commit;
         T x;
+        std::atomic_bool commit;
     };
 
     static_assert(sizeof(Entry) % CACHELINE_SIZE == 0,
@@ -68,15 +97,15 @@ public:
     alignas(CACHELINE_SIZE) std::atomic<size_t> tail;
     alignas(CACHELINE_SIZE) std::atomic<size_t> head;
 
-    template <typename TI>
-    bool push(TI&& x) {
+    bool push(T x) {
         // try to push forward read head to make room for write
         size_t t = tail.load();
         do {
-            if (((t+1)&mask) == head.load() || arr[t & mask].commit.load()) {
+            if (((t + 1) & mask) == head || arr[t & mask].commit) {
                 return false;
             }
-        }  while (!tail.compare_exchange_weak(t, t+1, std::memory_order_acq_rel));
+        } while (
+            !tail.compare_exchange_weak(t, t + 1, std::memory_order_acq_rel));
         // acquire write tail, return failure if cannot acquire position
         auto& item = arr[t & mask];
         item.x = x;
@@ -88,13 +117,14 @@ public:
         // take a reading ticket
         size_t h = head.load();
         do {
-            if ((h & mask) == (tail.load() & mask)) return false;
-        } while (!head.compare_exchange_weak(h, h+1, std::memory_order_acq_rel));
+            if ((h & mask) == (tail & mask)) return false;
+        } while (
+            !head.compare_exchange_weak(h, h + 1, std::memory_order_acq_rel));
         // h will hold old value if CAS succeed
         auto& item = arr[h & mask];
         // spin on single item commit
-        while (!item.commit.load()) {
-            ::sched_yield();
+        while (!item.commit) {
+            BusyPause::pause();
         }
         x = item.x;
         // marked as uncommited
@@ -104,27 +134,32 @@ public:
 
     T recv() {
         T ret;
-        while (!pop(ret)) ::sched_yield();
+        while (!pop(ret)) BusyPause::pause();
         return ret;
     }
 
     template <typename TI>
     void send(TI&& x) {
-        while (!push(std::forward<TI>(x))) ::sched_yield();
+        while (!push(std::forward<TI>(x))) BusyPause::pause();
     }
 
-    bool empty() {
-        return (head.load() & mask) == (tail.load() & mask);
-    }
+    bool empty() { return (head & mask) == (tail & mask); }
 
     bool full() {
-        return ((tail.load()+1)&mask) == head.load() || arr[tail.load() & mask].commit.load();
+        return ((tail + 1) & mask) == head || arr[tail & mask].commit;
     }
 };
 
-template <typename T, size_t N>
+template <typename T, size_t N, typename BusyPause = CPUPause>
 class LockfreeSPSCRingQueue {
 public:
+#if __cplusplus >= 201402L
+    static_assert(std::is_trivially_copyable<T>::value,
+                  "T should be trivially copyable");
+#endif
+    static_assert(std::is_base_of<PauseBase, BusyPause>::value,
+                  "BusyPause should be derived by PauseBase");
+
     constexpr static size_t CACHELINE_SIZE = 64;
 
     constexpr static size_t size = Capacity_2expN<N>::capacity;
@@ -135,10 +170,9 @@ public:
     alignas(CACHELINE_SIZE) std::atomic<size_t> tail;
     alignas(CACHELINE_SIZE) std::atomic<size_t> head;
 
-    template <typename TI>
-    bool push(TI&& x) {
+    bool push(T x) {
         // try to push forward read head to make room for write
-        if (((tail.load()+1)&mask) == head.load()) {
+        if (((tail + 1) & mask) == head) {
             return false;
         }
         auto t = tail.fetch_add(1);
@@ -149,7 +183,7 @@ public:
 
     bool pop(T& x) {
         // take a reading ticket
-        if ((head.load() & mask) == (tail.load() & mask)) return false;
+        if ((head & mask) == (tail & mask)) return false;
         // h will hold old value if CAS succeed
         auto h = head.fetch_add(1);
         arr[h & mask] = x;
@@ -158,20 +192,16 @@ public:
 
     T recv() {
         T ret;
-        while (!pop(ret)) ::sched_yield();
+        while (!pop(ret)) BusyPause::pause();
         return ret;
     }
 
     template <typename TI>
     void send(TI&& x) {
-        while (!push(std::forward<TI>(x))) ::sched_yield();
+        while (!push(std::forward<TI>(x))) BusyPause::pause();
     }
 
-    bool empty() {
-        return (head.load() & mask) == (tail.load() & mask);
-    }
+    bool empty() { return (head & mask) == (tail & mask); }
 
-    bool full() {
-        return ((tail.load()+1)&mask) == head.load();
-    }
+    bool full() { return ((tail + 1) & mask) == head; }
 };
