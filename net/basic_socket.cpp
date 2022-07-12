@@ -65,7 +65,8 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen,
                 continue;
             }
             if (e == EINPROGRESS || (e == EADDRINUSE && err == 1)) {
-                photon::wait_for_fd_writable(fd, timeout);
+                ret = photon::wait_for_fd_writable(fd, timeout);
+                if (ret < 0) return -1;
                 socklen_t n = sizeof(err);
                 ret = getsockopt(fd, SOL_SOCKET, SO_ERROR, &err, &n);
                 if (ret < 0) return -1;
