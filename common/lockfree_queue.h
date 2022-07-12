@@ -174,9 +174,7 @@ public:
         // try to push forward read head to make room for write
         size_t t = tail.load();
         do {
-            if (EASE_UNLIKELY(Base::check_full(head, t))) {
-                return false;
-            }
+            if (EASE_UNLIKELY(Base::check_full(head, t))) return false;
         } while (
             !tail.compare_exchange_weak(t, t + 1, std::memory_order_acq_rel));
         // acquire write tail, return failure if cannot acquire position
@@ -186,7 +184,6 @@ public:
         }
         item.x = x;
         // add sfence/mfence to makesure store meanful item value
-        std::atomic_thread_fence(std::memory_order_release);
         item.commit.store(true, std::memory_order_release);
         return true;
     }
@@ -204,8 +201,6 @@ public:
         while (!item.commit.load(std::memory_order_acquire)) {
             BusyPause::pause();
         }
-        // add lfence/mfence to makesure load meanful item value
-        std::atomic_thread_fence(std::memory_order_acquire);
         x = item.x;
         // marked as uncommited
         item.commit.store(false, std::memory_order_release);

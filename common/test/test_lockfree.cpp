@@ -130,9 +130,9 @@ int test_queue(const char *name, QType &queue) {
 }
 
 int main() {
-    // test_queue<NoLock>("BoostQueue", bqueue);
+    test_queue<NoLock>("BoostQueue", bqueue);
     test_queue<NoLock>("PhotonQueue", queue);
-    // test_queue<WithLock>("BoostSPSCQueue", squeue);
-    // test_queue<WithLock>("PhotonSPSCQueue", cqueue);
-    // test_queue<NoLock>("PhotonMPSCQueue", mqueue);
+    test_queue<WithLock>("BoostSPSCQueue", squeue);
+    test_queue<WithLock>("PhotonSPSCQueue", cqueue);
+    test_queue<NoLock>("PhotonMPSCQueue", mqueue);
 }
