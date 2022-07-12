@@ -175,10 +175,11 @@ public:
             !tail.compare_exchange_weak(t, t + 1, std::memory_order_acq_rel));
         // acquire write tail, return failure if cannot acquire position
         auto& item = arr[Base::pos(t)];
-        std::atomic_thread_fence(std::memory_order_acquire);
-        while (item.commit) {
+        while (item.commit.load(std::memory_order_acquire)) {
             BusyPause::pause();
         }
+        // prevent set item.x before commit cleared
+        std::atomic_thread_fence(std::memory_order_release);
         item.x = x;
         item.commit.store(true, std::memory_order_release);
         return true;
@@ -194,10 +195,11 @@ public:
         // h will hold old value if CAS succeed
         auto& item = arr[Base::pos(h)];
         // spin on single item commit
-        std::atomic_thread_fence(std::memory_order_acquire);
-        while (!item.commit) {
+        while (!item.commit.load(std::memory_order_acquire)) {
             BusyPause::pause();
         }
+        // prevent load item.x before commit
+        std::atomic_thread_fence(std::memory_order_acquire);
         x = item.x;
         // marked as uncommited
         item.commit.store(false, std::memory_order_release);
