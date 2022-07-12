@@ -19,12 +19,14 @@ limitations under the License.
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <mutex>
 #include <thread>
 #include <utility>
-#include <mutex>
 #ifndef __aarch64__
 #include <immintrin.h>
 #endif
+
+#include <photon/common/utility.h>
 
 template <size_t x>
 struct Capacity_2expN {
@@ -172,7 +174,7 @@ public:
         // try to push forward read head to make room for write
         size_t t = tail.load();
         do {
-            if (Base::check_full(head, t)) {
+            if (EASE_UNLIKELY(Base::check_full(head, t))) {
                 return false;
             }
         } while (
@@ -193,7 +195,7 @@ public:
         // take a reading ticket
         size_t h = head.load();
         do {
-            if (Base::check_empty(h, tail)) return false;
+            if (EASE_UNLIKELY(Base::check_empty(h, tail))) return false;
         } while (
             !head.compare_exchange_weak(h, h + 1, std::memory_order_acq_rel));
         // h will hold old value if CAS succeed
@@ -228,8 +230,7 @@ public:
     bool push(const T& x) {
         // try to push forward read head to make room for write
         auto t = tail.load(std::memory_order_acquire);
-        if (Base::check_full(head, t))
-            return false;
+        if (EASE_UNLIKELY(Base::check_full(head, t))) return false;
         arr[Base::pos(t)] = x;
         tail.store(t + 1, std::memory_order_release);
         return true;
@@ -238,23 +239,22 @@ public:
     bool pop(T& x) {
         // take a reading ticket
         auto h = head.load(std::memory_order_acquire);
-        if (Base::check_empty(h, tail))
-            return false;
+        if (EASE_UNLIKELY(Base::check_empty(h, tail))) return false;
         x = arr[Base::pos(h)];
         head.store(h + 1, std::memory_order_release);
         return true;
     }
 };
 
-template <typename T, size_t N, typename BusyPause = CPUPause>
-class LockfreeMPSCRingQueue
-    : public LockfreeSPSCRingQueue<T, N, BusyPause> {
+template <typename T, size_t N, typename BusyPause = CPUPause,
+          typename Mutex = std::mutex>
+class MPSCRingQueue : public LockfreeSPSCRingQueue<T, N, BusyPause> {
 public:
     using Base = LockfreeSPSCRingQueue<T, N, BusyPause>;
 
     T arr[Base::capacity];
 
-    std::mutex lock;
+    Mutex lock;
 
     bool push(const T& x) {
         std::lock_guard<std::mutex> _(lock);
