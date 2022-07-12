@@ -21,7 +21,7 @@ limitations under the License.
 #include <cstdint>
 #include <thread>
 #include <utility>
-
+#include <mutex>
 #ifndef __aarch64__
 #include <immintrin.h>
 #endif
@@ -33,7 +33,7 @@ struct Capacity_2expN {
     constexpr static size_t shift = Capacity_2expN<(x >> 1)>::shift + 1;
     constexpr static size_t lshift = Capacity_2expN<(x >> 1)>::lshift - 1;
 
-    static_assert(shift + lshift == sizeof(size_t)*8, "...");
+    static_assert(shift + lshift == sizeof(size_t) * 8, "...");
 };
 
 template <size_t x>
@@ -83,9 +83,15 @@ struct PhotonPause : PauseBase {
 template <typename Derived, typename T, size_t N, typename BusyPause>
 class LockfreeRingQueueBase {
 public:
+#if __cplusplus < 201402L
     static_assert(std::has_trivial_copy_constructor<T>::value &&
                       std::has_trivial_copy_assign<T>::value,
                   "T should be trivially copyable");
+#else
+    static_assert(std::is_trivially_copy_constructible<T>::value &&
+                      std::is_trivially_copy_assignable<T>::value,
+                  "T should be trivially copyable");
+#endif
     static_assert(std::is_base_of<PauseBase, BusyPause>::value,
                   "BusyPause should be derived by PauseBase");
 
@@ -120,8 +126,8 @@ public:
     bool full() { return check_full(head, tail); }
 
 protected:
-
-    inline __attribute__((always_inline)) bool check_mask_equal(size_t x, size_t y) {
+    inline __attribute__((always_inline)) bool check_mask_equal(size_t x,
+                                                                size_t y) {
         return (x << lshift) == (y << lshift);
     }
 
@@ -146,25 +152,23 @@ public:
     using Base = LockfreeRingQueueBase<LockfreeRingQueue<T, N, BusyPause>, T, N,
                                        BusyPause>;
 
-    constexpr static size_t CACHELINE_SIZE = 64;
-
-    using Base::head;
-    using Base::tail;
     using Base::empty;
     using Base::full;
+    using Base::head;
+    using Base::tail;
 
-    struct alignas(CACHELINE_SIZE) Entry {
+    struct alignas(Base::CACHELINE_SIZE) Entry {
         T x;
         std::atomic_bool commit;
     };
 
-    static_assert(sizeof(Entry) % CACHELINE_SIZE == 0,
+    static_assert(sizeof(Entry) % Base::CACHELINE_SIZE == 0,
                   "Entry should aligned to cacheline");
-    alignas(CACHELINE_SIZE) Entry arr[Base::capacity];
-    static_assert(sizeof(arr) % CACHELINE_SIZE == 0,
+    alignas(Base::CACHELINE_SIZE) Entry arr[Base::capacity];
+    static_assert(sizeof(arr) % Base::CACHELINE_SIZE == 0,
                   "Entry should aligned to cacheline");
 
-    bool push(T x) {
+    bool push(const T& x) {
         // try to push forward read head to make room for write
         size_t t = tail.load();
         do {
@@ -178,9 +182,9 @@ public:
         while (item.commit.load(std::memory_order_acquire)) {
             BusyPause::pause();
         }
-        // prevent set item.x before commit cleared
-        std::atomic_thread_fence(std::memory_order_release);
         item.x = x;
+        // add sfence/mfence to makesure store meanful item value
+        std::atomic_thread_fence(std::memory_order_release);
         item.commit.store(true, std::memory_order_release);
         return true;
     }
@@ -198,14 +202,13 @@ public:
         while (!item.commit.load(std::memory_order_acquire)) {
             BusyPause::pause();
         }
-        // prevent load item.x before commit
+        // add lfence/mfence to makesure load meanful item value
         std::atomic_thread_fence(std::memory_order_acquire);
         x = item.x;
         // marked as uncommited
         item.commit.store(false, std::memory_order_release);
         return true;
     }
-
 };
 
 template <typename T, size_t N, typename BusyPause = CPUPause>
@@ -215,28 +218,51 @@ class LockfreeSPSCRingQueue
 public:
     using Base = LockfreeRingQueueBase<LockfreeSPSCRingQueue<T, N, BusyPause>,
                                        T, N, BusyPause>;
-    using Base::head;
-    using Base::tail;
     using Base::empty;
     using Base::full;
+    using Base::head;
+    using Base::tail;
 
-    T arr[Base::capacity];
+    alignas(Base::CACHELINE_SIZE) T arr[Base::capacity];
 
-    bool push(T x) {
+    bool push(const T& x) {
         // try to push forward read head to make room for write
-        if (full()) {
+        auto t = tail.load(std::memory_order_acquire);
+        if (Base::check_full(head, t))
             return false;
-        }
-        auto t = tail.fetch_add(1, std::memory_order_acq_rel);
         arr[Base::pos(t)] = x;
+        tail.store(t + 1, std::memory_order_release);
         return true;
     }
 
     bool pop(T& x) {
         // take a reading ticket
-        if (empty()) return false;
-        auto h = head.fetch_add(1, std::memory_order_acq_rel);
+        auto h = head.load(std::memory_order_acquire);
+        if (Base::check_empty(h, tail))
+            return false;
         x = arr[Base::pos(h)];
+        head.store(h + 1, std::memory_order_release);
         return true;
+    }
+};
+
+template <typename T, size_t N, typename BusyPause = CPUPause>
+class LockfreeMPSCRingQueue
+    : public LockfreeSPSCRingQueue<T, N, BusyPause> {
+public:
+    using Base = LockfreeSPSCRingQueue<T, N, BusyPause>;
+
+    T arr[Base::capacity];
+
+    std::mutex lock;
+
+    bool push(const T& x) {
+        std::lock_guard<std::mutex> _(lock);
+        return Base::push(x);
+    }
+
+    void send(const T& x) {
+        std::lock_guard<std::mutex> _(lock);
+        Base::send(x);
     }
 };
