@@ -257,12 +257,12 @@ public:
     Mutex lock;
 
     bool push(const T& x) {
-        std::lock_guard<std::mutex> _(lock);
+        std::lock_guard<Mutex> _(lock);
         return Base::push(x);
     }
 
     void send(const T& x) {
-        std::lock_guard<std::mutex> _(lock);
+        std::lock_guard<Mutex> _(lock);
         Base::send(x);
     }
 };
