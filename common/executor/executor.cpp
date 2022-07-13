@@ -1,15 +1,16 @@
 #include "executor.h"
+
 #include <photon/common/alog.h>
 #include <photon/common/event-loop.h>
 #include <photon/common/executor/executor.h>
+#include <photon/common/lockfree_queue.h>
 #include <photon/common/utility.h>
 #include <photon/io/fd-events.h>
 #include <photon/thread/thread-pool.h>
 #include <photon/thread/thread11.h>
 
-#include "../lockfree_queue.h"
-#include <thread>
 #include <atomic>
+#include <thread>
 
 namespace photon {
 
@@ -68,7 +69,7 @@ public:
             auto th =
                 pool->thread_create(&ExecutorImpl::do_event, (void *)&arg);
             photon::thread_yield_to(th);
-            cnt ++;
+            cnt++;
         }
         return 0;
     }
@@ -83,7 +84,6 @@ public:
         photon::thread_usleep(-1);
         LOG_INFO("worker finished");
         while (!queue.empty()) {
-        LOG_INFO(VALUE(queue.head.load()), VALUE(queue.tail.load()));
             photon::thread_usleep(1000);
         }
         quiting = true;
@@ -103,7 +103,8 @@ void _delete_executor(ExecutorImpl *e) { delete e; }
 void _issue(ExecutorImpl *e, Delegate<void> act) {
     e->queue.send<ThreadPause>(act);
     bool cond = true;
-    if (e->waiting.compare_exchange_weak(cond, false, std::memory_order_acq_rel)) {
+    if (e->waiting.compare_exchange_weak(cond, false,
+                                         std::memory_order_acq_rel)) {
         e->sem.signal(1);
     }
 }
