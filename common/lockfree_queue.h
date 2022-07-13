@@ -292,7 +292,7 @@ public:
     using Base::head;
     using Base::tail;
 
-    alignas(Base::CACHELINE_SIZE) T slots[Base::capacity];
+    T slots[Base::capacity];
 
     bool push(const T& x) {
         // try to push forward read head to make room for write
@@ -318,8 +318,6 @@ template <typename T, size_t N, typename BusyPause = CPUPause,
 class MPSCRingQueue : public LockfreeSPSCRingQueue<T, N, BusyPause> {
 public:
     using Base = LockfreeSPSCRingQueue<T, N, BusyPause>;
-
-    T slots[Base::capacity];
 
     Mutex lock;
 
