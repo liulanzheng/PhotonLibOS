@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+#include <photon/common/lockfree_queue.h>
 #include <photon/thread/thread.h>
 #include <pthread.h>
 
@@ -26,8 +27,6 @@ limitations under the License.
 #include <thread>
 #include <vector>
 
-#include "../lockfree_queue.h"
-
 static constexpr size_t sender_num = 8;
 static constexpr size_t receiver_num = 1;
 static constexpr size_t items_num = 3000000;
@@ -35,17 +34,15 @@ static_assert(items_num % sender_num == 0,
               "item_num should able to divided by sender_num");
 static_assert(items_num % receiver_num == 0,
               "item_num should able to divided by receiver_num");
-static constexpr size_t capacity = 4UL * 1024;
+static constexpr size_t capacity = 8;
 
 std::array<int, receiver_num> rcnt;
 std::array<int, sender_num> scnt;
 
 std::array<std::atomic<int>, items_num / sender_num> sc, rc;
 
-MPMCRingQueue<int, capacity> queue;
 LockfreeMPMCRingQueue<int, capacity> lqueue;
 LockfreeSPSCRingQueue<int, capacity> cqueue;
-MPSCRingQueue<int, capacity> mqueue;
 std::mutex rlock, wlock;
 
 boost::lockfree::queue<int, boost::lockfree::capacity<capacity>> bqueue;
@@ -119,8 +116,8 @@ int test_queue(const char *name, QType &queue) {
            receiver_num, items_num,
            std::chrono::duration_cast<std::chrono::microseconds>(end - begin)
                .count());
-    for (size_t i=0;i<items_num / sender_num;i++) {
-        if (sc[i] != rc[i]) {
+    for (size_t i = 0; i < items_num / sender_num; i++) {
+        if (sc[i] != rc[i] || sc[i] != sender_num) {
             printf("MISMATCH %lu %d %d\n", i, sc[i].load(), rc[i].load());
         }
         sc[i] = 0;
@@ -132,9 +129,7 @@ int test_queue(const char *name, QType &queue) {
 
 int main() {
     test_queue<NoLock>("BoostQueue", bqueue);
-    test_queue<NoLock>("PhotonMPMCQueue", queue);
     test_queue<NoLock>("PhotonLockfreeMPMCQueue", lqueue);
     test_queue<WithLock>("BoostSPSCQueue", squeue);
     test_queue<WithLock>("PhotonSPSCQueue", cqueue);
-    test_queue<NoLock>("PhotonMPSCQueue", mqueue);
 }
