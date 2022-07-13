@@ -43,6 +43,7 @@ std::array<int, sender_num> scnt;
 std::array<std::atomic<int>, items_num / sender_num> sc, rc;
 
 MPMCRingQueue<int, capacity> queue;
+LockfreeMPMCRingQueue<int, capacity> lqueue;
 LockfreeSPSCRingQueue<int, capacity> cqueue;
 MPSCRingQueue<int, capacity> mqueue;
 std::mutex rlock, wlock;
@@ -131,7 +132,8 @@ int test_queue(const char *name, QType &queue) {
 
 int main() {
     test_queue<NoLock>("BoostQueue", bqueue);
-    test_queue<NoLock>("PhotonQueue", queue);
+    test_queue<NoLock>("PhotonMPMCQueue", queue);
+    test_queue<NoLock>("PhotonLockfreeMPMCQueue", lqueue);
     test_queue<WithLock>("BoostSPSCQueue", squeue);
     test_queue<WithLock>("PhotonSPSCQueue", cqueue);
     test_queue<NoLock>("PhotonMPSCQueue", mqueue);

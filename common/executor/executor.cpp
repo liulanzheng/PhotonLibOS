@@ -15,7 +15,7 @@ namespace photon {
 
 class ExecutorImpl {
 public:
-    using CBList = MPSCRingQueue<Delegate<void>, 32UL * 1024>;
+    using CBList = LockfreeMPMCRingQueue<Delegate<void>, 32UL * 1024>;
     std::unique_ptr<std::thread> th;
     photon::thread *pth = nullptr;
     EventLoop *loop = nullptr;

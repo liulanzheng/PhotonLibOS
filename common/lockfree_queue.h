@@ -9,7 +9,7 @@ You may obtain a copy of the License at
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+WITHOUT WslotsANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
@@ -141,8 +141,12 @@ protected:
         return check_mask_equal(h, t + 1);
     }
 
-    inline __attribute__((always_inline)) size_t pos(size_t x) {
+    inline __attribute__((always_inline)) size_t idx(size_t x) {
         return x & mask;
+    }
+
+    inline __attribute__((always_inline)) size_t turn(size_t x) {
+        return x >> shift;
     }
 };
 
@@ -169,8 +173,8 @@ public:
 
     static_assert(sizeof(Entry) % Base::CACHELINE_SIZE == 0,
                   "Entry should aligned to cacheline");
-    alignas(Base::CACHELINE_SIZE) Entry arr[Base::capacity];
-    static_assert(sizeof(arr) % Base::CACHELINE_SIZE == 0,
+    alignas(Base::CACHELINE_SIZE) Entry slots[Base::capacity];
+    static_assert(sizeof(slots) % Base::CACHELINE_SIZE == 0,
                   "Entry should aligned to cacheline");
 
     bool push(const T& x) {
@@ -180,8 +184,8 @@ public:
             if (EASE_UNLIKELY(Base::check_full(head, t))) return false;
         } while (
             !tail.compare_exchange_weak(t, t + 1, std::memory_order_acq_rel));
-        // acquire write tail, return failure if cannot acquire position
-        auto& item = arr[Base::pos(t)];
+        // acquire write tail, return failure if cannot acquire idxition
+        auto& item = slots[Base::idx(t)];
         while (item.commit.load(std::memory_order_acquire)) {
             BusyPause::pause();
         }
@@ -199,7 +203,7 @@ public:
         } while (
             !head.compare_exchange_weak(h, h + 1, std::memory_order_acq_rel));
         // h will hold old value if CAS succeed
-        auto& item = arr[Base::pos(h)];
+        auto& item = slots[Base::idx(h)];
         // spin on single item commit
         while (!item.commit.load(std::memory_order_acquire)) {
             BusyPause::pause();
@@ -208,6 +212,71 @@ public:
         // marked as uncommited
         item.commit.store(false, std::memory_order_release);
         return true;
+    }
+};
+
+template <typename T, size_t N, typename BusyPause = CPUPause>
+class LockfreeMPMCRingQueue
+    : public LockfreeRingQueueBase<LockfreeMPMCRingQueue<T, N, BusyPause>, T, N,
+                                   BusyPause> {
+public:
+    using Base = LockfreeRingQueueBase<LockfreeMPMCRingQueue<T, N, BusyPause>, T, N,
+                                       BusyPause>;
+
+    using Base::empty;
+    using Base::full;
+    using Base::head;
+    using Base::tail;
+
+    struct alignas(Base::CACHELINE_SIZE) Entry {
+        T x;
+        std::atomic<uint64_t> turn {0};
+    };
+
+    static_assert(sizeof(Entry) % Base::CACHELINE_SIZE == 0,
+                  "Entry should aligned to cacheline");
+    alignas(Base::CACHELINE_SIZE) Entry slots[Base::capacity];
+    static_assert(sizeof(slots) % Base::CACHELINE_SIZE == 0,
+                  "Entry should aligned to cacheline");
+
+    bool push(const T& x) {
+        auto h = head.load(std::memory_order_acquire);
+        for (;;) {
+            auto &slot = slots[Base::idx(head)];
+            if (Base::turn(h) * 2 == slot.turn.load(std::memory_order_acquire)) {
+                if (head.compare_exchange_strong(h, h + 1)) {
+                    slot.x = x;
+                    slot.turn.store(Base::turn(h) * 2 + 1, std::memory_order_release);
+                    return true;
+                }
+            } else {
+                auto const prevHead = h;
+                h = head.load(std::memory_order_acquire);
+                if (h == prevHead) {
+                    return false;
+                }
+            }
+        }
+    }
+
+    bool pop(T& x) {
+        auto t = tail.load(std::memory_order_acquire);
+        for (;;) {
+            auto &slot = slots[Base::idx(tail)];
+            if (Base::turn(t) * 2 + 1 == slot.turn.load(std::memory_order_acquire)) {
+                if (tail.compare_exchange_strong(t, t + 1)) {
+                    x = slot.x;
+                    slot.turn.store(Base::turn(t) * 2 + 2, std::memory_order_release);
+                    return true;
+                }
+            } else {
+                auto const prevTail = t;
+                t = tail.load(std::memory_order_acquire);
+                if (t == prevTail) {
+                    return false;
+                }
+            }
+        }
     }
 };
 
@@ -223,13 +292,13 @@ public:
     using Base::head;
     using Base::tail;
 
-    alignas(Base::CACHELINE_SIZE) T arr[Base::capacity];
+    alignas(Base::CACHELINE_SIZE) T slots[Base::capacity];
 
     bool push(const T& x) {
         // try to push forward read head to make room for write
         auto t = tail.load(std::memory_order_acquire);
         if (EASE_UNLIKELY(Base::check_full(head, t))) return false;
-        arr[Base::pos(t)] = x;
+        slots[Base::idx(t)] = x;
         tail.store(t + 1, std::memory_order_release);
         return true;
     }
@@ -238,7 +307,7 @@ public:
         // take a reading ticket
         auto h = head.load(std::memory_order_acquire);
         if (EASE_UNLIKELY(Base::check_empty(h, tail))) return false;
-        x = arr[Base::pos(h)];
+        x = slots[Base::idx(h)];
         head.store(h + 1, std::memory_order_release);
         return true;
     }
@@ -250,7 +319,7 @@ class MPSCRingQueue : public LockfreeSPSCRingQueue<T, N, BusyPause> {
 public:
     using Base = LockfreeSPSCRingQueue<T, N, BusyPause>;
 
-    T arr[Base::capacity];
+    T slots[Base::capacity];
 
     Mutex lock;
 
