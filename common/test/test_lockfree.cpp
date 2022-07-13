@@ -35,7 +35,7 @@ static_assert(items_num % sender_num == 0,
               "item_num should able to divided by sender_num");
 static_assert(items_num % receiver_num == 0,
               "item_num should able to divided by receiver_num");
-static constexpr size_t capacity = 16UL * 1024;
+static constexpr size_t capacity = 4UL * 1024;
 
 std::array<int, receiver_num> rcnt;
 std::array<int, sender_num> scnt;

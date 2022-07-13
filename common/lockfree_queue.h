@@ -242,7 +242,7 @@ public:
     bool push(const T& x) {
         auto h = head.load(std::memory_order_acquire);
         for (;;) {
-            auto &slot = slots[Base::idx(head)];
+            auto &slot = slots[Base::idx(h)];
             if (Base::turn(h) * 2 == slot.turn.load(std::memory_order_acquire)) {
                 if (head.compare_exchange_strong(h, h + 1)) {
                     slot.x = x;
@@ -262,7 +262,7 @@ public:
     bool pop(T& x) {
         auto t = tail.load(std::memory_order_acquire);
         for (;;) {
-            auto &slot = slots[Base::idx(tail)];
+            auto &slot = slots[Base::idx(t)];
             if (Base::turn(t) * 2 + 1 == slot.turn.load(std::memory_order_acquire)) {
                 if (tail.compare_exchange_strong(t, t + 1)) {
                     x = slot.x;
