@@ -15,7 +15,7 @@ namespace photon {
 
 class ExecutorImpl {
 public:
-    using CBList = LockfreeRingQueue<Delegate<void>, 32UL * 1024>;
+    using CBList = MPSCRingQueue<Delegate<void>, 32UL * 1024>;
     std::unique_ptr<std::thread> th;
     photon::thread *pth = nullptr;
     EventLoop *loop = nullptr;
@@ -64,9 +64,7 @@ public:
         arg.backth = photon::CURRENT;
         size_t cnt = 0;
         while (!queue.empty()) {
-            while (!queue.pop(arg.task)) {
-                photon::thread_yield();
-            }
+            arg.task = queue.recv<PhotonPause>();
             auto th =
                 pool->thread_create(&ExecutorImpl::do_event, (void *)&arg);
             photon::thread_yield_to(th);
@@ -103,7 +101,7 @@ ExecutorImpl *_new_executor() { return new ExecutorImpl(); }
 void _delete_executor(ExecutorImpl *e) { delete e; }
 
 void _issue(ExecutorImpl *e, Delegate<void> act) {
-    while (!e->queue.push(act)) ::sched_yield();
+    e->queue.send<ThreadPause>(act);
     bool cond = true;
     if (e->waiting.compare_exchange_weak(cond, false, std::memory_order_acq_rel)) {
         e->sem.signal(1);

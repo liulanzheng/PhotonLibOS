@@ -112,7 +112,7 @@ public:
         static_assert(std::is_base_of<PauseBase, Pause>::value,
                       "BusyPause should be derived by PauseBase");
         T ret;
-        while (!Derived::pop(ret)) Pause::pause();
+        while (!((Derived*)this)->pop(ret)) Pause::pause();
         return ret;
     }
 
@@ -120,7 +120,7 @@ public:
     void send(const T& x) {
         static_assert(std::is_base_of<PauseBase, Pause>::value,
                       "BusyPause should be derived by PauseBase");
-        while (!Derived::push(x)) Pause::pause();
+        while (!((Derived*)this)->push(x)) Pause::pause();
     }
 
     bool empty() { return check_empty(head, tail); }
@@ -146,12 +146,15 @@ protected:
     }
 };
 
+// NOTICE: MPMCRingQueue is not theoretically lock-free queue
+// DO NOT use MPMC on IPC, since unexpected process kill may cause queue blocking
+// on the other process.
 template <typename T, size_t N, typename BusyPause = CPUPause>
-class LockfreeRingQueue
-    : public LockfreeRingQueueBase<LockfreeRingQueue<T, N, BusyPause>, T, N,
+class MPMCRingQueue
+    : public LockfreeRingQueueBase<MPMCRingQueue<T, N, BusyPause>, T, N,
                                    BusyPause> {
 public:
-    using Base = LockfreeRingQueueBase<LockfreeRingQueue<T, N, BusyPause>, T, N,
+    using Base = LockfreeRingQueueBase<MPMCRingQueue<T, N, BusyPause>, T, N,
                                        BusyPause>;
 
     using Base::empty;
@@ -256,8 +259,10 @@ public:
         return Base::push(x);
     }
 
+    template<typename Pause = CPUPause>
     void send(const T& x) {
-        std::lock_guard<Mutex> _(lock);
-        Base::send(x);
+        static_assert(std::is_base_of<PauseBase, Pause>::value,
+                      "BusyPause should be derived by PauseBase");
+        while (!push(x)) Pause::pause();
     }
 };

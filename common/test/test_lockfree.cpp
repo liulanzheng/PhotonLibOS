@@ -42,7 +42,7 @@ std::array<int, sender_num> scnt;
 
 std::array<std::atomic<int>, items_num / sender_num> sc, rc;
 
-LockfreeRingQueue<int, capacity> queue;
+MPMCRingQueue<int, capacity> queue;
 LockfreeSPSCRingQueue<int, capacity> cqueue;
 MPSCRingQueue<int, capacity> mqueue;
 std::mutex rlock, wlock;
@@ -74,13 +74,13 @@ int test_queue(const char *name, QType &queue) {
     scnt.fill(0);
     rcnt.fill(0);
     auto begin = std::chrono::steady_clock::now();
-    for (int i = 0; i < receiver_num; i++) {
+    for (size_t i = 0; i < receiver_num; i++) {
         receivers.emplace_back([i, &queue] {
             cpu_set_t cpuset;
             CPU_ZERO(&cpuset);
             CPU_SET(i, &cpuset);
             pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
-            for (int x = 0; x < items_num / receiver_num; x++) {
+            for (size_t x = 0; x < items_num / receiver_num; x++) {
                 int t;
                 LType::lock(rlock);
                 while (!queue.pop(t)) {
@@ -93,13 +93,13 @@ int test_queue(const char *name, QType &queue) {
             }
         });
     }
-    for (int i = 0; i < sender_num; i++) {
+    for (size_t i = 0; i < sender_num; i++) {
         senders.emplace_back([i, &queue] {
             cpu_set_t cpuset;
             CPU_ZERO(&cpuset);
             CPU_SET(i + receiver_num, &cpuset);
             pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
-            for (int x = 0; x < items_num / sender_num; x++) {
+            for (size_t x = 0; x < items_num / sender_num; x++) {
                 LType::lock(wlock);
                 while (!queue.push(x)) {
                     CPUPause::pause();
@@ -118,9 +118,9 @@ int test_queue(const char *name, QType &queue) {
            receiver_num, items_num,
            std::chrono::duration_cast<std::chrono::microseconds>(end - begin)
                .count());
-    for (int i=0;i<items_num / sender_num;i++) {
+    for (size_t i=0;i<items_num / sender_num;i++) {
         if (sc[i] != rc[i]) {
-            printf("MISMATCH %d %d %d\n", i, sc[i].load(), rc[i].load());
+            printf("MISMATCH %lu %d %d\n", i, sc[i].load(), rc[i].load());
         }
         sc[i] = 0;
         rc[i] = 0;
