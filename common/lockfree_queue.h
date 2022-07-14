@@ -161,14 +161,17 @@ public:
     using Base::empty;
     using Base::full;
 
-    bool push(const T& x) {
+    // accept T type because it should be on register
+    // to prevent fist access caused pagefault
+    bool push(T x) {
         auto h = head.load(std::memory_order_acquire);
+        T val = x;
         for (;;) {
             auto& slot = slots[idx(h)];
             if (slot.mark.load(std::memory_order_acquire) ==
                 last_turn_read(h)) {
                 if (head.compare_exchange_strong(h, h + 1)) {
-                    slot.x = x;
+                    slot.x = val;
                     slot.mark.store(this_turn_write(h),
                                     std::memory_order_release);
                     return true;
@@ -190,9 +193,10 @@ public:
             if (slot.mark.load(std::memory_order_acquire) ==
                 this_turn_write(t)) {
                 if (tail.compare_exchange_strong(t, t + 1)) {
-                    x = slot.x;
+                    T ret = slot.x;
                     slot.mark.store(this_turn_read(t),
                                     std::memory_order_release);
+                    x = ret;
                     return true;
                 }
             } else {
@@ -207,15 +211,14 @@ public:
     }
 
     template <typename Pause = ThreadPause>
-    void send(const T& x) {
+    void send(T x) {
         static_assert(std::is_base_of<PauseBase, Pause>::value,
                       "Pause should be derived by PauseBase");
-        T val = x;
         auto const h = head.fetch_add(1);
         auto& slot = slots[idx(h)];
         while (slot.mark.load(std::memory_order_acquire) != last_turn_read(h))
             Pause::pause();
-        slot.x = val;
+        slot.x = x;
         slot.mark.store(this_turn_write(h), std::memory_order_release);
     }
 
@@ -223,12 +226,11 @@ public:
     T recv() {
         static_assert(std::is_base_of<PauseBase, Pause>::value,
                       "Pause should be derived by PauseBase");
-        T ret;
         auto const t = tail.fetch_add(1);
         auto& slot = slots[idx(t)];
         while (slot.mark.load(std::memory_order_acquire) != this_turn_write(t))
             Pause::pause();
-        ret = slot.x;
+        T ret = slot.x;
         slot.mark.store(this_turn_read(t), std::memory_order_release);
         return ret;
     }
@@ -248,7 +250,7 @@ public:
     using Base::empty;
     using Base::full;
 
-    bool push(const T& x) {
+    bool push(T x) {
         auto t = tail.load(std::memory_order_acquire);
         if (EASE_UNLIKELY(Base::check_full(head, t))) return false;
         slots[idx(t)] = x;
@@ -259,8 +261,9 @@ public:
     bool pop(T& x) {
         auto h = head.load(std::memory_order_acquire);
         if (EASE_UNLIKELY(Base::check_empty(h, tail))) return false;
-        x = slots[idx(h)];
+        T const ret = slots[idx(h)];
         head.store(h + 1, std::memory_order_release);
+        x = ret;
         return true;
     }
 

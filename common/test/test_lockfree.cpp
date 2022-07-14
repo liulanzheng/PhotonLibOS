@@ -34,7 +34,7 @@ static_assert(items_num % sender_num == 0,
               "item_num should able to divided by sender_num");
 static_assert(items_num % receiver_num == 0,
               "item_num should able to divided by receiver_num");
-static constexpr size_t capacity = 8;
+static constexpr size_t capacity = 256;
 
 std::array<int, receiver_num> rcnt;
 std::array<int, sender_num> scnt;
@@ -66,7 +66,7 @@ struct NoLock {
     static void unlock(T &x) {}
 };
 
-template <typename LType, typename QType>
+template <typename LSType, typename LRType, typename QType>
 int test_queue(const char *name, QType &queue) {
     std::vector<std::thread> senders, receivers;
     scnt.fill(0);
@@ -78,17 +78,22 @@ int test_queue(const char *name, QType &queue) {
             CPU_ZERO(&cpuset);
             CPU_SET(i, &cpuset);
             pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+            std::chrono::nanoseconds rspent(std::chrono::nanoseconds(0));
             for (size_t x = 0; x < items_num / receiver_num; x++) {
                 int t;
-                LType::lock(rlock);
+                auto tm = std::chrono::high_resolution_clock::now();
+                LRType::lock(rlock);
                 while (!queue.pop(t)) {
                     CPUPause::pause();
                 }
                 (void)t;
-                LType::unlock(rlock);
+                LRType::unlock(rlock);
+                if (x) rspent += std::chrono::high_resolution_clock::now() - tm;
                 rc[t]++;
                 rcnt[i]++;
             }
+            printf("%lu receiver done, %lu ns per action\n", i,
+                   rspent.count() / (items_num / receiver_num - 1));
         });
     }
     for (size_t i = 0; i < sender_num; i++) {
@@ -97,16 +102,21 @@ int test_queue(const char *name, QType &queue) {
             CPU_ZERO(&cpuset);
             CPU_SET(i + receiver_num, &cpuset);
             pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+            std::chrono::nanoseconds wspent{std::chrono::nanoseconds(0)};
             for (size_t x = 0; x < items_num / sender_num; x++) {
-                LType::lock(wlock);
+                auto tm = std::chrono::high_resolution_clock::now();
+                LSType::lock(wlock);
                 while (!queue.push(x)) {
                     CPUPause::pause();
                 }
-                LType::unlock(wlock);
+                LSType::unlock(wlock);
+                wspent += std::chrono::high_resolution_clock::now() - tm;
                 sc[x]++;
                 scnt[i]++;
-                ThreadPause::pause();
+                // ThreadPause::pause();
             }
+            printf("%lu sender done, %lu ns per action\n", i,
+                   wspent.count() / (items_num / sender_num));
         });
     }
     for (auto &x : senders) x.join();
@@ -128,8 +138,8 @@ int test_queue(const char *name, QType &queue) {
 }
 
 int main() {
-    test_queue<NoLock>("BoostQueue", bqueue);
-    test_queue<NoLock>("PhotonLockfreeMPMCQueue", lqueue);
-    test_queue<WithLock>("BoostSPSCQueue", squeue);
-    test_queue<WithLock>("PhotonSPSCQueue", cqueue);
+    test_queue<NoLock, NoLock>("BoostQueue", bqueue);
+    test_queue<NoLock, NoLock>("PhotonLockfreeMPMCQueue", lqueue);
+    test_queue<WithLock, NoLock>("BoostSPSCQueue", squeue);
+    test_queue<WithLock, NoLock>("PhotonSPSCQueue", cqueue);
 }
