@@ -38,6 +38,7 @@ static constexpr int th_num = 1;
 static constexpr int app_num = 10000;
 
 int ftask(photon::Executor *eth, int i) {
+    LOG_TEMP("Add one");
     eth->async_perform(new auto ([i] {
         // sleep for 3 secs
         LOG_INFO("Async work ` start", i);
@@ -46,18 +47,18 @@ int ftask(photon::Executor *eth, int i) {
         LOG_INFO("Async work ` done", i);
         count++;
     }));
+    LOG_TEMP("Add one done");
     return 0;
 }
 
 TEST(std_executor, test) {
     photon::Executor eth;
 
-    printf("Task applied, wait for loop\n");
-
     for (int i = 0; i < 10; i++) {
         ftask(&eth, i);
     }
     EXPECT_LT(count.load(), 10);
+    printf("Task applied, wait for loop\n");
     while (count.load() != 10) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }

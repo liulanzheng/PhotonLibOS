@@ -102,8 +102,8 @@ public:
     constexpr static size_t shift = Capacity_2expN<N>::shift;
     constexpr static size_t lshift = Capacity_2expN<N>::lshift;
 
-    alignas(CACHELINE_SIZE) std::atomic<size_t> tail;
-    alignas(CACHELINE_SIZE) std::atomic<size_t> head;
+    alignas(CACHELINE_SIZE) std::atomic<size_t> tail{0};
+    alignas(CACHELINE_SIZE) std::atomic<size_t> head{0};
 
     bool empty() { return check_empty(head, tail); }
 
@@ -161,17 +161,14 @@ public:
     using Base::empty;
     using Base::full;
 
-    // accept T type because it should be on register
-    // to prevent fist access caused pagefault
-    bool push(T x) {
+    bool push(const T& x) {
         auto h = head.load(std::memory_order_acquire);
-        T val = x;
         for (;;) {
             auto& slot = slots[idx(h)];
             if (slot.mark.load(std::memory_order_acquire) ==
                 last_turn_read(h)) {
                 if (head.compare_exchange_strong(h, h + 1)) {
-                    slot.x = val;
+                    slot.x = x;
                     slot.mark.store(this_turn_write(h),
                                     std::memory_order_release);
                     return true;
@@ -193,10 +190,9 @@ public:
             if (slot.mark.load(std::memory_order_acquire) ==
                 this_turn_write(t)) {
                 if (tail.compare_exchange_strong(t, t + 1)) {
-                    T ret = slot.x;
+                    x = slot.x;
                     slot.mark.store(this_turn_read(t),
                                     std::memory_order_release);
-                    x = ret;
                     return true;
                 }
             } else {
@@ -211,7 +207,7 @@ public:
     }
 
     template <typename Pause = ThreadPause>
-    void send(T x) {
+    void send(const T&  x) {
         static_assert(std::is_base_of<PauseBase, Pause>::value,
                       "Pause should be derived by PauseBase");
         auto const h = head.fetch_add(1);
@@ -250,7 +246,7 @@ public:
     using Base::empty;
     using Base::full;
 
-    bool push(T x) {
+    bool push(const T&  x) {
         auto t = tail.load(std::memory_order_acquire);
         if (EASE_UNLIKELY(Base::check_full(head, t))) return false;
         slots[idx(t)] = x;
@@ -261,9 +257,8 @@ public:
     bool pop(T& x) {
         auto h = head.load(std::memory_order_acquire);
         if (EASE_UNLIKELY(Base::check_empty(h, tail))) return false;
-        T const ret = slots[idx(h)];
+        x = slots[idx(h)];
         head.store(h + 1, std::memory_order_release);
-        x = ret;
         return true;
     }
 
