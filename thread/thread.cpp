@@ -417,9 +417,10 @@ namespace photon
         size_t randomizer = (rand() % 32) * (1024 + 8);
         stack_size =
             align_up(randomizer + stack_size + sizeof(thread), PAGE_SIZE);
-        auto ptr = (char*)aligned_alloc(PAGE_SIZE, stack_size);
-        if (!ptr)
-            LOG_ERROR_RETURN(0, nullptr, "Failed to allocate photon stack!");
+        char* ptr = nullptr;
+        int err = posix_memalign((void**)&ptr, PAGE_SIZE, stack_size);
+        if (err)
+            LOG_ERROR_RETURN(err, nullptr, "Failed to allocate photon stack! ", ERRNO(err));
         auto p = ptr + stack_size - sizeof(thread) - randomizer;
         (uint64_t&)p &= ~63;
         auto th = new (p) thread;
