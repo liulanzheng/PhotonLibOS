@@ -12,4 +12,32 @@ targets = {
             '-lphoton',
         ],
     ),
+    'rpc-example-client': cpp_program(
+        incs=[],
+        srcs=[
+            'rpc/client.cpp',
+            'rpc/client_main.cpp',
+        ],
+        static_deps=[
+            'gtest-1.7.0:gtest',
+            'gflags-2.1.2',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+    ),
+    'rpc-example-server': cpp_program(
+        incs=[],
+        srcs=[
+            'rpc/server.cpp',
+            'rpc/server_main.cpp',
+        ],
+        static_deps=[
+            'gtest-1.7.0:gtest',
+            'gflags-2.1.2',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+    ),
 }
