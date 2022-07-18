@@ -1737,7 +1737,7 @@ TEST(ExpireContainer, refresh) {
     expire.insert(key2, 1, true);
     photon::thread_usleep(900 * 1000);
     expire.expire();
-    expire.refresh(it->get()); 
+    expire.refresh(it->get());
     photon::thread_usleep(900 * 1000);
     expire.expire();
     EXPECT_NE(expire.end(), expire.find(key));
