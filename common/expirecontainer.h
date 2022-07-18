@@ -187,6 +187,12 @@ public:
         enqueue(item);
         return pr.first;
     }
+
+    void refresh(Item* item) {
+        DEFER(expire());
+        photon::scoped_lock _(_mtx);
+        enqueue(item);
+    }
 };
 
 // a set / list like structure
