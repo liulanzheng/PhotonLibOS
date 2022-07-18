@@ -214,9 +214,6 @@ protected:
     using Base = ExpireContainerBase;
     using Base::Base;
     using Base::KeyedItem;
-    // using Base::iterator;
-    // using Base::begin;
-    // using Base::end;
 
     class Item : public Base::Item {
     public:
