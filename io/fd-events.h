@@ -49,8 +49,7 @@ public:
 
     /**
      * @brief Wait for events, and fire them by photon::thread_interrupt()
-     * @param timeout The *maximum* amount of time to sleep. The sleep can be interrupted by invoking
-     *        wait_and_fire_events(-1) from another vcpu thread, and get -1 && errno == EINTR.
+     * @param timeout The *maximum* amount of time to sleep.
      * @return 0 if slept well, or -1 if error occurred.
      * @warning Do NOT invoke photon::usleep() or photon::sleep() in this function, because their
      *          implementations also rely on this function.
@@ -101,13 +100,13 @@ public:
 MasterEventEngine* new_epoll_master_engine();
 MasterEventEngine* new_select_master_engine();
 MasterEventEngine* new_iouring_master_engine();
-// MasterEventEngine* new_kqueue_master_engine();
+MasterEventEngine* new_kqueue_master_engine();
 // MasterEventEngine* new_iocp_master_engine();
 
 CascadingEventEngine* new_epoll_cascading_engine();
 CascadingEventEngine* new_select_cascading_engine();
 CascadingEventEngine* new_iouring_cascading_engine();
-// CascadingEventEngine* new_kqueue_cascading_engine();
+CascadingEventEngine* new_kqueue_cascading_engine();
 // CascadingEventEngine* new_iocp_cascading_engine();
 
 inline int fd_events_epoll_init() {
