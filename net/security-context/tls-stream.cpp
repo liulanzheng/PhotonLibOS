@@ -121,17 +121,14 @@ public:
     }
     int ssl_set_cert(const char* cert_str) {
         char errbuf[4096];
-        if (cert_str) {
-            auto bio = BIO_new_mem_buf((void*)cert_str, -1);
-            DEFER(BIO_free(bio));
-            auto cert = PEM_read_bio_X509(bio, nullptr, nullptr, nullptr);
-            auto ret = SSL_CTX_use_certificate(ctx, cert);
-            if (ret != 1) {
-                ERR_error_string_n(ret, errbuf, sizeof(errbuf));
-                LOG_ERROR_RETURN(0, -1, errbuf);
-            }
-        } else
-            return -1;
+        auto bio = BIO_new_mem_buf((void*)cert_str, -1);
+        DEFER(BIO_free(bio));
+        auto cert = PEM_read_bio_X509(bio, nullptr, nullptr, nullptr);
+        auto ret = SSL_CTX_use_certificate(ctx, cert);
+        if (ret != 1) {
+            ERR_error_string_n(ret, errbuf, sizeof(errbuf));
+            LOG_ERROR_RETURN(0, -1, errbuf);
+        }
         return 0;
     }
     int ssl_set_pkey(const char* key_str, const char* passphrase) {
@@ -141,23 +138,20 @@ public:
             SSL_CTX_set_default_passwd_cb_userdata(ctx, this);
             set_pass_phrase(passphrase);
         }
-        if (key_str) {
-            auto bio = BIO_new_mem_buf((void*)key_str, -1);
-            DEFER(BIO_free(bio));
-            auto key = PEM_read_bio_RSAPrivateKey(bio, nullptr,
-                                                  &pem_password_cb, this);
-            auto ret = SSL_CTX_use_RSAPrivateKey(ctx, key);
-            if (ret != 1) {
-                ERR_error_string_n(ret, errbuf, sizeof(errbuf));
-                LOG_ERROR_RETURN(0, -1, errbuf);
-            }
-            ret = SSL_CTX_check_private_key(ctx);
-            if (ret != 1) {
-                ERR_error_string_n(ret, errbuf, sizeof(errbuf));
-                LOG_ERROR_RETURN(0, -1, errbuf);
-            }
-        } else
-            return -1;
+        auto bio = BIO_new_mem_buf((void*)key_str, -1);
+        DEFER(BIO_free(bio));
+        auto key = PEM_read_bio_RSAPrivateKey(bio, nullptr,
+                                              &pem_password_cb, this);
+        auto ret = SSL_CTX_use_RSAPrivateKey(ctx, key);
+        if (ret != 1) {
+            ERR_error_string_n(ret, errbuf, sizeof(errbuf));
+            LOG_ERROR_RETURN(0, -1, errbuf);
+        }
+        ret = SSL_CTX_check_private_key(ctx);
+        if (ret != 1) {
+            ERR_error_string_n(ret, errbuf, sizeof(errbuf));
+            LOG_ERROR_RETURN(0, -1, errbuf);
+        }
         return 0;
     }
 };
@@ -169,11 +163,11 @@ TLSContext* new_tls_context(const char* cert_str, const char* key_str,
         delete ret;
         LOG_ERROR_RETURN(0, nullptr, "Failed to create TLS context");
     }
-    if (ret->ssl_set_cert(cert_str)) {
+    if (cert_str && ret->ssl_set_cert(cert_str)) {
         delete ret;
         LOG_ERROR_RETURN(0, nullptr, "Failed to set TLS cert");
     };
-    if (ret->ssl_set_pkey(key_str, passphrase)) {
+    if (key_str && ret->ssl_set_pkey(key_str, passphrase)) {
         delete ret;
         LOG_ERROR_RETURN(0, nullptr, "Failed to set TLS pkey");
     }

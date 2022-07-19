@@ -22,16 +22,16 @@ limitations under the License.
 #include <photon/io/fd-events.h>
 #include <photon/thread/thread11.h>
 #include <photon/net/socket.h>
-#include <photon/net/tlssocket.h>
 #include <photon/net/curl.h>
 #include <photon/net/utils.h>
+#include <photon/net/security-context/tls-stream.h>
 
 #define protected public
 #define private public
 #include "../kernel_socket.cpp"
-#include "../tlssocket.cpp"
 #undef protected
 #undef private
+#include "cert-key.cpp"
 
 using namespace photon;
 using namespace net;
@@ -487,15 +487,15 @@ TEST(TCPServer, listen_twice) {
 }
 
 TEST(TLSSocket, basic) {
-    int ret;
-    ret = net::ssl_init("net/test/cert.pem", "net/test/key.pem", "Just4Test");
-    ASSERT_EQ(ret, 0);
-    DEFER({ net::ssl_fini(); });
-
     photon::condition_variable recved;
 
-    auto server = net::new_tls_socket_server();
+    auto ctx = net::new_tls_context(cert_str, key_str, passphrase_str);
+    ASSERT_NE(ctx, nullptr);
+    DEFER(net::delete_tls_context(ctx));
+
+    auto server = net::new_tls_server(ctx, net::new_tcp_socket_server(), true);
     DEFER(delete server);
+
     server->bind(31524, net::IPAddr());
     server->timeout(10UL * 1024 * 1024);
 
@@ -510,10 +510,10 @@ TEST(TLSSocket, basic) {
         return 0;
     };
     server->set_handler(logHandle);
-    ret = server->listen();
+    int ret = server->listen();
     EXPECT_EQ(0, ret);
     server->start_loop();
-    auto cli = new_tls_socket_client();
+    auto cli = net::new_tls_client(ctx, net::new_tcp_socket_client(), true);
     DEFER(delete cli);
     cli->timeout(10 * 1024 * 1024);
     auto sock = cli->connect(net::EndPoint{net::IPAddr("127.0.0.1"), 31524});

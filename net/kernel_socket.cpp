@@ -38,7 +38,6 @@ limitations under the License.
 #include <photon/common/utility.h>
 #include <photon/common/event-loop.h>
 #include <photon/net/basic_socket.h>
-#include <photon/net/tlssocket.h>
 #include <photon/net/utils.h>
 #include <photon/net/zerocopy.h>
 
