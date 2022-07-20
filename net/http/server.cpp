@@ -623,6 +623,8 @@ public:
             HTTPServerRequestImpl req;
             auto ec = req.get_req(stream);
             if (ec) {
+                if (ec == BeastError::end_of_stream)
+                    return -1;
                 LOG_ERRNO_RETURN(0, -1, ec.message());
             }
             LOG_DEBUG("Request Accepted", VALUE(req.GetMethod()), VALUE(req.GetTarget()), VALUE(req.Find("Authorization")));
