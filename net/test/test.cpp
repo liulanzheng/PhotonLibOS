@@ -502,11 +502,10 @@ TEST(TLSSocket, basic) {
     auto logHandle = [&](ISocketStream* sock) {
         char buff[4096];
         ssize_t len;
-        while ((len = sock->recv(buff, 4096)) >= 0) {
-            EXPECT_EQ(6, len);
-            LOG_DEBUG(ALogString(buff, len));
-            recved.notify_all();
-        }
+        len = sock->read(buff, 6);
+        EXPECT_EQ(6, len);
+        LOG_DEBUG(ALogString(buff, len));
+        recved.notify_all();
         return 0;
     };
     server->set_handler(logHandle);
