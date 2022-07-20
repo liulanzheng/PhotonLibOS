@@ -86,6 +86,115 @@ TEST(basic, test) {
     client_test(stream, ctx);
 }
 
+int close_test_handler_during_read(void* arg, net::ISocketStream* stream) {
+    auto* ctx = (net::TLSContext*)arg;
+    char buf[6];
+    char buffer[1048576];
+    auto ss = net::new_tls_stream(ctx, stream,
+                                       net::SecurityRole::Server, false);
+    DEFER(delete ss);
+    LOG_INFO("BEFORE READ");
+    auto ret = ss->read(buf, 6);
+    LOG_INFO("AFTER READ");
+    // since client will shutdown, return value should be 0
+    EXPECT_EQ(0, ret);
+    LOG_INFO(VALUE(buf));
+    LOG_INFO("BEFORE WRITE");
+    ss->write(buffer, 1048576);
+    LOG_INFO("AFTER WRITE");
+    sem.signal(1);
+    return 0;
+}
+
+int close_test_handler_during_write(void* arg, net::ISocketStream* stream) {
+    auto* ctx = (net::TLSContext*)arg;
+    char buf[6];
+    char buffer[1048576];
+    auto ss = net::new_tls_stream(ctx, stream,
+                                       net::SecurityRole::Server, false);
+    DEFER(delete ss);
+    LOG_INFO("BEFORE READ");
+    auto ret = ss->read(buf, 6);
+    LOG_INFO("AFTER READ");
+    EXPECT_EQ(6, ret);
+    LOG_INFO(VALUE(buf));
+    LOG_INFO("BEFORE WRITE");
+    ss->write(buffer, 1048576);
+    LOG_INFO("AFTER WRITE");
+    sem.signal(1);
+    return 0;
+}
+
+void close_sending_client_test(net::ISocketStream* stream, net::TLSContext* ctx) {
+    auto ss = net::new_tls_stream(ctx, stream,
+                                       net::SecurityRole::Client, false);
+    char buf[] = "Hello";
+    ss->write(buf, 3);
+    delete ss;
+    stream->close();
+    sem.wait(1);
+}
+
+void close_reading_client_test(net::ISocketStream* stream, net::TLSContext* ctx) {
+    auto ss = net::new_tls_stream(ctx, stream,
+                                       net::SecurityRole::Client, false);
+    char buf[] = "Hello";
+    auto ret = ss->write(buf, 6);
+    EXPECT_EQ(6, ret);
+    char b[4096];
+    size_t rx = 0;
+    for (int i = 0; i < 100; i++) {
+        rx += ss->read(b, 4096);
+    }
+    EXPECT_EQ(409600UL, rx);
+    delete ss;
+    stream->close();
+    sem.wait(1);}
+
+TEST(basic, socket_close_in_read) {
+    auto ctx = net::new_tls_context(cert_str, key_str, passphrase_str);
+    DEFER(net::delete_tls_context(ctx));
+    DEFER(photon::wait_all());
+    auto server = net::new_tcp_socket_server();
+    DEFER(delete server);
+    auto client = net::new_tcp_socket_client();
+    DEFER(delete client);
+    ASSERT_EQ(0, server->bind(0, net::IPAddr("127.0.0.1")));
+    ASSERT_EQ(0, server->listen());
+    auto ep = server->getsockname();
+    LOG_INFO(VALUE(ep));
+    ASSERT_EQ(0, server->start_loop(false));
+    photon::thread_yield();
+    server->set_handler({close_test_handler_during_read, ctx});
+    auto stream = client->connect(ep);
+    ASSERT_NE(nullptr, stream);
+    DEFER(delete stream);
+
+    close_sending_client_test(stream, ctx);
+}
+
+TEST(basic, socket_close_in_write) {
+    auto ctx = net::new_tls_context(cert_str, key_str, passphrase_str);
+    DEFER(net::delete_tls_context(ctx));
+    DEFER(photon::wait_all());
+    auto server = net::new_tcp_socket_server();
+    DEFER(delete server);
+    auto client = net::new_tcp_socket_client();
+    DEFER(delete client);
+    ASSERT_EQ(0, server->bind(0, net::IPAddr("127.0.0.1")));
+    ASSERT_EQ(0, server->listen());
+    auto ep = server->getsockname();
+    LOG_INFO(VALUE(ep));
+    ASSERT_EQ(0, server->start_loop(false));
+    photon::thread_yield();
+    server->set_handler({close_test_handler_during_write, ctx});
+    auto stream = client->connect(ep);
+    ASSERT_NE(nullptr, stream);
+    DEFER(delete stream);
+
+    close_reading_client_test(stream, ctx);
+}
+
 TEST(basic, uds) {
     auto ctx = net::new_tls_context(cert_str, key_str, passphrase_str);
     DEFER(net::delete_tls_context(ctx));

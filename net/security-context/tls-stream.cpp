@@ -158,6 +158,7 @@ public:
 
 TLSContext* new_tls_context(const char* cert_str, const char* key_str,
                             const char* passphrase) {
+    GlobalSSLContext::getInstance();
     auto ret = new TLSContext();
     if (ret->ctx == NULL) {
         delete ret;
@@ -196,6 +197,9 @@ public:
     ~TLSSocketStream() {
         SSL_free(ssl);
     }
+
+    // dump all wbio buffer to socket
+    // return failure if write failed
     int do_write() {
         char* buf;
         BUF_MEM* bufptr;
@@ -214,44 +218,57 @@ public:
         return n;
     }
 
+    // recv from socket and put into rbio
     int do_read() {
         char buf[BUFFER_SIZE];
         int ret, n;
-        if (BIO_eof(rbio)) {
-            n = m_underlay->recv(buf, BUFFER_SIZE);
-            ERRNO err;
-            if (n > 0) {
-                ret = BIO_write(rbio, buf, n);
-                if (ret < 0) {
-                    char errbuf[MAX_ERRSTRING_SIZE];
-                    auto e = SSL_get_error(ssl, ret);
-                    ERR_error_string_n(e, errbuf, MAX_ERRSTRING_SIZE);
-                    LOG_ERROR_RETURN(ECONNRESET, ret, errbuf);
-                }
-            } else {
-                return n;
+        n = m_underlay->recv(buf, BUFFER_SIZE);
+        if (n > 0) {
+            ret = BIO_write(rbio, buf, n);
+            if (ret < 0) {
+                char errbuf[MAX_ERRSTRING_SIZE];
+                auto e = SSL_get_error(ssl, ret);
+                ERR_error_string_n(e, errbuf, MAX_ERRSTRING_SIZE);
+                LOG_ERROR_RETURN(ECONNRESET, ret, errbuf);
             }
-        };
-        return 0;
+        }
+        return n;
     }
 
     template <typename Action>
     int do_io_action(Action&& action) {
         int ret;
         while (1) {
+            // read or write to buffered bio
             ret = action(ssl);
-            if (do_write() < 0) return -1;
+            // flush all writable content
+            // always keep wbio clean
+            int wret;
+            do {
+                wret = do_write();
+            } while (wret > 0);
+            // return failure if flush failed
+            if (wret < 0) return -1;
+            
             if (ret >= 0) {
+                // succeed
+                // if operation is write, 
                 return ret;
             } else {
                 auto e = SSL_get_error(ssl, ret);
                 switch (e) {
                     case SSL_ERROR_WANT_WRITE:
+                        // since alread flushed
+                        // just go another round
+                        break;
                     case SSL_ERROR_WANT_READ:
+                        // need to read more into rbio
                         ret = do_read();
-                        if (ret < 0) return ret;
+                        // if closed or failed, return failure
+                        if (ret <= 0) return ret;
                         break;
                     default:
+                        // other error, return failure
                         return ret;
                 }
             }
