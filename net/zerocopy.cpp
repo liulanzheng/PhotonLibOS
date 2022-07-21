@@ -83,11 +83,11 @@ public:
 
 };
 
-thread_local static ErrQueueEventLoop * g_eqloop;
+thread_local static ErrQueueEventLoop * g_eqloop = nullptr;
 
 int zerocopy_init() {
     if (!zerocopy_available()) {
-        return -1;
+        LOG_ERRNO_RETURN(0, -1, "zerocopy not available");
     }
     g_eqloop = new ErrQueueEventLoop();
     if (!g_eqloop)
