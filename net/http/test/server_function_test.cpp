@@ -211,6 +211,38 @@ TEST(http_server, proxy_handler) {
     EXPECT_EQ(true, data_buf == std_data);
 }
 
+RetType failure_director(void*, HTTPServerRequest& req) {
+    req.Insert("proxy_server_test", "just4test");
+    req.SetTarget("/filename_not_important");
+    req.Erase("Host");
+    req.Insert("Host", "wtf.nothing.exists");
+    return RetType::success;
+}
+
+TEST(http_server, proxy_handler_failure) {
+    //------------------------------------------
+    auto client = new_http_client();
+    DEFER(delete client);
+    //--------start proxy server ------------
+    auto client_proxy = new_http_client();
+    DEFER(delete client_proxy);
+    client_proxy->timeout_ms(500);
+    auto proxy_server = new_http_server(19876);
+    DEFER(delete proxy_server);
+    auto proxy_handler = new_reverse_proxy_handler({nullptr, &test_director},
+                                                   {nullptr, &test_modifier},
+                                                   client_proxy);
+    proxy_server->SetHandler(proxy_handler->GetHandler());
+    EXPECT_EQ(true, proxy_server->Launch());
+    DEFER(proxy_server->Stop());
+    //----------------------------------------------------
+    auto op = client->new_operation(Verb::GET, "localhost:19876/filename");
+    DEFER(delete op);
+    auto ret = op->call();
+    EXPECT_EQ(0, ret);
+    EXPECT_EQ(502, op->resp.status_code());
+}
+
 TEST(http_server, mux_handler) {
     system(std::string("mkdir -p /tmp/ease_ut/http_server/").c_str());
     system(std::string("touch /tmp/ease_ut/http_server/fs_handler_test").c_str());

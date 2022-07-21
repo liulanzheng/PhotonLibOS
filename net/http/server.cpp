@@ -821,6 +821,10 @@ public:
         }
         if (op->call() != 0) {
             ret = RetType::failed;
+            resp.SetResult(502);
+            resp.ContentLength(0);
+            resp.KeepAlive(false);
+            resp.Done();
             LOG_ERROR_RETURN(0, RetType::failed, "http call failed");
         }
         resp.SetResult(op->resp.status_code());
