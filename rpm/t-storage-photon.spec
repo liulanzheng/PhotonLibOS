@@ -5,7 +5,7 @@
 # http://www.rpm.org/max-rpm/ch-rpm-inside.html              #
 ##############################################################
 Name: t-storage-photon
-Version:1.0.1
+Version:1.0.2
 Release: %{_rpm_release}%{?dist}
 Summary: Photon library
 Group: alibaba/library
