@@ -147,8 +147,7 @@ namespace photon
      * @brief Migrate a READY state thread to another vcpu
      *
      * @param th photon thead
-     * @param vcpu target vcpu ptr, if `vcpu` is nullptr, th will be migrated to
-     * unspecified vcpu
+     * @param vcpu target vcpu
      * @return int 0 for success and -1 for failure
      */
     int thread_migrate(thread* th, vcpu_base* vcpu);

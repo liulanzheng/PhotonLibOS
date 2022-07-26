@@ -377,7 +377,7 @@ namespace photon
     // Since thread may be moved from one vcpu to another
     // thread local CURRENT *** MUST *** re-load before cleanup
     // We found that in GCC ,compile with -O3 may leads compiler
-    // load CURRENT address only once, that will leads improper result 
+    // load CURRENT address only once, that will leads improper result
     // to ready list after thread migration.
     // Here seperate a standalone function threqad_stub_cleanup, and forbidden
     // inline optimization for it, to make sure load CURRENT again before clean up
@@ -1300,6 +1300,7 @@ namespace photon
         return 0;
     }
 
+    inline uint64_t min(uint64_t a, uint64_t b) { return (a<b) ? a : b; }
     class NullEventEngine : public MasterEventEngine {
     public:
         std::mutex _mutex;
@@ -1316,7 +1317,7 @@ namespace photon
         ssize_t wait_and_fire_events(uint64_t timeout = -1) override {
             DEFER(notify.store(false, std::memory_order_release));
             if (!timeout) return 0;
-            timeout = std::min(timeout, 1000 * 100UL);
+            timeout = min(timeout, 1000 * 100UL);
             std::unique_lock<std::mutex> lock(_mutex);
             if (notify.load(std::memory_order_acquire)) {
                 return 0;
@@ -1375,7 +1376,7 @@ namespace photon
             auto usec = max;
             auto& sleepq = vcpu->sleepq;
             if (!sleepq.empty())
-                usec = std::min(usec,
+                usec = min(usec,
                     sat_sub(sleepq.front()->ts_wakeup, now));
             last_idle = now;
             vcpu->master_event_engine->wait_and_fire_events(usec);
@@ -1404,20 +1405,47 @@ namespace photon
 
     static std::atomic<uint32_t> _n_vcpu{0};
 
-    int thread_migrate(photon::thread* th, vcpu_base* v) {
-        if (th->state != READY) {
+    struct migrate_args {thread* th; vcpu_base* v;};
+    static int do_thread_migrate(thread* th, vcpu_base* v);
+    static void do_defer_migrate(void* m_) {
+        auto m = (migrate_args*)m_;
+        do_thread_migrate(m->th, m->v);
+    }
+    static int defer_migrate(thread* th, vcpu_base* v) {
+        assert(th == CURRENT);
+        assert(!th->single());
+        thread* next = th->next();
+        prefetch_context(th, next);
+        migrate_args defer_arg{th, v};
+        th->state = states::READY;
+        switch_context_defer(th, next,
+            &do_defer_migrate, &defer_arg);
+        return 0;
+    }
+    int thread_migrate(thread* th, vcpu_base* v) {
+        if (v == nullptr) {
             LOG_ERROR_RETURN(EINVAL, -1,
-                             "Try to migrate thread `, which is not ready.", th)
+                "target vcpu must be specified")
+        }
+        if (v == CURRENT->vcpu) {
+            LOG_ERROR_RETURN(EINVAL, -1,
+                "should migrate to another vpuc")
+        }
+        if (th == CURRENT) {
+            return defer_migrate(th, v);
         }
         if (th->vcpu != CURRENT->vcpu) {
-            LOG_ERROR_RETURN(
-                EINVAL, -1,
+            LOG_ERROR_RETURN(EINVAL, -1,
                 "Try to migrate thread `, which is not on current vcpu.", th)
         }
-        if (v == nullptr) {
-            v = &vcpus[(th->vcpu - &vcpus[0] + 1) % _n_vcpu];
+        if (th->state != READY) {
+            LOG_ERROR_RETURN(EINVAL, -1,
+                "Try to migrate thread `, which is not ready.", th)
         }
-        if (v == th->vcpu) return 0;
+        return do_thread_migrate(th, v);
+    }
+    static int do_thread_migrate(thread* th, vcpu_base* v) {
+        assert(v != th->vcpu);
         auto vc = (vcpu_t*)v;
         th->vcpu->nthreads--;
         vc->nthreads++;
