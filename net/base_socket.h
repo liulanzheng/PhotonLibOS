@@ -24,20 +24,15 @@ Internal header provides abstract socket base class
 
 #include <photon/net/socket.h>
 
-#define UNIMPLEMENTED(method)                                   \
-    virtual method override {                                   \
-        LOG_ERROR_RETURN(ENOSYS, -1, #method " unimplemented"); \
+#define __UNIMPLEMENTED__(method, ret)  \
+    virtual method override {           \
+        errno = ENOSYS;                 \
+        return ret;                     \
     }
 
-#define UNIMPLEMENTED_PTR(method)                                    \
-    virtual method override {                                        \
-        LOG_ERROR_RETURN(ENOSYS, nullptr, #method " unimplemented"); \
-    }
-
-#define UNIMPLEMENTED_VOID(method)                            \
-    virtual method override {                                 \
-        LOG_ERROR_RETURN(ENOSYS, , #method " unimplemented"); \
-    }
+#define UNIMPLEMENTED(method)      __UNIMPLEMENTED__(method, -1)
+#define UNIMPLEMENTED_PTR(method)  __UNIMPLEMENTED__(method, nullptr)
+#define UNIMPLEMENTED_VOID(method) __UNIMPLEMENTED__(method, )
 
 namespace photon {
 namespace net {
@@ -51,7 +46,7 @@ struct SocketOpt {
 
 class SockOptBuffer : public std::vector<SocketOpt> {
 protected:
-    static constexpr uint64_t BUFFERSIZE = 8192;
+    static constexpr uint64_t BUFFERSIZE = 4096;
     char buffer[BUFFERSIZE];
     char* ptr = buffer;
 
@@ -72,6 +67,16 @@ public:
                 return memcpy(val, x.opt_val, *len = x.opt_len), 0;
         return -1;
     }
+
+    int setsockopt(int fd) {
+        for (auto& opt : *this) {
+            if (::setsockopt(fd, opt.level, opt.opt_name, opt.opt_val, opt.opt_len) != 0) {
+                LOG_ERRNO_RETURN(EINVAL, -1, "Failed to setsockopt ",
+                                 VALUE(opt.level), VALUE(opt.opt_name), VALUE(opt.opt_val));
+            }
+        }
+        return 0;
+    }
 };
 
 class SocketClientBase : public ISocketClient {
@@ -88,10 +93,7 @@ public:
 
     void timeout(uint64_t tm) override { m_timeout = tm; }
 
-    Object* get_underlay_object(uint64_t recursion = 0) override {
-        errno = ENOSYS;
-        return nullptr;
-    }
+    UNIMPLEMENTED_PTR(Object* get_underlay_object(uint64_t recursion = 0))
 
 protected:
     uint64_t m_timeout = -1;
@@ -100,18 +102,12 @@ protected:
 
 class SocketServerBase : public ISocketServer {
 public:
-    int setsockopt(int level, int option_name, const void* option_value, socklen_t option_len) override {
-        return m_opts.put_opt(level, option_name, option_value, option_len);
-    }
-
-    int getsockopt(int level, int option_name, void* option_value, socklen_t* option_len) override {
-        return m_opts.get_opt(level, option_name, option_value, option_len);
-    }
-
     uint64_t timeout() const override { return m_timeout; }
 
     void timeout(uint64_t tm) override { m_timeout = tm; }
 
+    UNIMPLEMENTED(int setsockopt(int level, int option_name, const void* option_value, socklen_t option_len))
+    UNIMPLEMENTED(int getsockopt(int level, int option_name, void* option_value, socklen_t* option_len))
     UNIMPLEMENTED(int getsockname(EndPoint& addr))
     UNIMPLEMENTED(int getsockname(char* path, size_t count))
     UNIMPLEMENTED(int getpeername(EndPoint& addr))
@@ -147,11 +143,7 @@ public:
     void timeout(uint64_t tm) override { m_underlay->timeout(tm); }
 
     Object* get_underlay_object(uint64_t recursion = 0) override {
-        if (recursion == 0) {
-            return m_underlay;
-        } else {
-            return m_underlay->get_underlay_object(recursion - 1);
-        }
+        return (recursion == 0) ? m_underlay : m_underlay->get_underlay_object(recursion - 1);
     }
 
 protected:
@@ -194,11 +186,7 @@ public:
     }
 
     Object* get_underlay_object(uint64_t recursion = 0) override {
-        if (recursion == 0) {
-            return m_underlay;
-        } else {
-            return m_underlay->get_underlay_object(recursion - 1);
-        }
+        return (recursion == 0) ? m_underlay : m_underlay->get_underlay_object(recursion - 1);
     }
 
     int bind(uint16_t port, IPAddr addr) override {
@@ -293,11 +281,7 @@ public:
     void timeout(uint64_t tm) override { m_underlay->timeout(tm); }
 
     Object* get_underlay_object(uint64_t recursion = 0) override {
-        if (recursion == 0) {
-            return m_underlay;
-        } else {
-            return m_underlay->get_underlay_object(recursion - 1);
-        }
+        return (recursion == 0) ? m_underlay : m_underlay->get_underlay_object(recursion - 1);
     }
 
 protected:

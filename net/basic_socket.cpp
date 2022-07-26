@@ -27,6 +27,7 @@ limitations under the License.
 #endif
 #include <sys/uio.h>
 #include <photon/io/fd-events.h>
+#include <photon/net/socket.h>
 #include <photon/thread/thread.h>
 #include <photon/common/iovector.h>
 #include <photon/common/utility.h>
@@ -194,5 +195,18 @@ ssize_t write_n(int fd, const void *buf, size_t count, uint64_t timeout) {
 ssize_t writev_n(int fd, struct iovec *iov, int iovcnt, uint64_t timeout) {
     return sendv_n(fd, iov, iovcnt, 0, timeout);
 }
+
+bool ISocketStream::skip_read(size_t count) {
+    if (!count) return true;
+    while(count) {
+        static char buf[1024];
+        size_t len = count < sizeof(buf) ? count : sizeof(buf);
+        ssize_t ret = read(buf, len);
+        if (ret < (ssize_t)len) return false;
+        count -= len;
+    }
+    return true;
+}
+
 }  // namespace net
 }
