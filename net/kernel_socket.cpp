@@ -235,23 +235,24 @@ protected:
 
     ISocketStream* do_connect(const sockaddr* remote, const sockaddr* local, socklen_t addrlen) {
         auto stream = create_stream();
-        if (!stream || stream->fd < 0) {
+        std::unique_ptr<KernelSocketStream> ptr(stream);
+        if (!ptr || ptr->fd < 0) {
             LOG_ERROR_RETURN(0, nullptr, "Failed to create socket fd");
         }
-        if (m_opts.setsockopt(stream->fd) < 0) {
+        if (m_opts.setsockopt(ptr->fd) < 0) {
             return nullptr;
         }
-        stream->timeout(m_timeout);
+        ptr->timeout(m_timeout);
         if (local != nullptr) {
-            if (::bind(stream->fd, local, addrlen) != 0) {
+            if (::bind(ptr->fd, local, addrlen) != 0) {
                 LOG_ERRNO_RETURN(0, nullptr, "fail to bind socket");
             }
         }
-        auto ret = fd_connect(stream->fd, remote, addrlen);
+        auto ret = fd_connect(ptr->fd, remote, addrlen);
         if (ret < 0) {
             LOG_ERRNO_RETURN(0, nullptr, "Failed to connect socket");
         }
-        return stream;
+        return ptr.release();
     }
 };
 
@@ -279,7 +280,7 @@ public:
         m_listen_fd = -1;
     }
 
-    virtual int init() {
+    int init() {
         if (m_nonblocking) {
             m_listen_fd = net::socket(m_socket_family, SOCK_STREAM, 0);
         } else {
@@ -482,7 +483,7 @@ class ZeroCopySocketServer : public KernelSocketServer {
 public:
     using KernelSocketServer::KernelSocketServer;
 
-    int init() override {
+    int init() {
         if (KernelSocketServer::init() != 0) {
             return -1;
         }
@@ -788,7 +789,7 @@ public:
         if (m_listen_fd >= 0) etpoller.unregister_notifier(m_listen_fd);
     }
 
-    int init() override {
+    int init()  {
         if (KernelSocketServer::init() != 0) return -1;
         return etpoller.register_notifier(m_listen_fd, this);
     }
