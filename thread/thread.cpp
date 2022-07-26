@@ -1428,8 +1428,7 @@ namespace photon
                 "target vcpu must be specified")
         }
         if (v == CURRENT->vcpu) {
-            LOG_ERROR_RETURN(EINVAL, -1,
-                "should migrate to another vpuc")
+            return 0;
         }
         if (th == CURRENT) {
             return defer_migrate(th, v);
