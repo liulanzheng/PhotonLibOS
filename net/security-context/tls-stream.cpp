@@ -113,11 +113,11 @@ public:
         strncpy(buf, self->pempassword, size);
         return strlen(buf);
     }
-    ssize_t set_pass_phrase(const char* pass) override {
+    int set_pass_phrase(const char* pass) override {
         strncpy(pempassword, pass, sizeof(pempassword));
         return strlen(pempassword);
     }
-    int ssl_set_cert(const char* cert_str) override {
+    int set_cert(const char* cert_str) override {
         char errbuf[4096];
         auto bio = BIO_new_mem_buf((void*)cert_str, -1);
         DEFER(BIO_free(bio));
@@ -129,7 +129,7 @@ public:
         }
         return 0;
     }
-    int ssl_set_pkey(const char* key_str, const char* passphrase) override {
+    int set_pkey(const char* key_str, const char* passphrase) override {
         char errbuf[4096];
         if (passphrase) {
             SSL_CTX_set_default_passwd_cb(ctx, &pem_password_cb);
@@ -162,18 +162,16 @@ TLSContext* new_tls_context(const char* cert_str, const char* key_str,
         delete ret;
         LOG_ERROR_RETURN(0, nullptr, "Failed to create TLS context");
     }
-    if (cert_str && ret->ssl_set_cert(cert_str)) {
+    if (cert_str && ret->set_cert(cert_str)) {
         delete ret;
         LOG_ERROR_RETURN(0, nullptr, "Failed to set TLS cert");
     };
-    if (key_str && ret->ssl_set_pkey(key_str, passphrase)) {
+    if (key_str && ret->set_pkey(key_str, passphrase)) {
         delete ret;
         LOG_ERROR_RETURN(0, nullptr, "Failed to set TLS pkey");
     }
     return ret;
 }
-
-// void delete_tls_context(TLSContext* ctx) { delete ctx; }
 
 class TLSSocketStream : public ForwardSocketStream {
 public:
