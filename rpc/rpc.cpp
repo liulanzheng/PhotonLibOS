@@ -440,7 +440,6 @@ namespace rpc
         ~StubPoolImpl() {
             delete tcpclient;
             delete m_pool;
-            // delete tls_ctx;
             delete tls_ctx;
         }
 
