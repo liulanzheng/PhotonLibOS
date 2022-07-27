@@ -429,8 +429,6 @@ protected:
             if (!workth) return 0;
             if (sess) {
                 photon::thread_create11(&KernelSocketServer::handler, m_handler, sess);
-            } else {
-                photon::thread_usleep(1000);
             }
         }
         return 0;

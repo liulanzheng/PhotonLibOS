@@ -16,17 +16,19 @@ limitations under the License.
 
 #pragma once
 
-#include <photon/common/callback.h>
-#include <photon/common/tuple-assistance.h>
-
 #include <memory>
 #include <utility>
+#include <vector>
+
+#include <photon/thread/thread.h>
+#include <photon/common/callback.h>
+#include <photon/common/tuple-assistance.h>
 
 namespace photon {
 
 class WorkPool {
 public:
-    WorkPool(int thread_num, int ev_engine = 0, int io_engine = 0);
+    explicit WorkPool(int vcpu_num, int ev_engine = 0, int io_engine = 0);
 
     WorkPool(const WorkPool& other) = delete;
     WorkPool& operator=(const WorkPool& rhs) = delete;
@@ -68,6 +70,8 @@ public:
         };
         enqueue({func, task});
     }
+
+    std::vector<photon::vcpu_base*> get_vcpus() const;
 
 protected:
     class impl;  // does not depend on T

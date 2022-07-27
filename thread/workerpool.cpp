@@ -21,7 +21,6 @@ limitations under the License.
 #include <photon/thread/thread.h>
 
 #include <thread>
-#include <vector>
 
 namespace photon {
 
@@ -33,18 +32,20 @@ public:
     std::atomic<bool> stop;
     photon::semaphore queue_sem;
     LockfreeMPMCRingQueue<Delegate<void>, RING_SIZE> ring;
-    int th_num;
+    int m_vcpu_num;
+    std::vector<photon::vcpu_base*> m_vcpus;
 
-    impl(int thread_num, int ev_engine, int io_engine)
-        : stop(false), queue_sem(0), th_num(thread_num) {
-        for (int i = 0; i < thread_num; ++i)
-            workers.emplace_back(&WorkPool::impl::worker_thread_routine, this,
+    impl(int vcpu_num, int ev_engine, int io_engine)
+        : stop(false), queue_sem(0), m_vcpu_num(vcpu_num) {
+        m_vcpus.resize(vcpu_num);
+        for (int i = 0; i < vcpu_num; ++i)
+            workers.emplace_back(&WorkPool::impl::worker_thread_routine, this, i,
                                  ev_engine, io_engine);
     }
 
     ~impl() {
         stop = true;
-        queue_sem.signal(th_num);
+        queue_sem.signal(m_vcpu_num);
         for (auto& worker : workers) worker.join();
     }
 
@@ -65,9 +66,10 @@ public:
         sem.wait(1);
     }
 
-    void worker_thread_routine(int ev_engine, int io_engine) {
+    void worker_thread_routine(int index, int ev_engine, int io_engine) {
         photon::init(ev_engine, io_engine);
         DEFER(photon::fini());
+        m_vcpus[index] = photon::get_vcpu();
         for (;;) {
             Delegate<void> task;
             {
@@ -80,12 +82,16 @@ public:
     }
 };
 
-WorkPool::WorkPool(int thread_num, int ev_engine, int io_engine)
-    : pImpl(new impl(thread_num, ev_engine, io_engine)) {}
+WorkPool::WorkPool(int vcpu_num, int ev_engine, int io_engine)
+    : pImpl(new impl(vcpu_num, ev_engine, io_engine)) {}
 
 WorkPool::~WorkPool() {}
 
 void WorkPool::do_call(Delegate<void> call) { pImpl->do_call(call); }
 void WorkPool::enqueue(Delegate<void> call) { pImpl->enqueue(call); }
+
+std::vector<photon::vcpu_base*> WorkPool::get_vcpus() const {
+    return pImpl->m_vcpus;
+}
 
 }  // namespace photon
