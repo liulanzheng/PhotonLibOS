@@ -440,7 +440,8 @@ namespace rpc
         ~StubPoolImpl() {
             delete tcpclient;
             delete m_pool;
-            net::delete_tls_context(tls_ctx);
+            // delete tls_ctx;
+            delete tls_ctx;
         }
 
         Stub* get_stub(const net::EndPoint& endpoint, bool tls) override {

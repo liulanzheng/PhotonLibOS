@@ -89,12 +89,12 @@ public:
     }
 };
 
-class TLSContext {
+class TLSContextImpl : public TLSContext {
 public:
     SSL_CTX* ctx;
     char pempassword[MAX_PASSPHASE_SIZE];
 
-    TLSContext() {
+    TLSContextImpl() {
         char errbuf[4096];
         ctx = SSL_CTX_new(SSLv23_method());
         if (ctx == nullptr) {
@@ -104,20 +104,20 @@ public:
         }
     }
 
-    ~TLSContext() {
+    ~TLSContextImpl() override {
         if (ctx) SSL_CTX_free(ctx);
     }
 
     static int pem_password_cb(char* buf, int size, int rwflag, void* ptr) {
-        auto self = (TLSContext*)ptr;
+        auto self = (TLSContextImpl*)ptr;
         strncpy(buf, self->pempassword, size);
         return strlen(buf);
     }
-    ssize_t set_pass_phrase(const char* pass) {
+    ssize_t set_pass_phrase(const char* pass) override {
         strncpy(pempassword, pass, sizeof(pempassword));
         return strlen(pempassword);
     }
-    int ssl_set_cert(const char* cert_str) {
+    int ssl_set_cert(const char* cert_str) override {
         char errbuf[4096];
         auto bio = BIO_new_mem_buf((void*)cert_str, -1);
         DEFER(BIO_free(bio));
@@ -129,7 +129,7 @@ public:
         }
         return 0;
     }
-    int ssl_set_pkey(const char* key_str, const char* passphrase) {
+    int ssl_set_pkey(const char* key_str, const char* passphrase) override {
         char errbuf[4096];
         if (passphrase) {
             SSL_CTX_set_default_passwd_cb(ctx, &pem_password_cb);
@@ -157,7 +157,7 @@ public:
 TLSContext* new_tls_context(const char* cert_str, const char* key_str,
                             const char* passphrase) {
     GlobalSSLContext::getInstance();
-    auto ret = new TLSContext();
+    auto ret = new TLSContextImpl();
     if (ret->ctx == NULL) {
         delete ret;
         LOG_ERROR_RETURN(0, nullptr, "Failed to create TLS context");
@@ -173,7 +173,7 @@ TLSContext* new_tls_context(const char* cert_str, const char* key_str,
     return ret;
 }
 
-void delete_tls_context(TLSContext* ctx) { delete ctx; }
+// void delete_tls_context(TLSContext* ctx) { delete ctx; }
 
 class TLSSocketStream : public ForwardSocketStream {
 public:
@@ -237,7 +237,7 @@ public:
     TLSSocketStream(TLSContext* ctx, ISocketStream* stream, SecurityRole r,
                     bool ownership = false)
         : ForwardSocketStream(stream, ownership) {
-        ssl = SSL_new(ctx->ctx);
+        ssl = SSL_new(((TLSContextImpl*)ctx)->ctx);
         ssbio = BIO_new(BIO_s_sockstream());
         BIO_ctrl(ssbio, BIO_C_SET_FILE_PTR, 0, stream);
         SSL_set_bio(ssl, ssbio, ssbio);

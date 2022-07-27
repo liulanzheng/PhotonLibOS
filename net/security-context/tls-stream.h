@@ -17,6 +17,7 @@ limitations under the License.
 #pragma once
 
 #include <photon/common/object.h>
+#include <cstdlib>
 
 namespace photon {
 namespace net {
@@ -30,7 +31,11 @@ enum class SecurityRole {
     Server = 2,
 };
 
-class TLSContext;
+class TLSContext: public Object {
+    virtual ssize_t set_pass_phrase(const char* pass) = 0;
+    virtual int ssl_set_cert(const char* cert_str) = 0;
+    virtual int ssl_set_pkey(const char* key_str, const char* passphrase) = 0;
+};
 
 /**
  * @brief Create a tls context, contains cert and private key infomation.
@@ -42,13 +47,6 @@ class TLSContext;
  */
 TLSContext* new_tls_context(const char* cert_str, const char* key_str,
                             const char* passphrase = nullptr);
-
-/**
- * @brief Destruct and free a tls context.
- *
- * @param ctx
- */
-void delete_tls_context(TLSContext* ctx);
 
 /**
  * @brief Create socket stream on TLS.
