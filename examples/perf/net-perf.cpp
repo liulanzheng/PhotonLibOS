@@ -195,7 +195,7 @@ static int echo_server() {
     // Define handler for new connections (SocketStream)
     auto handler = [&](photon::net::ISocketStream* arg) -> int {
         if (FLAGS_vcpu_num > 1) {
-            work_pool->migrate_thread();
+            work_pool->thread_migrate();
         }
 
         AlignedAlloc alloc(512);
