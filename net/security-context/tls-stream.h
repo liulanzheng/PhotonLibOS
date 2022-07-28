@@ -90,15 +90,5 @@ ISocketServer* new_tls_server(TLSContext* ctx, ISocketServer* base,
 ISocketClient* new_tls_client(TLSContext* ctx, ISocketClient* base,
                               bool ownership = false);
 
-/**
- * @brief OpenSSLGLobalInit is a initialized procedure to load
- * openssl algorithms, operators and locks.
- *
- * NOTICE: this function do not need to be called by user, photon library will
- * call it when need to use OpenSSL. This function will only initialize libssl
- * once, call it multiple times will have no effect.
- */
-void __OpenSSLGlobalInit();
-
 }  // namespace net
 }  // namespace photon

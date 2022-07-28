@@ -200,6 +200,9 @@ __attribute__((constructor)) void global_init() {
     global_initialized = curl_global_init(CURL_GLOBAL_ALL);
 }
 
+// Fuction defined in tls-stream.
+void __OpenSSLGlobalInit();
+
 // Since global cleanup will cleanup openssl
 // it needs mutex_buf, which will be destructed before global fini
 // Considering destructor always called just before process exit
