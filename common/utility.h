@@ -18,7 +18,7 @@ limitations under the License.
 #include <cstdint>
 #include <cstddef>
 #include <type_traits>
-#include <string>
+// #include <string>
 
 #define _unused(x) ((void)(x))
 
@@ -283,13 +283,14 @@ public:
 	}
 */
 
-#define PHOTON_LIKELY(x) __builtin_expect(!!(x), 1)
-#define PHOTON_UNLIKELY(x) __builtin_expect(!!(x), 0)
+#ifndef likely
+#define likely(x) __builtin_expect(!!(x), 1)
+#endif
 
-namespace Utility {
+#ifndef unlikely
+#define unlikely(x) __builtin_expect(!!(x), 0)
+#endif
 
-int version_compare(const std::string& a, const std::string& b, int& result);
 
 void print_stacktrace();
 
-}

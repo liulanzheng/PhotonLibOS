@@ -293,6 +293,65 @@ namespace photon
         }
     };
 
+    inline void spin_wait() {
+#ifdef __aarch64__
+        asm volatile("isb" : : : "memory");
+#else
+        _mm_pause();
+#endif
+
+    }
+
+    // A special spinlock that distinguishes a foreground vCPU among
+    // background vCPUs, and makes the foreground as fast as possible.
+    // Generic spinlock uses atomic exchange to obtain the lock, which
+    // depends on bus lock and costs much CPU cycles than this design.
+    class asymmetric_spinLock {
+        std::atomic_bool foreground_locked {false},
+                         background_locked {false};
+
+        void wait_while(std::atomic_bool& x) {
+            while (unlikely(x.load(std::memory_order_acquire))) {
+                do { spin_wait(); }
+                while(likely(x.load(std::memory_order_relaxed)));
+            }
+        }
+
+    public:
+        void foreground_lock() {
+            // lock
+            foreground_locked.store(true, std::memory_order_release);
+
+            // wait if (unlikely) background locked
+            wait_while(background_locked);
+        }
+        bool background_try_lock() {
+            while(true) {
+                // wait if (unlikely) foreground locked
+                wait_while(foreground_locked);
+
+                // try lock
+                if (background_locked.exchange(true, std::memory_order_acquire))
+                    return false;   // avoid wait while holding the lock
+
+                // check to make sure it is still unlocked
+                if (likely(!foreground_locked.load(std::memory_order_acquire)))
+                    return true;
+
+                // otherwise release lock, wait, and repeat again
+                background_locked.store(false, std::memory_order_release);
+                spin_wait();
+            }
+            return true;
+        }
+        void foreground_unlock() {
+            foreground_locked.store(false, std::memory_order_release);
+        }
+        void background_unlock() {
+            background_locked.store(false, std::memory_order_release);
+        }
+    };
+
     struct vcpu_t : public vcpu_base
     {
         // standby queue stores the threads that are running, but not
@@ -1111,11 +1170,7 @@ namespace photon
     int spinlock::lock() {
         while (_lock.exchange(true, std::memory_order_acquire)) {
             while (_lock.load(std::memory_order_relaxed)) {
-#ifdef __aarch64__
-                asm volatile("isb" : : : "memory");
-#else
-                _mm_pause();
-#endif
+                spin_wait();
             }
         }
         return 0;
