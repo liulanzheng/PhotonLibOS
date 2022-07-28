@@ -89,7 +89,7 @@ public:
     }
 
     photon::vcpu_base *get_vcpu_in_pool(size_t index) {
-        if (index >= (size_t)m_vcpu_num) {
+        if (index >= m_vcpu_num) {
             index = gen() % m_vcpu_num;
         }
         return m_vcpus[index];
