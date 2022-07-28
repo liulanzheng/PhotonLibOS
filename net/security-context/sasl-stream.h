@@ -32,7 +32,7 @@ using Gsasl_prep_cb = Callback<Gsasl *, Gsasl_session *, Gsasl_property>;
 
 class SaslSession : public Object {
 public:
-    virtual void property_set(SaslSession *session, Gsasl_property prop, const char *data) = 0;
+    virtual void property_set(Gsasl_property prop, const char *data) = 0;
 };
 
 /**

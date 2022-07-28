@@ -64,8 +64,8 @@ class SaslSessionImpl : public SaslSession {
         }
     }
 
-    void property_set(SaslSession* session, Gsasl_property prop, const char *data) override {
-        gsasl_property_set(((SaslSessionImpl*)session)->session, prop, data);
+    void property_set(Gsasl_property prop, const char *data) override {
+        gsasl_property_set(session, prop, data);
     }
 
   private:
