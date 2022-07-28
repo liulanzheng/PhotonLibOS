@@ -56,7 +56,9 @@ class GlobalSSLContext : public Singleton<GlobalSSLContext> {
 public:
     std::vector<std::unique_ptr<photon::mutex>> mtx;
 
-    static unsigned long threadid_callback() { return (uint64_t)photon::get_vcpu(); }
+    static unsigned long threadid_callback() {
+        return (uint64_t)photon::get_vcpu();
+    }
 
     static void lock_callback(int mode, int n, const char* file, int line) {
         auto& ctx = getInstance();
@@ -136,7 +138,8 @@ public:
         }
         auto bio = BIO_new_mem_buf((void*)key_str, -1);
         DEFER(BIO_free(bio));
-        auto key = PEM_read_bio_RSAPrivateKey(bio, nullptr, &pem_password_cb, this);
+        auto key =
+            PEM_read_bio_RSAPrivateKey(bio, nullptr, &pem_password_cb, this);
         auto ret = SSL_CTX_use_RSAPrivateKey(ctx, key);
         if (ret != 1) {
             ERR_error_string_n(ret, errbuf, sizeof(errbuf));
@@ -153,7 +156,8 @@ public:
 
 void __OpenSSLGlobalInit() { (void)GlobalSSLContext::getInstance(); }
 
-TLSContext* new_tls_context(const char* cert_str, const char* key_str, const char* passphrase) {
+TLSContext* new_tls_context(const char* cert_str, const char* key_str,
+                            const char* passphrase) {
     __OpenSSLGlobalInit();
     auto ret = new TLSContextImpl();
     if (ret->ctx == NULL) {
@@ -199,17 +203,33 @@ public:
 
     static void BIO_meth_free(BIO_METHOD* bm) { delete bm; }
 
-    static void BIO_meth_set_write(BIO_METHOD* biom, int (*write)(BIO*, const char*, int)) { biom->bwrite = write; }
+    static void BIO_meth_set_write(BIO_METHOD* biom,
+                                   int (*write)(BIO*, const char*, int)) {
+        biom->bwrite = write;
+    }
 
-    static void BIO_meth_set_read(BIO_METHOD* biom, int (*read)(BIO*, char*, int)) { biom->bread = read; }
+    static void BIO_meth_set_read(BIO_METHOD* biom,
+                                  int (*read)(BIO*, char*, int)) {
+        biom->bread = read;
+    }
 
-    static void BIO_meth_set_puts(BIO_METHOD* biom, int (*puts)(BIO*, const char*)) { biom->bputs = puts; }
+    static void BIO_meth_set_puts(BIO_METHOD* biom,
+                                  int (*puts)(BIO*, const char*)) {
+        biom->bputs = puts;
+    }
 
-    static void BIO_meth_set_ctrl(BIO_METHOD* biom, long (*ctrl)(BIO*, int, long, void*)) { biom->ctrl = ctrl; }
+    static void BIO_meth_set_ctrl(BIO_METHOD* biom,
+                                  long (*ctrl)(BIO*, int, long, void*)) {
+        biom->ctrl = ctrl;
+    }
 
-    static void BIO_meth_set_create(BIO_METHOD* biom, int (*create)(BIO*)) { biom->create = create; }
+    static void BIO_meth_set_create(BIO_METHOD* biom, int (*create)(BIO*)) {
+        biom->create = create;
+    }
 
-    static void BIO_meth_set_destroy(BIO_METHOD* biom, int (*destroy)(BIO*)) { biom->destroy = destroy; }
+    static void BIO_meth_set_destroy(BIO_METHOD* biom, int (*destroy)(BIO*)) {
+        biom->destroy = destroy;
+    }
 
 #endif
 
@@ -230,13 +250,21 @@ public:
         return ret;
     }
 
-    static ISocketStream* get_bio_sockstream(BIO* b) { return (ISocketStream*)BIO_get_data(b); }
+    static ISocketStream* get_bio_sockstream(BIO* b) {
+        return (ISocketStream*)BIO_get_data(b);
+    }
 
-    static int ssbio_bwrite(BIO* b, const char* buf, int cnt) { return get_bio_sockstream(b)->write(buf, cnt); }
+    static int ssbio_bwrite(BIO* b, const char* buf, int cnt) {
+        return get_bio_sockstream(b)->write(buf, cnt);
+    }
 
-    static int ssbio_bread(BIO* b, char* buf, int cnt) { return get_bio_sockstream(b)->recv(buf, cnt); }
+    static int ssbio_bread(BIO* b, char* buf, int cnt) {
+        return get_bio_sockstream(b)->recv(buf, cnt);
+    }
 
-    static int ssbio_bputs(BIO* bio, const char* str) { return ssbio_bwrite(bio, str, strlen(str)); }
+    static int ssbio_bputs(BIO* bio, const char* str) {
+        return ssbio_bwrite(bio, str, strlen(str));
+    }
 
     static long ssbio_ctrl(BIO* b, int cmd, long num, void* ptr) {
         long ret = 1;
@@ -272,7 +300,8 @@ public:
 
     static int ssbio_destroy(BIO*) { return 1; }
 
-    TLSSocketStream(TLSContext* ctx, ISocketStream* stream, SecurityRole r, bool ownership = false)
+    TLSSocketStream(TLSContext* ctx, ISocketStream* stream, SecurityRole r,
+                    bool ownership = false)
         : ForwardSocketStream(stream, ownership) {
         ssl = SSL_new(((TLSContextImpl*)ctx)->ctx);
         ssbio = BIO_new(BIO_s_sockstream());
@@ -296,20 +325,25 @@ public:
         SSL_free(ssl);
     }
 
-    ssize_t recv(void* buf, size_t cnt, int flags = 0) override { return SSL_read(ssl, buf, cnt); }
+    ssize_t recv(void* buf, size_t cnt, int flags = 0) override {
+        return SSL_read(ssl, buf, cnt);
+    }
 
     ssize_t recv(const struct iovec* iov, int iovcnt, int flags = 0) override {
         // since recv allows partial read
         return recv(iov[0].iov_base, iov[0].iov_len);
     }
-    ssize_t send(const void* buf, size_t cnt, int flags = 0) override { return SSL_write(ssl, buf, cnt); }
+    ssize_t send(const void* buf, size_t cnt, int flags = 0) override {
+        return SSL_write(ssl, buf, cnt);
+    }
     ssize_t send(const struct iovec* iov, int iovcnt, int flags = 0) override {
         // since send allows partial write
         return send(iov[0].iov_base, iov[0].iov_len);
     }
 
     ssize_t write(const void* buf, size_t cnt) override {
-        return doio_n((void*&)buf, cnt, [&]() __INLINE__ { return send(buf, cnt); });
+        return doio_n((void*&)buf, cnt,
+                      [&]() __INLINE__ { return send(buf, cnt); });
     }
 
     ssize_t writev(const struct iovec* iov, int iovcnt) override {
@@ -320,7 +354,8 @@ public:
     }
 
     ssize_t read(void* buf, size_t cnt) override {
-        return doio_n((void*&)buf, cnt, [&]() __INLINE__ { return recv(buf, cnt); });
+        return doio_n((void*&)buf, cnt,
+                      [&]() __INLINE__ { return recv(buf, cnt); });
     }
 
     ssize_t readv(const struct iovec* iov, int iovcnt) override {
@@ -346,8 +381,11 @@ public:
     }
 };
 
-ISocketStream* new_tls_stream(TLSContext* ctx, ISocketStream* base, SecurityRole role, bool ownership) {
-    if (!ctx || !base) LOG_ERROR_RETURN(EINVAL, nullptr, "invalid parameters, ", VALUE(ctx), VALUE(base));
+ISocketStream* new_tls_stream(TLSContext* ctx, ISocketStream* base,
+                              SecurityRole role, bool ownership) {
+    if (!ctx || !base)
+        LOG_ERROR_RETURN(EINVAL, nullptr, "invalid parameters, ", VALUE(ctx),
+                         VALUE(base));
     LOG_DEBUG("New tls stream on ", VALUE(ctx), VALUE(base));
     return new TLSSocketStream(ctx, base, role, ownership);
 };
@@ -360,16 +398,22 @@ public:
         : ForwardSocketClient(underlay, ownership), ctx(ctx) {}
 
     virtual ISocketStream* connect(const char* path, size_t count) override {
-        return new_tls_stream(ctx, m_underlay->connect(path, count), SecurityRole::Client, true);
+        return new_tls_stream(ctx, m_underlay->connect(path, count),
+                              SecurityRole::Client, true);
     }
 
-    virtual ISocketStream* connect(EndPoint remote, EndPoint local = EndPoint()) override {
-        return new_tls_stream(ctx, m_underlay->connect(remote, local), SecurityRole::Client, true);
+    virtual ISocketStream* connect(EndPoint remote,
+                                   EndPoint local = EndPoint()) override {
+        return new_tls_stream(ctx, m_underlay->connect(remote, local),
+                              SecurityRole::Client, true);
     }
 };
 
-ISocketClient* new_tls_client(TLSContext* ctx, ISocketClient* base, bool ownership) {
-    if (!ctx || !base) LOG_ERROR_RETURN(EINVAL, nullptr, "invalid parameters, ", VALUE(ctx), VALUE(base));
+ISocketClient* new_tls_client(TLSContext* ctx, ISocketClient* base,
+                              bool ownership) {
+    if (!ctx || !base)
+        LOG_ERROR_RETURN(EINVAL, nullptr, "invalid parameters, ", VALUE(ctx),
+                         VALUE(base));
     return new TLSSocketClient(ctx, base, ownership);
 }
 
@@ -381,8 +425,10 @@ public:
     TLSSocketServer(TLSContext* ctx, ISocketServer* underlay, bool ownership)
         : ForwardSocketServer(underlay, ownership), ctx(ctx) {}
 
-    virtual ISocketStream* accept(EndPoint* remote_endpoint = nullptr) override {
-        return new_tls_stream(ctx, m_underlay->accept(remote_endpoint), SecurityRole::Server, true);
+    virtual ISocketStream* accept(
+        EndPoint* remote_endpoint = nullptr) override {
+        return new_tls_stream(ctx, m_underlay->accept(remote_endpoint),
+                              SecurityRole::Server, true);
     }
 
     int forwarding_handler(ISocketStream* stream) {
@@ -393,12 +439,16 @@ public:
 
     virtual ISocketServer* set_handler(Handler handler) override {
         m_handler = handler;
-        return m_underlay->set_handler({this, &TLSSocketServer::forwarding_handler});
+        return m_underlay->set_handler(
+            {this, &TLSSocketServer::forwarding_handler});
     }
 };
 
-ISocketServer* new_tls_server(TLSContext* ctx, ISocketServer* base, bool ownership) {
-    if (!ctx || !base) LOG_ERROR_RETURN(EINVAL, nullptr, "invalid parameters, ", VALUE(ctx), VALUE(base));
+ISocketServer* new_tls_server(TLSContext* ctx, ISocketServer* base,
+                              bool ownership) {
+    if (!ctx || !base)
+        LOG_ERROR_RETURN(EINVAL, nullptr, "invalid parameters, ", VALUE(ctx),
+                         VALUE(base));
     return new TLSSocketServer(ctx, base, ownership);
 }
 
