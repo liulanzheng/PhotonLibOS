@@ -16,19 +16,19 @@ limitations under the License.
 
 #pragma once
 
+#include <photon/common/callback.h>
+#include <photon/common/tuple-assistance.h>
+#include <photon/thread/thread11.h>
+
 #include <memory>
 #include <utility>
 #include <vector>
-
-#include <photon/thread/thread.h>
-#include <photon/common/callback.h>
-#include <photon/common/tuple-assistance.h>
 
 namespace photon {
 
 class WorkPool {
 public:
-    explicit WorkPool(int vcpu_num, int ev_engine = 0, int io_engine = 0);
+    explicit WorkPool(size_t vcpu_num, int ev_engine = 0, int io_engine = 0);
 
     WorkPool(const WorkPool& other) = delete;
     WorkPool& operator=(const WorkPool& rhs) = delete;
@@ -71,7 +71,15 @@ public:
         enqueue({func, task});
     }
 
-    std::vector<photon::vcpu_base*> get_vcpus() const;
+    int migrate_thread(photon::thread* th = CURRENT, size_t index = -1UL) {
+        return photon::thread_migrate(th, get_vcpu_in_pool(index));
+    }
+
+    template <typename... Args>
+    int create_thread(Args&&... args) {
+        auto th = photon::thread_create11(std::forward<Args>(args)...);
+        return migrate_thread(th);
+    }
 
 protected:
     class impl;  // does not depend on T
@@ -80,6 +88,7 @@ protected:
     // Caller should keep callable object and resources alive
     void do_call(Delegate<void> call);
     void enqueue(Delegate<void> call);
+    photon::vcpu_base* get_vcpu_in_pool(size_t index);
 };
 
 }  // namespace photon

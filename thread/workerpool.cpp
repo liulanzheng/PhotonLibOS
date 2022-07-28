@@ -21,6 +21,7 @@ limitations under the License.
 #include <photon/thread/thread.h>
 
 #include <thread>
+#include <random>
 
 namespace photon {
 
@@ -31,16 +32,21 @@ public:
     std::vector<std::thread> workers;
     std::atomic<bool> stop;
     photon::semaphore queue_sem;
+    photon::semaphore ready_vcpu;
     LockfreeMPMCRingQueue<Delegate<void>, RING_SIZE> ring;
-    int m_vcpu_num;
+    size_t m_vcpu_num;
     std::vector<photon::vcpu_base*> m_vcpus;
 
-    impl(int vcpu_num, int ev_engine, int io_engine)
-        : stop(false), queue_sem(0), m_vcpu_num(vcpu_num) {
+    std::random_device rd;
+    std::mt19937 gen;
+
+    impl(size_t vcpu_num, int ev_engine, int io_engine)
+        : stop(false), queue_sem(0), ready_vcpu(0), m_vcpu_num(vcpu_num), gen(rd()) {
         m_vcpus.resize(vcpu_num);
-        for (int i = 0; i < vcpu_num; ++i)
+        for (size_t i = 0; i < vcpu_num; ++i)
             workers.emplace_back(&WorkPool::impl::worker_thread_routine, this, i,
                                  ev_engine, io_engine);
+        ready_vcpu.wait(vcpu_num);
     }
 
     ~impl() {
@@ -70,6 +76,7 @@ public:
         photon::init(ev_engine, io_engine);
         DEFER(photon::fini());
         m_vcpus[index] = photon::get_vcpu();
+        ready_vcpu.signal(1);
         for (;;) {
             Delegate<void> task;
             {
@@ -80,18 +87,23 @@ public:
             task();
         }
     }
+
+    photon::vcpu_base *get_vcpu_in_pool(size_t index) {
+        if (index >= (size_t)m_vcpu_num) {
+            index = gen() % m_vcpu_num;
+        }
+        return m_vcpus[index];
+    }
+
 };
 
-WorkPool::WorkPool(int vcpu_num, int ev_engine, int io_engine)
+WorkPool::WorkPool(size_t vcpu_num, int ev_engine, int io_engine)
     : pImpl(new impl(vcpu_num, ev_engine, io_engine)) {}
 
 WorkPool::~WorkPool() {}
 
 void WorkPool::do_call(Delegate<void> call) { pImpl->do_call(call); }
 void WorkPool::enqueue(Delegate<void> call) { pImpl->enqueue(call); }
-
-std::vector<photon::vcpu_base*> WorkPool::get_vcpus() const {
-    return pImpl->m_vcpus;
-}
+photon::vcpu_base *WorkPool::get_vcpu_in_pool(size_t index) { return pImpl->get_vcpu_in_pool(index); }
 
 }  // namespace photon

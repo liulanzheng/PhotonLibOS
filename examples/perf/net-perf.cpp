@@ -40,8 +40,6 @@ DEFINE_uint64(vcpu_num, 1, "server vcpu num. Increase this value to enable multi
 bool stop_test = false;
 uint64_t qps = 0;
 uint64_t time_cost = 0;
-std::vector<photon::vcpu_base*> vcpus;
-uint32_t vcpu_index = 0;
 
 static void handle_signal(int sig) {
     LOG_INFO("Try to gracefully stop test ...");
@@ -172,9 +170,6 @@ static int echo_server() {
     photon::WorkPool* work_pool = nullptr;
     if (FLAGS_vcpu_num > 1) {
         work_pool = new photon::WorkPool(FLAGS_vcpu_num, photon::INIT_EVENT_IOURING, 0);
-        // Wait work pool ready
-        photon::thread_sleep(1);
-        vcpus = work_pool->get_vcpus();
     }
     DEFER(delete work_pool);
 
@@ -200,11 +195,7 @@ static int echo_server() {
     // Define handler for new connections (SocketStream)
     auto handler = [&](photon::net::ISocketStream* arg) -> int {
         if (FLAGS_vcpu_num > 1) {
-            if (vcpu_index >= vcpus.size()) {
-                vcpu_index = 0;
-            }
-            // Migrate current photon thread to another vcpu
-            photon::thread_migrate(photon::CURRENT, vcpus[vcpu_index++]);
+            work_pool->migrate_thread();
         }
 
         AlignedAlloc alloc(512);
