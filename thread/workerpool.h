@@ -18,7 +18,7 @@ limitations under the License.
 
 #include <photon/common/callback.h>
 #include <photon/common/tuple-assistance.h>
-#include <photon/thread/thread11.h>
+#include <photon/thread/thread.h>
 
 #include <memory>
 #include <utility>
@@ -47,8 +47,9 @@ public:
 
     /**
      * @brief `hold_as_worker` makes blocks current std thread join workpool, as
-     * a woker member. Noticed that worker should initial environment my self.
-     * When workpool destructed, the function call will be finished.
+     * a woker member. Noticed that worker should initial environment by self,
+     * workpool will not do photon environment for it. When workpool destructed,
+     * the function call will be finished, and return 0.
      * @return int 0 for success, and -1 for failure
      */
     int join_current_vcpu_into_workpool();
