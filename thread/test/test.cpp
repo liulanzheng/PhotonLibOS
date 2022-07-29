@@ -1304,7 +1304,7 @@ TEST(workpool, async_work_lambda) {
     auto start = std::chrono::system_clock::now();
     for (int i = 0; i < 4; i++) {
         pool->async_call(
-            [](WorkPool* pool, int i, CopyMoveRecord r) {
+            [i](WorkPool* pool, int x, CopyMoveRecord r) {
                 LOG_INFO("START ", VALUE(__cplusplus), VALUE(r.copy),
                          VALUE(r.move));
 #if __cplusplus < 201300L
@@ -1313,6 +1313,7 @@ TEST(workpool, async_work_lambda) {
                 EXPECT_EQ(0, r.copy);
 #endif
                 this_thread::sleep_for(std::chrono::seconds(1));
+                EXPECT_EQ(x, i);
                 LOG_INFO("FINISH");
             },
             pool.get(), i, CopyMoveRecord());
@@ -1333,7 +1334,7 @@ TEST(workpool, async_work_lambda_threadcreate) {
     photon::semaphore sem;
     for (int i = 0; i < 4; i++) {
         pool->async_call(
-            [&sem](WorkPool* pool, int i, CopyMoveRecord r) {
+            [&sem, i](WorkPool* pool, int x, CopyMoveRecord r) {
                 LOG_INFO("START ", VALUE(__cplusplus), VALUE(r.copy),
                          VALUE(r.move));
 #if __cplusplus < 201300L
@@ -1342,6 +1343,7 @@ TEST(workpool, async_work_lambda_threadcreate) {
                 EXPECT_EQ(0, r.copy);
 #endif
                 photon::thread_sleep(1);
+                EXPECT_EQ(x, i);
                 sem.signal(1);
                 LOG_INFO("FINISH");
             },
@@ -1365,7 +1367,7 @@ TEST(workpool, async_work_lambda_threadpool) {
     photon::semaphore sem;
     for (int i = 0; i < 4; i++) {
         pool->async_call(
-            [&sem](WorkPool* pool, int i, CopyMoveRecord r) {
+            [&sem, i](WorkPool* pool, int x, CopyMoveRecord r) {
                 LOG_INFO("START ", VALUE(__cplusplus), VALUE(r.copy),
                          VALUE(r.move));
 #if __cplusplus < 201300L
@@ -1374,6 +1376,7 @@ TEST(workpool, async_work_lambda_threadpool) {
                 EXPECT_EQ(0, r.copy);
 #endif
                 photon::thread_sleep(1);
+                EXPECT_EQ(x, i);
                 sem.signal(1);
                 LOG_INFO("FINISH");
             },
@@ -1405,15 +1408,16 @@ TEST(workpool, async_work_lambda_threadpool_append) {
     photon::semaphore sem;
     for (int i = 0; i < 4; i++) {
         pool->async_call(
-            [&sem](WorkPool* pool, int i, CopyMoveRecord r) {
+            [&sem, i](WorkPool* pool, int x, CopyMoveRecord r) {
                 LOG_INFO("START ", VALUE(__cplusplus), VALUE(r.copy),
-                         VALUE(r.move));
+                         VALUE(r.move), VALUE(i));
 #if __cplusplus < 201300L
                 EXPECT_EQ(1, r.copy);
 #else
                 EXPECT_EQ(0, r.copy);
 #endif
                 photon::thread_sleep(1);
+                EXPECT_EQ(x, i);
                 sem.signal(1);
                 LOG_INFO("FINISH");
             },
