@@ -95,12 +95,11 @@ public:
         auto task = new auto([&]() mutable { f(std::forward<Args>(args)...); });
 #else
         // or by value/move in C++14 on
-        auto task = new auto([f = typename std::decay<F>::type(f),
-                              pack = std::make_tuple(
-                                  std::forward<typename std::decay<Args>::type>(
-                                      args)...)]() mutable {
-            tuple_assistance::apply(f, pack);
-        });
+        auto task = new auto(
+            [f = std::forward<F>(f),
+             pack = std::make_tuple(std::forward<Args>(args)...)]() mutable {
+                tuple_assistance::apply(f, pack);
+            });
 #endif
 
         void (*func)(void*);
