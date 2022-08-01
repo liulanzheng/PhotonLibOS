@@ -83,33 +83,14 @@ public:
     /**
      * @brief `async_call` just like `call`, but do not wait for task done.
      *
-     * @param f Callable object as a work task. Noticed that the return value of
-     * f will not being collected.
-     * @param args Arguments calling `f`
+     * @param task Pointer to async task callable object. Call by lamda could
+     * using `workpool.async_call(new auto ([&](){ // some lambda; }));` The
+     * ownership of callable object is moved to workpool, object will be delete
+     * after task done.
      */
-    template <typename F, typename... Args>
-    void async_call(F&& f, Args&&... args) {
-#if __cplusplus < 201300L
-        // capture by reference in C++11
-        // it will acturally copy f and args once
-        auto task = new auto([&]() mutable { f(std::forward<Args>(args)...); });
-#else
-        // or by value/move in C++14 on
-        auto task = new auto(
-            [f = std::forward<F>(f),
-             pack = std::make_tuple(std::forward<Args>(args)...)]() mutable {
-                tuple_assistance::apply(f, pack);
-            });
-#endif
-
-        void (*func)(void*);
-        func = [](void* task_) {
-            using Task = decltype(task);
-            auto t = (Task)task_;
-            (*t)();
-            delete t;
-        };
-        enqueue({func, task});
+    template <typename Task>
+    void async_call(Task* task) {
+        enqueue({&WorkPool::__async_call_helper<Task>, task});
     }
 
     /**
@@ -133,6 +114,13 @@ protected:
     void do_call(Delegate<void> call);
     void enqueue(Delegate<void> call);
     photon::vcpu_base* get_vcpu_in_pool(size_t index);
+
+    template<typename Task>
+    static void __async_call_helper(void* task) {
+        auto t = (Task*)task;
+        (*t)();
+        delete t;
+    }
 };
 
 }  // namespace photon

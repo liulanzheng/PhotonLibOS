@@ -1227,13 +1227,6 @@ int jobwork(WorkPool* pool, int i) {
     return 0;
 }
 
-int jobasyncwork(WorkPool* pool, int i) {
-    LOG_INFO("START");
-    this_thread::sleep_for(std::chrono::seconds(1));
-    LOG_INFO("FINISH");
-    return 0;
-}
-
 TEST(workpool, work) {
     std::unique_ptr<WorkPool> pool(new WorkPool(2));
 
@@ -1251,18 +1244,28 @@ TEST(workpool, work) {
     EXPECT_LE(duration, std::chrono::seconds(3));
 }
 
-TEST(workpool, async_work) {
-    std::unique_ptr<WorkPool> pool(new WorkPool(2));
+TEST(workpool, async_work_capture) {
+    std::unique_ptr<WorkPool> pool(new WorkPool(2, 0, 0, 0));
 
-    std::vector<photon::join_handle*> jhs;
+    photon::semaphore sem;
+    int flag[10] = {0};
     auto start = std::chrono::system_clock::now();
-    for (int i = 0; i < 4; i++) {
-        pool->async_call(jobasyncwork, pool.get(), i);
+    for (int i = 0; i < 10; i++) {
+        pool->async_call(new auto([&sem, i, &flag]{
+            EXPECT_FALSE(flag[i]);
+            flag[i] = true;
+            auto x = i;
+            LOG_INFO(x);
+            photon::thread_usleep(2000 * 1000);
+            EXPECT_EQ(x, i);
+            EXPECT_TRUE(flag[i]);
+            sem.signal(1);
+        }));
     }
     auto duration = std::chrono::system_clock::now() - start;
     EXPECT_GE(duration, std::chrono::seconds(0));
     EXPECT_LE(duration, std::chrono::seconds(1));
-    photon::thread_sleep(3);
+    sem.wait(10);
     LOG_INFO("DONE");
 }
 
@@ -1303,20 +1306,16 @@ TEST(workpool, async_work_lambda) {
     std::vector<photon::join_handle*> jhs;
     auto start = std::chrono::system_clock::now();
     for (int i = 0; i < 4; i++) {
+        CopyMoveRecord *r = new CopyMoveRecord();
         pool->async_call(
-            [i](WorkPool* pool, int x, CopyMoveRecord r) {
-                LOG_INFO("START ", VALUE(__cplusplus), VALUE(r.copy),
-                         VALUE(r.move));
-#if __cplusplus < 201300L
-                EXPECT_EQ(1, r.copy);
-#else
-                EXPECT_EQ(0, r.copy);
-#endif
+            new auto ([i, r]() {
+                LOG_INFO("START ", VALUE(__cplusplus), VALUE(r->copy),
+                         VALUE(r->move));
+                EXPECT_EQ(0, r->copy);
                 this_thread::sleep_for(std::chrono::seconds(1));
-                EXPECT_EQ(x, i);
                 LOG_INFO("FINISH");
-            },
-            pool.get(), i, CopyMoveRecord());
+                delete r;
+            }));
     }
     auto duration = std::chrono::system_clock::now() - start;
     EXPECT_GE(duration, std::chrono::seconds(0));
@@ -1333,21 +1332,17 @@ TEST(workpool, async_work_lambda_threadcreate) {
     auto start = std::chrono::system_clock::now();
     photon::semaphore sem;
     for (int i = 0; i < 4; i++) {
+        CopyMoveRecord *r = new CopyMoveRecord();
         pool->async_call(
-            [&sem, i](WorkPool* pool, int x, CopyMoveRecord r) {
-                LOG_INFO("START ", VALUE(__cplusplus), VALUE(r.copy),
-                         VALUE(r.move));
-#if __cplusplus < 201300L
-                EXPECT_EQ(1, r.copy);
-#else
-                EXPECT_EQ(0, r.copy);
-#endif
+            new auto ([&sem, i, r]() {
+                LOG_INFO("START ", VALUE(__cplusplus), VALUE(r->copy),
+                         VALUE(r->move));
+                EXPECT_EQ(0, r->copy);
                 photon::thread_sleep(1);
-                EXPECT_EQ(x, i);
                 sem.signal(1);
                 LOG_INFO("FINISH");
-            },
-            pool.get(), i, CopyMoveRecord());
+                delete r;
+            }));
     }
     auto duration = std::chrono::system_clock::now() - start;
     EXPECT_GE(duration, std::chrono::seconds(0));
@@ -1366,21 +1361,17 @@ TEST(workpool, async_work_lambda_threadpool) {
     auto start = std::chrono::system_clock::now();
     photon::semaphore sem;
     for (int i = 0; i < 4; i++) {
+        CopyMoveRecord *r = new CopyMoveRecord();
         pool->async_call(
-            [&sem, i](WorkPool* pool, int x, CopyMoveRecord r) {
-                LOG_INFO("START ", VALUE(__cplusplus), VALUE(r.copy),
-                         VALUE(r.move));
-#if __cplusplus < 201300L
-                EXPECT_EQ(1, r.copy);
-#else
-                EXPECT_EQ(0, r.copy);
-#endif
+            new auto ([&sem, i, r]() {
+                LOG_INFO("START ", VALUE(__cplusplus), VALUE(r->copy),
+                         VALUE(r->move));
+                EXPECT_EQ(0, r->copy);
                 photon::thread_sleep(1);
-                EXPECT_EQ(x, i);
                 sem.signal(1);
                 LOG_INFO("FINISH");
-            },
-            pool.get(), i, CopyMoveRecord());
+                delete r;
+            }));
     }
     auto duration = std::chrono::system_clock::now() - start;
     EXPECT_GE(duration, std::chrono::seconds(0));
@@ -1407,21 +1398,17 @@ TEST(workpool, async_work_lambda_threadpool_append) {
     auto start = std::chrono::system_clock::now();
     photon::semaphore sem;
     for (int i = 0; i < 4; i++) {
+        CopyMoveRecord *r = new CopyMoveRecord();
         pool->async_call(
-            [&sem, i](WorkPool* pool, int x, CopyMoveRecord r) {
-                LOG_INFO("START ", VALUE(__cplusplus), VALUE(r.copy),
-                         VALUE(r.move), VALUE(i));
-#if __cplusplus < 201300L
-                EXPECT_EQ(1, r.copy);
-#else
-                EXPECT_EQ(0, r.copy);
-#endif
+            new auto ([&sem, i, r]() {
+                LOG_INFO("START ", VALUE(__cplusplus), VALUE(r->copy),
+                         VALUE(r->move));
+                EXPECT_EQ(0, r->copy);
                 photon::thread_sleep(1);
-                EXPECT_EQ(x, i);
                 sem.signal(1);
                 LOG_INFO("FINISH");
-            },
-            pool.get(), i, CopyMoveRecord());
+                delete r;
+            }));
     }
     auto duration = std::chrono::system_clock::now() - start;
     EXPECT_GE(duration, std::chrono::seconds(0));
