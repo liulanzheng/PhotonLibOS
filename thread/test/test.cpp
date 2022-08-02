@@ -1519,10 +1519,12 @@ void* testwork(void*) {
     return nullptr;
 }
 
+#ifndef __aarch64__
 TEST(photon, free_stack) {
     auto th = thread_enable_join(thread_create(&testwork, nullptr));
     thread_join(th);
 }
+#endif
 
 void* __null_work(void*) {
     LOG_INFO("RUNNING");
