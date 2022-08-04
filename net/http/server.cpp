@@ -576,16 +576,17 @@ public:
         failure = 3
     } status = Status::ready;
     uint16_t m_port = 19876;
+    IPAddr m_ip;
     photon::join_handle* th = nullptr;
     HTTPServerHandler m_handler;
     uint64_t connection_idx = 0, working_thread_cnt = 0;
     std::map<uint64_t, net::ISocketStream*> connection_map;
-    HTTPServerImpl(uint16_t port) : m_port(port) {}
+    HTTPServerImpl(uint16_t port, IPAddr ip) : m_port(port), m_ip(ip) {}
     ~HTTPServerImpl() {
         Stop();
     }
 
-    void run(uint16_t port, net::IPAddr ip) {
+    void run() {
         working_thread_cnt++;
         DEFER(working_thread_cnt--);
         if (status != Status::ready) {
@@ -596,7 +597,7 @@ public:
         sock->timeout(1000UL * 1000);
         RETURN_IF_FAILED(sock->setsockopt(IPPROTO_TCP, TCP_NODELAY, 1L));
         RETURN_IF_FAILED(sock->setsockopt(SOL_SOCKET, SO_REUSEPORT, 1));
-        RETURN_IF_FAILED(sock->bind(m_port, net::IPAddr {}));
+        RETURN_IF_FAILED(sock->bind(m_port, m_ip));
         RETURN_IF_FAILED(sock->listen(1024));
         status = Status::running;
         sock->set_handler({this, &HTTPServerImpl::control_handler});
@@ -646,8 +647,8 @@ public:
     }
 
     bool Launch() override{
-        th = photon::thread_enable_join(photon::thread_create11(
-            &HTTPServerImpl::run, this, m_port, net::IPAddr()));
+        th = photon::thread_enable_join(
+            photon::thread_create11(&HTTPServerImpl::run, this));
         while (status == Status::ready) photon::thread_usleep(1000);
         return status != Status::failure;
     }
@@ -888,8 +889,8 @@ public:
     }
 };
 
-HTTPServer* new_http_server(uint16_t port) {
-    return new HTTPServerImpl(port);
+HTTPServer* new_http_server(uint16_t port, IPAddr ip) {
+    return new HTTPServerImpl(port, ip);
 }
 HTTPHandler* new_fs_handler(fs::IFileSystem* fs,
                             std::string_view prefix) {

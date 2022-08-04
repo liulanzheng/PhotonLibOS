@@ -22,6 +22,7 @@ limitations under the License.
 #include <photon/common/string_view.h>
 #include <photon/common/iovector.h>
 #include <photon/net/http/verb.h>
+#include <photon/net/socket.h>
 
 namespace photon {
 namespace fs {
@@ -124,7 +125,7 @@ HTTPHandler* new_reverse_proxy_handler(Director cb_Director,
 // HTTPHandler new_static_file(std::string root);
 
 MuxHandler* new_mux_handler();
-HTTPServer* new_http_server(uint16_t port);
+HTTPServer* new_http_server(uint16_t port, IPAddr ipaddr = IPAddr());
 
 } // end of namespace net
 }
