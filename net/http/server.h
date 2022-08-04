@@ -91,9 +91,8 @@ using HTTPServerHandler = Delegate<RetType, HTTPServerRequest&, HTTPServerRespon
 
 class HTTPServer : public Object {
 public:
-    virtual bool Launch() = 0;
-    virtual void Stop() = 0;
-    virtual void SetHandler(HTTPServerHandler handler) = 0;
+    virtual void SetHTTPHandler(HTTPServerHandler handler) = 0;
+    virtual int TCPHandler(ISocketStream* stream) = 0;
 };
 
 class HTTPHandler : public Object {
@@ -125,7 +124,7 @@ HTTPHandler* new_reverse_proxy_handler(Director cb_Director,
 // HTTPHandler new_static_file(std::string root);
 
 MuxHandler* new_mux_handler();
-HTTPServer* new_http_server(uint16_t port, IPAddr ipaddr = IPAddr());
+HTTPServer* new_http_server();
 
 } // end of namespace net
 }
