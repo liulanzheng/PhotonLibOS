@@ -142,8 +142,7 @@ namespace photon
     thread_create11(uint64_t stack_size, FUNCTOR&& f, ARGUMENTS&&... args) {
         // takes `f` as parameter to helper function
         // thread_create11 will make sure parameters copy is completed
-        return thread_create11<void (*)(FUNCTOR&&, ARGUMENTS && ...),
-                               ARGUMENTS...>(
+        return thread_create11(
             stack_size, &__functor_call_helper<FUNCTOR, ARGUMENTS...>,
             std::forward<FUNCTOR>(f), std::forward<ARGUMENTS>(args)...);
     }
