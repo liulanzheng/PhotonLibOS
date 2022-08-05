@@ -137,7 +137,7 @@ namespace photon
     template <typename FUNCTOR, typename... ARGUMENTS>
     inline typename std::enable_if<
         !std::is_void<
-            decltype(&std::remove_reference_t<FUNCTOR>::operator())>::value,
+            decltype(&std::remove_reference<FUNCTOR>::type::operator())>::value,
         thread*>::type
     thread_create11(uint64_t stack_size, FUNCTOR&& f, ARGUMENTS&&... args) {
         // takes `f` as parameter to helper function
@@ -150,7 +150,7 @@ namespace photon
     template <typename FUNCTOR, typename... ARGUMENTS>
     inline typename std::enable_if<
         !std::is_void<
-            decltype(&std::remove_reference_t<FUNCTOR>::operator())>::value,
+            decltype(&std::remove_reference<FUNCTOR>::type::operator())>::value,
         thread*>::type
     thread_create11(FUNCTOR&& f, ARGUMENTS&&... args) {
         return thread_create11<FUNCTOR, ARGUMENTS...>(
