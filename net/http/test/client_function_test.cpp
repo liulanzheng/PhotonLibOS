@@ -73,7 +73,7 @@ TEST(http_client, post) {
     auto fs_handler = new_fs_handler(fs);
     DEFER(delete fs_handler);
     server->SetHTTPHandler(fs_handler->GetHandler());
-    tcpserver->set_handler(server->ConnectionDelegate());
+    tcpserver->set_handler(server->GetConnectionHandler());
     tcpserver->start_loop();
     std::string target_post =
         "http://localhost:18731/ease-httpclient-posttestfile";
@@ -401,7 +401,7 @@ TEST(http_client, partial_body) {
     auto fs_handler = new_fs_handler(fs);
     DEFER(delete fs_handler);
     server->SetHTTPHandler(fs_handler->GetHandler());
-    tcpserver->set_handler(server->ConnectionDelegate());
+    tcpserver->set_handler(server->GetConnectionHandler());
     tcpserver->start_loop();
 
     std::string target_get = "http://localhost:18731/file";

@@ -120,7 +120,7 @@ int main(int argc, char** argv) {
     } else {
         http_srv->SetHTTPHandler(handler.GetHandler());
     }
-    tcpserv->set_handler(http_srv->ConnectionDelegate());
+    tcpserv->set_handler(http_srv->GetConnectionHandler());
     tcpserv->start_loop();
     while (!stop_flag) {
         photon::thread_sleep(1);

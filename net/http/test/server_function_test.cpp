@@ -57,7 +57,7 @@ TEST(http_server, headers) {
     auto server = new_http_server();
     DEFER(delete server);
     server->SetHTTPHandler({nullptr, &idiot_handle});
-    tcpserver->set_handler(server->ConnectionDelegate());
+    tcpserver->set_handler(server->GetConnectionHandler());
     tcpserver->start_loop();
     auto client = new_http_client();
     DEFER(delete client);
@@ -111,7 +111,7 @@ TEST(http_server, fs_handler) {
     auto fs_handler = new_fs_handler(fs);
     DEFER(delete fs_handler);
     server->SetHTTPHandler(fs_handler->GetHandler());
-    tcpserver->set_handler(server->ConnectionDelegate());
+    tcpserver->set_handler(server->GetConnectionHandler());
     tcpserver->start_loop();
     auto client = new_http_client();
     DEFER(delete client);
@@ -214,7 +214,7 @@ TEST(http_server, proxy_handler) {
                                                    {nullptr, &test_modifier},
                                                    client);
     proxy_server->SetHTTPHandler(proxy_handler->GetHandler());
-    tcpserver->set_handler(proxy_server->ConnectionDelegate());
+    tcpserver->set_handler(proxy_server->GetConnectionHandler());
     tcpserver->start_loop();
     //----------------------------------------------------
     auto op = client->new_operation(Verb::GET, "localhost:19876/filename");
@@ -257,7 +257,7 @@ TEST(http_server, proxy_handler_failure) {
                                                    {nullptr, &test_modifier},
                                                    client_proxy);
     proxy_server->SetHTTPHandler(proxy_handler->GetHandler());
-    tcpserver->set_handler(proxy_server->ConnectionDelegate());
+    tcpserver->set_handler(proxy_server->GetConnectionHandler());
     tcpserver->start_loop();
     //----------------------------------------------------
     auto op = client->new_operation(Verb::GET, "localhost:19876/filename");
@@ -313,7 +313,7 @@ TEST(http_server, mux_handler) {
     mux_handler->AddHandler("/static_service/", fs_handler);
     mux_handler->AddHandler("/proxy/", proxy_handler);
     mux_server->SetHTTPHandler(mux_handler->GetHandler());
-    tcpserver->set_handler(mux_server->ConnectionDelegate());
+    tcpserver->set_handler(mux_server->GetConnectionHandler());
     tcpserver->start_loop();
     //----------------------------------------------------
     //--------------test static service--------------------

@@ -583,7 +583,7 @@ public:
         }
     }
 
-    int ConnectionHandler(net::ISocketStream* sock) override {
+    int handle_connection(net::ISocketStream* sock) override {
         auto idx = connection_idx++;
         LOG_DEBUG("enter control handler `", idx);
         DEFER(LOG_DEBUG("leave control handler `", idx));
