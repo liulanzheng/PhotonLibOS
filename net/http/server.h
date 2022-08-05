@@ -92,7 +92,10 @@ using HTTPServerHandler = Delegate<RetType, HTTPServerRequest&, HTTPServerRespon
 class HTTPServer : public Object {
 public:
     virtual void SetHTTPHandler(HTTPServerHandler handler) = 0;
-    virtual int TCPHandler(ISocketStream* stream) = 0;
+    virtual int ConnectionHandler(ISocketStream* stream) = 0;
+    ISocketServer::Handler ConnectionDelegate() {
+        return {this, &HTTPServer::ConnectionHandler};
+    }
 };
 
 class HTTPHandler : public Object {
