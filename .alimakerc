@@ -10,6 +10,7 @@
 --project-ldflags=-rpath=ALIMAKE_OUTPUT_DIR/
 --project-ldflags=-L/usr/lib64
 --project-ldflags=-rpath=/usr/lib64/
+--project-ccflags=-fsigned-char
 --project-ccflags=-msse4.2
 --project-ccflags=-mcrc32
 --project-ccflags=-D__STDC_FORMAT_MACROS

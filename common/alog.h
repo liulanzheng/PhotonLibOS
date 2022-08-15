@@ -59,7 +59,7 @@ struct ALogInteger
 {
 public:
     template<typename T, ENABLE_IF(std::is_integral<T>::value)>
-    ALogInteger(T x, int8_t shift)
+    ALogInteger(T x, char shift)
     {
         _signed = std::is_signed<T>::value;
         if (_signed) _svalue = x;
@@ -69,12 +69,12 @@ public:
     uint64_t uvalue() const  { return _uvalue; }
     int64_t  svalue() const  { return _svalue; }
     bool is_signed()  const  { return _signed; }
-    int8_t shift()      const  { return _shift; }
-    int8_t width()      const  { return _width; }
+    char shift()      const  { return _shift; }
+    char width()      const  { return _width; }
     char padding()    const  { return _padding; }
     bool comma()      const  { return _comma; }
     bool lower()      const  { return _lower; }
-    ALogInteger& width(int8_t x)       { this->_width = x;      return *this; }
+    ALogInteger& width(char x)       { this->_width = x;      return *this; }
     ALogInteger& padding(char x)     { this->_padding = x;    return *this; }
     ALogInteger& comma(bool x)       { this->_comma = x;      return *this; }
     ALogInteger& lower(bool x)       { this->_lower = x;      return *this; }
@@ -85,8 +85,8 @@ protected:
         uint64_t _uvalue;
         int64_t _svalue;
     };
-    int8_t _shift;
-    int8_t _width = 0;
+    char _shift;
+    char _width = 0;
     char _padding = ' ';
     bool _comma = false;
     bool _lower = false;
@@ -112,16 +112,16 @@ struct FP
 public:
     explicit FP(double x) : _value(x) { }
     double value()    const  { return _value; }
-    int8_t width()      const  { return _width; }
+    char width()      const  { return _width; }
     char padding()    const  { return _padding; }
-    int8_t precision()  const  { return _precision; }
+    char precision()  const  { return _precision; }
     bool comma()      const  { return _comma; }
     bool lower()      const  { return _lower; }
     bool scientific() const  { return _scientific; }
-    FP& width(int8_t x)        { _width = x;      return *this; }
-    FP& width(int8_t x, int8_t y){ _width = x; _precision = y; return *this; }
-    FP& precision(int8_t x, int8_t y) { return width(x,y); }
-    FP& precision(int8_t x)    { _precision = x;  return *this; }
+    FP& width(char x)        { _width = x;      return *this; }
+    FP& width(char x, char y){ _width = x; _precision = y; return *this; }
+    FP& precision(char x, char y) { return width(x,y); }
+    FP& precision(char x)    { _precision = x;  return *this; }
     FP& padding(char x)      { _padding = x;    return *this; }
     FP& comma(bool x)        { _comma = x;      return *this; }
     FP& lower(bool x)        { _lower = x;      return *this; }
@@ -129,8 +129,8 @@ public:
 
 protected:
     double _value;
-    int8_t _width = -1;
-    int8_t _precision = -1;
+    char _width = -1;
+    char _precision = -1;
     char _padding = '0';
     bool _comma = false;
     bool _lower = false;
