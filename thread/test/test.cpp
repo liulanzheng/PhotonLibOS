@@ -1597,7 +1597,7 @@ TEST(thread11, lambda) {
     auto lambda = [](photon::semaphore &sem){
         sem.signal(1);
     };
-    photon::thread_create11(lambda, sem);
+    photon::thread_create11(lambda, std::ref(sem));
     EXPECT_EQ(0, sem.wait(1, 1UL*1000*1000));
     auto lambda2 = [&sem]{
         sem.signal(1);
@@ -1709,12 +1709,28 @@ TEST(thread11, functor_invoke) {
     EXPECT_EQ(0, sem.wait(2, 1UL*1000*1000));
     thread_create11(lambda);
     EXPECT_EQ(0, sem.wait(1, 1UL*1000*1000));
-    thread_create11(lambda2, sem);
+    thread_create11(lambda2, std::ref(sem));
     EXPECT_EQ(0, sem.wait(1, 1UL*1000*1000));
     thread_create11(lambda3);
     EXPECT_EQ(0, sem.wait(1, 1UL*1000*1000));
     thread_create11(bind_obj);
     EXPECT_EQ(0, sem.wait(1, 1UL*1000*1000));
+}
+
+TEST(thread11, functor_param) {
+    photon::semaphore sem;
+    int arr[8] = {0};
+    for (int i=0;i<8;i++) {
+        thread_create11([&](int x){
+            arr[x] ++;
+            LOG_INFO(VALUE(x));
+            sem.signal(1);
+        }, i);
+    }
+    sem.wait(8);
+    for (int i=0;i<8;i++) {
+        EXPECT_EQ(1, arr[i]);
+    }
 }
 
 int main(int argc, char** arg)
