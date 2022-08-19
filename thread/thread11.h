@@ -132,7 +132,8 @@ namespace photon
 
     template <typename FUNCTOR, typename... ARGUMENTS>
     inline void __functor_call_helper(
-        FUNCTOR&& f, typename std::decay<ARGUMENTS>::type... args) {
+        typename std::decay<FUNCTOR>::type f,
+        typename std::decay<ARGUMENTS>::type... args) {
         f(std::forward<ARGUMENTS>(args)...);
     }
 

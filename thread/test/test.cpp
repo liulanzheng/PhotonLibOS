@@ -1731,6 +1731,18 @@ TEST(thread11, functor_param) {
     for (int i=0;i<8;i++) {
         EXPECT_EQ(1, arr[i]);
     }
+    memset(arr, 0, sizeof(arr));
+    for (int i=0;i<8;i++) {
+        thread_create11([i, &arr, &sem](){
+            arr[i] ++;
+            LOG_INFO(VALUE(i));
+            sem.signal(1);
+        });
+    }
+    sem.wait(8);
+    for (int i=0;i<8;i++) {
+        EXPECT_EQ(1, arr[i]);
+    }
 }
 
 int main(int argc, char** arg)
