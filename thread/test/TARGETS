@@ -54,4 +54,18 @@ targets = {
             '-lphoton',
         ],
     ),
+    'test-std-compat': cpp_fast_test(
+        incs=[
+            './',
+        ],
+        srcs=[
+            'test-std-compat.cpp',
+        ],
+        static_deps=[
+            'gtest-1.7.0:gtest',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+    ),
 }

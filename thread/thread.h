@@ -132,6 +132,8 @@ namespace photon
         return ((partial_thread*)th) -> vcpu;
     }
 
+    uint32_t get_vcpu_num();
+
     /**
      * @brief Clear unused stack.
      * if target is a ready or sleeped photon thread, clear will not perform thread switch;
