@@ -37,7 +37,7 @@ ExpireContainerBase::iterator ExpireContainerBase::__find_prelock(const Item& ke
 }
 
 ExpireContainerBase::iterator ExpireContainerBase::find(const Item& key_item) {
-    photon::scoped_lock lock(_mtx);
+    photon::locker<photon::spinlock> lock(_mtx);
     return __find_prelock(key_item);
 }
 
@@ -47,7 +47,7 @@ void ExpireContainerBase::clear() {
 }
 
 uint64_t ExpireContainerBase::expire() {
-    photon::scoped_lock lock(_mtx);
+    photon::locker<photon::spinlock> lock(_mtx);
     while (!_list.empty() && _list.front()->_timeout.expire() < photon::now) {
         auto p = _list.pop_front();
         ItemPtr ptr(p);
@@ -59,7 +59,7 @@ uint64_t ExpireContainerBase::expire() {
 
 bool ExpireContainerBase::keep_alive(const Item& x, bool insert_if_not_exists) {
     DEFER(expire());
-    photon::scoped_lock lock(_mtx);
+    photon::locker<photon::spinlock> lock(_mtx);
     auto it = __find_prelock(x);
     if (it == _set.end() && insert_if_not_exists) {
         auto ptr = x.construct();
@@ -77,7 +77,7 @@ ObjectCacheBase::Item* ObjectCacheBase::ref_acquire(const Item& key_item,
     Base::iterator holder;
     Item* item = nullptr;
     do {
-        photon::scoped_lock lock(_mtx);
+        photon::locker<photon::spinlock> lock(_mtx);
         holder = Base::__find_prelock(key_item);
         if (holder == Base::end()) {
             auto x = key_item.construct();
@@ -90,7 +90,7 @@ ObjectCacheBase::Item* ObjectCacheBase::ref_acquire(const Item& key_item,
         if (item->_recycle) {
             holder = end();
             item = nullptr;
-            blocker.wait(lock);
+            blocker.wait(_mtx);
         } else {
             item->_refcnt++;
         }
@@ -111,7 +111,7 @@ ObjectCacheBase::Item* ObjectCacheBase::ref_acquire(const Item& key_item,
 int ObjectCacheBase::ref_release(ObjectCacheBase::Item* item, bool recycle) {
     photon::semaphore sem;
     {
-        photon::scoped_lock lock(_mtx);
+        photon::locker<photon::spinlock> lock(_mtx);
         if (item->_recycle) recycle = false;
         if (recycle) {
             item->_recycle = &sem;
@@ -128,7 +128,7 @@ int ObjectCacheBase::ref_release(ObjectCacheBase::Item* item, bool recycle) {
     if (recycle) {
         sem.wait(1);
         {
-            photon::scoped_lock lock(_mtx);
+            photon::locker<photon::spinlock> lock(_mtx);
             assert(item->_refcnt == 0);
             Base::ItemPtr ptr(item);
             _set.erase(ptr);

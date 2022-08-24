@@ -79,7 +79,7 @@ protected:
     intrusive_list<Item> _list;
     uint64_t _expiration;
     photon::Timer _timer;
-    photon::mutex _mtx;
+    photon::spinlock _mtx;
 
     using ItemPtr = std::unique_ptr<Item>;
     struct ItemHash {
@@ -190,7 +190,7 @@ public:
 
     void refresh(Item* item) {
         DEFER(expire());
-        photon::scoped_lock _(_mtx);
+        photon::locker<photon::spinlock> _(_mtx);
         enqueue(item);
     }
 };

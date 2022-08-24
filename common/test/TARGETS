@@ -68,6 +68,16 @@ targets = {
         ldflags=[
             '-lphoton',
         ],
+    ),
+    'perf_objcache' : cpp_program(
+        incs = [ './' ],
+        srcs = [ './perf_objcache.cpp' ],
+        static_deps = [
+            'boost-1.69.0'
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
     )
 
 }
