@@ -53,14 +53,24 @@ uint64_t ExpireContainerBase::expire() {
     intrusive_list<Item> collect_list;
     {
         SCOPED_LOCK(_lock);
-        while (!_list.empty() &&
-               _list.front()->_timeout.expire() < photon::now) {
-            auto p = _list.pop_front();
-            auto it = _set.find(p);
-            if (it != _set.end()) {
-                collect_list.push_back(*it);
+        for (auto x : _list) {
+            if (x->_timeout.expire() < photon::now) {
+                _set.erase(x);
+                collect_list.node = x;
+            } else {
+                break;
             }
-            _set.erase(it);
+        }
+        if (collect_list.node) {
+            auto collect_tail = _list.node;
+
+            auto new_head = collect_list.node->next();
+            auto new_tail = collect_tail->prev();
+            new_head->__prev_ptr = new_tail;
+            new_tail->__next_ptr = new_head;
+
+            collect_list.node->__next_ptr = collect_tail;
+            collect_tail->__prev_ptr = collect_list.node;
         }
     }
     while (!collect_list.empty()) {

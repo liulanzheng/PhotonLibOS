@@ -1524,7 +1524,10 @@ void* objcache(void* arg) {
     auto args = (OCArg*)arg;
     auto oc = args->oc;
     auto id = args->id;
-    auto ctor = [&]() { return new ShowOnDtor(id); };
+    auto ctor = [&]() {
+        cycle_cnt++;
+        return new ShowOnDtor(id);
+    };
     // acquire every 10ms
     photon::thread_usleep(10*1000UL * id);
     auto ret = oc->acquire(0, ctor);
@@ -1535,7 +1538,6 @@ void* objcache(void* arg) {
     if (id % 10 == 0) LOG_INFO("Cycle ", VALUE(id));
     // every 10 objs will recycle
     oc->release(0, id % 10 == 0);
-    if (id % 10 == 0) cycle_cnt ++;
     LOG_DEBUG("Released ", VALUE(id));
     return 0;
 }
