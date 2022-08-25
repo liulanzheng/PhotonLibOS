@@ -1713,7 +1713,7 @@ TEST(ExpireContainer, expire_container) {
     memset(key2, 0, sizeof(key2));
     auto it = expire.find(key);
     EXPECT_NE(expire.end(), it);
-    auto ref = it->get();
+    auto ref = *it;
     EXPECT_EQ(0, strcmp(ref->key().data(), key));
     EXPECT_EQ(0, strcmp(ref->get_payload<0>().data(), key));
     EXPECT_EQ(-1, ref->get_payload<1>());
@@ -1737,7 +1737,7 @@ TEST(ExpireContainer, refresh) {
     expire.insert(key2, 1, true);
     photon::thread_usleep(900 * 1000);
     expire.expire();
-    expire.refresh(it->get());
+    expire.refresh(*it);
     photon::thread_usleep(900 * 1000);
     expire.expire();
     EXPECT_NE(expire.end(), expire.find(key));
@@ -1752,7 +1752,7 @@ TEST(ExpireList, expire_container) {
     expire.keep_alive(key, true);
     auto it = expire.find(key);
     EXPECT_NE(expire.end(), it);
-    auto ref = it->get();
+    auto ref = *it;
     EXPECT_EQ(0, strcmp(ref->key().data(), key));
     expire.expire();
     it = expire.find(key);
