@@ -66,6 +66,25 @@ public:
     {
         ptr->insert_list_between(this, __next_ptr);
     }
+    // split into two list ring, one starts from this and another starts from ptr
+    // this n1 n2 n3 ... np ptr nn ... nX
+    // ==> this n1 n2 n3 ... np
+    // ==> ptr nn ... nx
+    void split(__intrusive_list_node* ptr)
+    {
+        assert(ptr != this);
+        assert(!single());
+        auto front_head = this;
+        auto front_tail = ptr->__prev_ptr;
+        auto back_head = ptr;
+        auto back_tail = this->__prev_ptr;
+
+        front_head->__prev_ptr = front_tail;
+        front_tail->__next_ptr = front_head;
+
+        back_head->__prev_ptr = back_tail;
+        back_tail->__next_ptr = back_head;
+    }
 
 private:
     void insert_between(__intrusive_list_node* prev, __intrusive_list_node* next)
@@ -146,6 +165,10 @@ public:
     void insert_list_after(T& ptr)
     {
         __intrusive_list_node::insert_list_after(&ptr);
+    }
+    void split(T* ptr)
+    {
+        __intrusive_list_node::split(ptr);
     }
 
     T* next()
@@ -303,6 +326,64 @@ public:
     iterator end()
     {
         return {nullptr, nullptr};
+    }
+    intrusive_list split_front_include(NodeType* ptr)
+    {
+        intrusive_list ret;
+        ret.node = nullptr;
+        if (!node || !ptr) return ret;
+        if (ptr->__next_ptr == node) {
+            // all elements are splitted
+            ret.node = node;
+            node = nullptr;
+            return ret;
+        }
+        auto rest_head = ptr->next();
+        ret.node = node;
+        node->split(rest_head);
+        node = rest_head;
+        return ret;
+    }
+    intrusive_list split_front_exclude(NodeType* ptr)
+    {
+        intrusive_list ret;
+        ret.node = nullptr;
+        if (ptr == nullptr) {
+            ret.node = node;
+            node = nullptr;
+            return ret;
+        }
+        if (!node || ptr == node) {
+            return ret;
+        }
+        ret.node = node;
+        node->split(ptr);
+        node = ptr;
+        return ret;
+    }
+    template<typename Predicate>
+    intrusive_list split_by_predicate(Predicate&& pred)
+    {
+        intrusive_list ret;
+        ret.node = nullptr;
+        if (!node) {
+            return ret;
+        }
+        NodeType* first_not_fit = nullptr;
+        for (auto x : *this) {
+            if (!pred(x)) {
+                first_not_fit = x;
+                break;
+            }
+        }
+        return split_front_exclude(first_not_fit);
+    }
+    void delete_all()
+    {
+        for (auto x : *this) {
+            delete x;
+        }
+        node = nullptr;
     }
 };
 

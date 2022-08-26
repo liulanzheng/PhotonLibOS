@@ -41,41 +41,35 @@ ExpireContainerBase::iterator ExpireContainerBase::find(const Item& key_item) {
 }
 
 void ExpireContainerBase::clear() {
-    SCOPED_LOCK(_lock);
-    for (auto x : _set) {
-        delete x;
+    intrusive_list<Item> collect_list;
+    {
+        SCOPED_LOCK(_lock);
+        _set.clear();
+        for (auto x : _set) {
+            x->remove_from_list();
+            collect_list.push_back(x);
+        }
+        _list.node = nullptr;
     }
-    _set.clear();
-    _list.node = nullptr;
+    collect_list.delete_all();
 }
 
 uint64_t ExpireContainerBase::expire() {
     intrusive_list<Item> collect_list;
+    Item* last_node = nullptr;
     {
         SCOPED_LOCK(_lock);
         for (auto x : _list) {
             if (x->_timeout.expire() < photon::now) {
                 _set.erase(x);
-                collect_list.node = x;
+                last_node = x;
             } else {
                 break;
             }
         }
-        if (collect_list.node) {
-            auto collect_tail = _list.node;
-
-            auto new_head = collect_list.node->next();
-            auto new_tail = collect_tail->prev();
-            new_head->__prev_ptr = new_tail;
-            new_tail->__next_ptr = new_head;
-
-            collect_list.node->__next_ptr = collect_tail;
-            collect_tail->__prev_ptr = collect_list.node;
-        }
+        if (last_node) collect_list = _list.split_front_include(last_node);
     }
-    while (!collect_list.empty()) {
-        delete collect_list.pop_back();
-    }
+    collect_list.delete_all();
     return 0;
 }
 

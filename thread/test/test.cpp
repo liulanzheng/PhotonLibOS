@@ -1745,6 +1745,74 @@ TEST(thread11, functor_param) {
     }
 }
 
+struct IntNode : intrusive_list_node<IntNode> {
+    int x;
+    IntNode() = default;
+};
+
+TEST(intrusive_list, split) {
+    intrusive_list<IntNode> testlist;
+    IntNode intarr[100];
+
+    for (int i=0;i<100;i++) {
+        intarr[i].x=i;
+        testlist.push_back(&intarr[i]);
+    }
+
+    auto sp = testlist.split_front_exclude(&intarr[50]);
+    int cnt = 0;
+    for (auto x : sp) {
+        EXPECT_EQ(cnt, x->x);
+        cnt++;
+    }
+    EXPECT_EQ(50, cnt);
+    for (auto x : testlist) {
+        EXPECT_EQ(cnt, x->x);
+        cnt++;
+    }
+    EXPECT_EQ(100, cnt);
+
+    auto ssp = sp.split_front_include(&intarr[15]);
+    cnt = 0;
+    for (auto x : ssp) {
+        EXPECT_EQ(cnt, x->x);
+        cnt++;
+    }
+    EXPECT_EQ(16, cnt);
+    for (auto x : sp) {
+        EXPECT_EQ(cnt, x->x);
+        cnt++;
+    }
+    EXPECT_EQ(50, cnt);
+
+    auto esplit = ssp.split_front_exclude(&intarr[0]);
+    EXPECT_EQ(nullptr, esplit.node);
+    cnt = 0;
+    for (auto x : ssp) {
+        EXPECT_EQ(cnt, x->x);
+        cnt++;
+    }
+    EXPECT_EQ(16, cnt);
+
+    auto isplit = ssp.split_front_include(&intarr[15]);
+    EXPECT_EQ(nullptr, ssp.node);
+    cnt = 0;
+    for (auto x : isplit) {
+        EXPECT_EQ(cnt, x->x);
+        cnt++;
+    }
+    EXPECT_EQ(16, cnt);
+
+    auto psplit = isplit.split_by_predicate([](IntNode* x){ return x->x < 3; });
+    cnt = 0;
+    for (auto x : psplit) {
+        EXPECT_EQ(cnt, x->x);
+        cnt++;
+    }
+    EXPECT_EQ(3, cnt);
+
+}
+
 int main(int argc, char** arg)
 {
     ::testing::InitGoogleTest(&argc, arg);
