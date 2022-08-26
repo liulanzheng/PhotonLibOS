@@ -44,11 +44,10 @@ void ExpireContainerBase::clear() {
     intrusive_list<Item> collect_list;
     {
         SCOPED_LOCK(_lock);
-        _set.clear();
         for (auto x : _set) {
-            x->remove_from_list();
             collect_list.push_back(x);
         }
+        _set.clear();
         _list.node = nullptr;
     }
     collect_list.delete_all();
