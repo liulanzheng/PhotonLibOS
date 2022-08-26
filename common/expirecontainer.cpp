@@ -41,16 +41,15 @@ ExpireContainerBase::iterator ExpireContainerBase::find(const Item& key_item) {
 }
 
 void ExpireContainerBase::clear() {
-    intrusive_list<Item> collect_list;
+    decltype(_set) collect_set;
     {
         SCOPED_LOCK(_lock);
-        for (auto x : _set) {
-            collect_list.push_back(x);
-        }
-        _set.clear();
+        collect_set.swap(_set);
         _list.node = nullptr;
     }
-    collect_list.delete_all();
+    for (auto x : collect_set) {
+        delete x;
+    }
 }
 
 uint64_t ExpireContainerBase::expire() {
