@@ -91,7 +91,8 @@ protected:
         }
     };
 
-    std::unordered_set<ItemPtr, ItemHash, ItemEqual> _set;
+    using Set = std::unordered_set<ItemPtr, ItemHash, ItemEqual>;
+    Set _set;
 
     ExpireContainerBase(uint64_t expiration, uint64_t recycle_timeout);
     ~ExpireContainerBase() { clear(); }

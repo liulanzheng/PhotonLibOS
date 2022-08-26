@@ -41,13 +41,9 @@ ExpireContainerBase::iterator ExpireContainerBase::find(const Item& key_item) {
 }
 
 void ExpireContainerBase::clear() {
-    decltype(_set) collect_set;
-    {
-        SCOPED_LOCK(_lock);
-        collect_set.swap(_set);
-        _list.node = nullptr;
-    }
-    for (auto x : collect_set) {
+    for (auto x : ({ SCOPED_LOCK(_lock);
+                     _list.node = nullptr;
+                     Set(std::move(_set)); })) {
         delete x;
     }
 }
