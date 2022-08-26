@@ -164,7 +164,6 @@ protected:
         }
     };
     intrusive_list<Item>& list() { return (intrusive_list<Item>&)_list; }
-    using ItemPtr = std::unique_ptr<Item>;
 
 public:
     using ItemKey = typename Item::ItemKey;
