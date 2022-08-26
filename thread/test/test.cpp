@@ -1759,7 +1759,7 @@ TEST(intrusive_list, split) {
         testlist.push_back(&intarr[i]);
     }
 
-    auto sp = testlist.split_front_exclude(&intarr[50]);
+    auto sp = testlist.split_front_exclusive(&intarr[50]);
     int cnt = 0;
     for (auto x : sp) {
         EXPECT_EQ(cnt, x->x);
@@ -1772,7 +1772,7 @@ TEST(intrusive_list, split) {
     }
     EXPECT_EQ(100, cnt);
 
-    auto ssp = sp.split_front_include(&intarr[15]);
+    auto ssp = sp.split_front_inclusive(&intarr[15]);
     cnt = 0;
     for (auto x : ssp) {
         EXPECT_EQ(cnt, x->x);
@@ -1785,7 +1785,7 @@ TEST(intrusive_list, split) {
     }
     EXPECT_EQ(50, cnt);
 
-    auto esplit = ssp.split_front_exclude(&intarr[0]);
+    auto esplit = ssp.split_front_exclusive(&intarr[0]);
     EXPECT_EQ(nullptr, esplit.node);
     cnt = 0;
     for (auto x : ssp) {
@@ -1794,7 +1794,7 @@ TEST(intrusive_list, split) {
     }
     EXPECT_EQ(16, cnt);
 
-    auto isplit = ssp.split_front_include(&intarr[15]);
+    auto isplit = ssp.split_front_inclusive(&intarr[15]);
     EXPECT_EQ(nullptr, ssp.node);
     cnt = 0;
     for (auto x : isplit) {

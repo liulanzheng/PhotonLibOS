@@ -56,18 +56,13 @@ void ExpireContainerBase::clear() {
 
 uint64_t ExpireContainerBase::expire() {
     intrusive_list<Item> collect_list;
-    Item* last_node = nullptr;
     {
         SCOPED_LOCK(_lock);
-        for (auto x : _list) {
-            if (x->_timeout.expire() < photon::now) {
-                _set.erase(x);
-                last_node = x;
-            } else {
-                break;
-            }
-        }
-        if (last_node) collect_list = _list.split_front_include(last_node);
+        collect_list = _list.split_by_predicate([&](Item* x){
+            return (x->_timeout.expire() < photon::now);
+        });
+        for (auto x : collect_list)
+            _set.erase(x);
     }
     collect_list.delete_all();
     return 0;
