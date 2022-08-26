@@ -42,7 +42,7 @@ protected:
 
     public:
         Timeout _timeout;
-        virtual ~Item() { remove_from_list(); }
+        virtual ~Item() {}
         virtual size_t key_hash() const = 0;
         virtual bool key_equal(const Item* rhs) const = 0;
         virtual Item* construct() const = 0;
