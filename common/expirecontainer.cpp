@@ -21,8 +21,8 @@ limitations under the License.
 ExpireContainerBase::ExpireContainerBase(uint64_t expiration,
                                          uint64_t timer_cycle)
     : _expiration(expiration),
-      _timer(timer_cycle, {this, &ExpireContainerBase::expire}, true,
-             8UL * 1024 * 1024) {}
+      _timer(std::min(1UL * 1000, timer_cycle),
+             {this, &ExpireContainerBase::expire}, true, 8UL * 1024 * 1024) {}
 
 std::pair<ExpireContainerBase::iterator, bool> ExpireContainerBase::insert(
     Item* item) {
