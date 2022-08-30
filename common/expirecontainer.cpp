@@ -79,6 +79,7 @@ ObjectCacheBase::Item* ObjectCacheBase::ref_acquire(const Item& key_item,
                                                     Delegate<void*> ctor) {
     Base::iterator holder;
     Item* item = nullptr;
+    expire();
     do {
         SCOPED_LOCK(_lock);
         holder = Base::__find_prelock(key_item);
@@ -112,6 +113,7 @@ ObjectCacheBase::Item* ObjectCacheBase::ref_acquire(const Item& key_item,
 }
 
 int ObjectCacheBase::ref_release(ItemPtr item, bool recycle) {
+    DEFER(expire());
     photon::semaphore sem;
     {
         SCOPED_LOCK(_lock);
