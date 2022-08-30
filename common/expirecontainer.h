@@ -94,7 +94,7 @@ protected:
     using Set = std::unordered_set<ItemPtr, ItemHash, ItemEqual>;
     Set _set;
 
-    ExpireContainerBase(uint64_t expiration, uint64_t recycle_timeout);
+    ExpireContainerBase(uint64_t expiration, uint64_t timer_cycle);
     ~ExpireContainerBase() { clear(); }
 
     using iterator = decltype(_set)::iterator;
@@ -136,8 +136,10 @@ template <typename KeyType, typename... Ts>
 class ExpireContainer : public ExpireContainerBase {
 public:
     using Base = ExpireContainerBase;
-    ExpireContainer(uint64_t expiration, uint64_t recycle_timeout = -1UL)
-        : Base(expiration, recycle_timeout) {}
+    ExpireContainer(uint64_t expiration)
+        : Base(expiration, expiration / 16) {}
+    ExpireContainer(uint64_t expiration, uint64_t timer_cycle)
+        : Base(expiration, timer_cycle) {}
 
 protected:
     using KeyedItem = typename Base::KeyedItem<Base::Item, KeyType>;
@@ -286,8 +288,10 @@ protected:
     using ItemPtr = Item*;
 
 public:
-    ObjectCache(uint64_t expiration, uint64_t recycle_timeout = -1UL)
-        : Base(expiration, recycle_timeout) {}
+    ObjectCache(uint64_t expiration)
+        : Base(expiration, expiration / 16) {}
+    ObjectCache(uint64_t expiration, uint64_t timer_cycle)
+        : Base(expiration, timer_cycle) {}
 
     template <typename Constructor>
     ItemPtr ref_acquire(const InterfaceKey& key, const Constructor& ctor) {
