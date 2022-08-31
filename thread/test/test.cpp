@@ -1759,7 +1759,12 @@ TEST(intrusive_list, split) {
         testlist.push_back(&intarr[i]);
     }
 
+    // since testlist member are on stack
+    // just set to clear, without delete
+    DEFER(testlist.node = nullptr);
+
     auto sp = testlist.split_front_exclusive(&intarr[50]);
+    DEFER(sp.node = nullptr);
     int cnt = 0;
     for (auto x : sp) {
         EXPECT_EQ(cnt, x->x);
@@ -1773,6 +1778,7 @@ TEST(intrusive_list, split) {
     EXPECT_EQ(100, cnt);
 
     auto ssp = sp.split_front_inclusive(&intarr[15]);
+    DEFER(ssp.node = nullptr);
     cnt = 0;
     for (auto x : ssp) {
         EXPECT_EQ(cnt, x->x);
@@ -1786,6 +1792,7 @@ TEST(intrusive_list, split) {
     EXPECT_EQ(50, cnt);
 
     auto esplit = ssp.split_front_exclusive(&intarr[0]);
+    DEFER(esplit.node = nullptr);
     EXPECT_EQ(nullptr, esplit.node);
     cnt = 0;
     for (auto x : ssp) {
@@ -1795,6 +1802,7 @@ TEST(intrusive_list, split) {
     EXPECT_EQ(16, cnt);
 
     auto isplit = ssp.split_front_inclusive(&intarr[15]);
+    DEFER(isplit.node = nullptr);
     EXPECT_EQ(nullptr, ssp.node);
     cnt = 0;
     for (auto x : isplit) {
@@ -1804,6 +1812,7 @@ TEST(intrusive_list, split) {
     EXPECT_EQ(16, cnt);
 
     auto psplit = isplit.split_by_predicate([](IntNode* x){ return x->x < 3; });
+    DEFER(psplit.node = nullptr);
     cnt = 0;
     for (auto x : psplit) {
         EXPECT_EQ(cnt, x->x);
