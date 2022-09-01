@@ -83,8 +83,7 @@ namespace fs
         {
             DEFER({if (--ref == 0) cond.notify_all();});
             if (op_queue.empty()) return nullptr;
-            Delegate<void> func;
-            op_queue.pop(func);
+            auto func = op_queue.recv();
             if (func) func();
             return nullptr;
         }
