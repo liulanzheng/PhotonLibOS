@@ -34,39 +34,39 @@ namespace photon {
 namespace fs
 {
     static EventLoop* evloop = nullptr;
-    using Queue = LockfreeSPSCRingQueue<std::function<void()>*, 65536>;
+    using Queue = LockfreeSPSCRingQueue<Delegate<void>, 65536>;
 
     class ExportBase
     {
     public:
-        static std::mutex mutex;
+        static spinlock lock;
         using F0 = std::function<void()>;
         static Queue op_queue;
         static int ref;
         static condition_variable cond;
+        static semaphore sem;
         static ThreadPoolBase* pool;
-        static void perform(uint64_t /*timeout*/, F0 act)
+        template<typename Func>
+        static void perform_helper(void* arg) {
+            auto callable = (Func*)arg;
+            (*callable)();
+            delete callable;
+        }
+        template<typename Func>
+        static void perform(uint64_t /*timeout*/, Func* act)
         {
             {
-                std::lock_guard<std::mutex> lock(mutex);
-                op_queue.send(new F0(std::move(act)));
+                SCOPED_LOCK(lock);
+                op_queue.send(Delegate<void>(&ExportBase::perform_helper<Func>, act));
             }
-            thread_interrupt(evloop->loop_thread(), EINPROGRESS);
+            sem.signal(1);
         }
         static int wait4events(void*, EventLoop*)
         {
-            if (!op_queue.empty()) return 1;
-            auto th = photon::CURRENT;
-            int ret = photon::thread_usleep_defer(1000UL * 1000, [&] {
-                if (op_queue.empty()) photon::thread_interrupt(th, EINPROGRESS);
-            });
-            if (ret < 0) {
-                if (errno == EINPROGRESS) {
-                    return 1;
-                }
-                return -1;
-            }
-            return 0;
+            sem.wait(1);
+            if (op_queue.empty()) return -1;
+            return 1;
+
         }
         static int on_events(void*, EventLoop*)
         {
@@ -83,10 +83,9 @@ namespace fs
         {
             DEFER({if (--ref == 0) cond.notify_all();});
             if (op_queue.empty()) return nullptr;
-            F0* func;
+            Delegate<void> func;
             op_queue.pop(func);
-            (*func)();
-            delete func;
+            if (func) func();
             return nullptr;
         }
         template<typename R, typename RT = typename AsyncResult<R>::result_type>
@@ -121,21 +120,21 @@ namespace fs
                 delete ptr;
             } else {
                 auto n_ptr = ptr;
-                perform(-1UL, [n_ptr] { delete n_ptr; });
+                perform(-1UL, new auto ([n_ptr] { delete n_ptr; }));
             }
             ptr = nullptr;
         }
     };
 
-    __attribute__((visibility("hidden"))) std::mutex ExportBase::mutex;
+    __attribute__((visibility("hidden"))) spinlock ExportBase::lock;
     __attribute__((visibility("hidden"))) Queue ExportBase::op_queue;
     __attribute__((visibility("hidden"))) int ExportBase::ref = 1;
     __attribute__((visibility("hidden"))) condition_variable ExportBase::cond;
+    __attribute__((visibility("hidden"))) semaphore ExportBase::sem(0);
     __attribute__((visibility("hidden"))) ThreadPoolBase* ExportBase::pool = nullptr;
 
-    #define PERFORM(ID, expr)       \
-        perform(timeout, [=]() {    \
-            do_callback(ID, expr, done); });
+#define PERFORM(ID, expr) \
+    perform(timeout, new auto([=]() { do_callback(ID, expr, done); }));
 
     class ExportAsAsyncFile : public ExportBase, public IAsyncFile, public IAsyncFileXAttr
     {
@@ -531,6 +530,7 @@ namespace fs
             LOG_ERROR_RETURN(EFAULT, -1, "failed to create event loop");
 
         ExportBase::ref = 1;
+        ExportBase::sem.wait(ExportBase::sem.count());
         if (thread_pool_capacity != 0) ExportBase::pool = new_thread_pool(thread_pool_capacity);
         evloop->async_run();
         return 0;
@@ -543,6 +543,7 @@ namespace fs
         if (!evloop)
             LOG_ERROR_RETURN(ENOSYS, -1, "not inited yet");
 
+        ExportBase::sem.signal(1);
         evloop->stop();
         --ExportBase::ref;
         while (ExportBase::ref != 0)
@@ -554,8 +555,10 @@ namespace fs
         if (ExportBase::pool != nullptr) delete_thread_pool(ExportBase::pool);
         ExportBase::pool = nullptr;
         while (!ExportBase::op_queue.empty()) {
-            delete ExportBase::op_queue.recv();
+            auto cb = ExportBase::op_queue.recv();
+            cb();
         }
+        ExportBase::sem.wait(ExportBase::sem.count());
         return 0;
     }
     IAsyncFile* export_as_async_file(IFile* file)
