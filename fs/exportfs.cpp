@@ -140,10 +140,12 @@ namespace fs
     {
     public:
         IFile* m_file;
+        IFileXAttr* m_xattr;
         IAsyncFileSystem* m_fs;
         ExportAsAsyncFile(IFile* file, IAsyncFileSystem* fs)
         {
             m_file = file;
+            m_xattr = dynamic_cast<IFileXAttr*>(file);
             m_fs = fs;
         }
         virtual ~ExportAsAsyncFile()
@@ -232,19 +234,19 @@ namespace fs
         }
         OVERRIDE_ASYNC(ssize_t, fgetxattr, const char *name, void *value, size_t size)
         {
-            PERFORM(OPID_FGETXATTR, dynamic_cast<IFileXAttr*>(m_file)->fgetxattr(name, value, size));
+            PERFORM(OPID_FGETXATTR, m_xattr->fgetxattr(name, value, size));
         }
         OVERRIDE_ASYNC(ssize_t, flistxattr, char *list, size_t size)
         {
-            PERFORM(OPID_FLISTXATTR, dynamic_cast<IFileXAttr*>(m_file)->flistxattr(list, size));
+            PERFORM(OPID_FLISTXATTR, m_xattr->flistxattr(list, size));
         }
         OVERRIDE_ASYNC(int, fsetxattr, const char *name, const void *value, size_t size, int flags)
         {
-            PERFORM(OPID_FSETXATTR, dynamic_cast<IFileXAttr*>(m_file)->fsetxattr(name, value, size, flags));
+            PERFORM(OPID_FSETXATTR, m_xattr->fsetxattr(name, value, size, flags));
         }
         OVERRIDE_ASYNC(int, fremovexattr, const char *name)
         {
-            PERFORM(OPID_FREMOVEXATTR, dynamic_cast<IFileXAttr*>(m_file)->fremovexattr(name));
+            PERFORM(OPID_FREMOVEXATTR, m_xattr->fremovexattr(name));
         }
         template<typename R>
         struct AsyncWaiter
@@ -334,8 +336,10 @@ namespace fs
     {
     public:
         IFileSystem* m_fs;
+        IFileSystemXAttr* m_xattr;
         ExportAsAsyncFS(IFileSystem* fs) : m_fs(fs)
         {
+            m_xattr = dynamic_cast<IFileSystemXAttr*>(fs);
         }
 
         virtual ~ExportAsAsyncFS() {
@@ -436,28 +440,28 @@ namespace fs
             PERFORM(OPID_OPENDIR, wrap(m_fs->opendir(name)));
         }
         OVERRIDE_ASYNC(ssize_t, getxattr, const char *path, const char *name, void *value, size_t size) {
-            PERFORM(OPID_GETXATTR, dynamic_cast<IFileSystemXAttr*>(m_fs)->getxattr(path, name, value, size));
+            PERFORM(OPID_GETXATTR, m_xattr->getxattr(path, name, value, size));
         }
         OVERRIDE_ASYNC(ssize_t, lgetxattr, const char *path, const char *name, void *value, size_t size) {
-            PERFORM(OPID_LGETXATTR, dynamic_cast<IFileSystemXAttr*>(m_fs)->lgetxattr(path, name, value, size));
+            PERFORM(OPID_LGETXATTR, m_xattr->lgetxattr(path, name, value, size));
         }
         OVERRIDE_ASYNC(ssize_t, listxattr, const char *path, char *list, size_t size) {
-            PERFORM(OPID_LISTXATTR, dynamic_cast<IFileSystemXAttr*>(m_fs)->listxattr(path, list, size));
+            PERFORM(OPID_LISTXATTR, m_xattr->listxattr(path, list, size));
         }
         OVERRIDE_ASYNC(ssize_t, llistxattr, const char *path, char *list, size_t size) {
-            PERFORM(OPID_LLISTXATTR, dynamic_cast<IFileSystemXAttr*>(m_fs)->llistxattr(path, list, size));
+            PERFORM(OPID_LLISTXATTR, m_xattr->llistxattr(path, list, size));
         }
         OVERRIDE_ASYNC(int, setxattr, const char *path, const char *name, const void *value, size_t size, int flags) {
-            PERFORM(OPID_SETXATTR, dynamic_cast<IFileSystemXAttr*>(m_fs)->setxattr(path, name, value, size, flags));
+            PERFORM(OPID_SETXATTR, m_xattr->setxattr(path, name, value, size, flags));
         }
         OVERRIDE_ASYNC(int, lsetxattr, const char *path, const char *name, const void *value, size_t size, int flags) {
-            PERFORM(OPID_LSETXATTR, dynamic_cast<IFileSystemXAttr*>(m_fs)->lsetxattr(path, name, value, size, flags))
+            PERFORM(OPID_LSETXATTR, m_xattr->lsetxattr(path, name, value, size, flags))
         }
         OVERRIDE_ASYNC(int, removexattr, const char *path, const char *name) {
-            PERFORM(OPID_REMOVEXATTR, dynamic_cast<IFileSystemXAttr*>(m_fs)->removexattr(path, name));
+            PERFORM(OPID_REMOVEXATTR, m_xattr->removexattr(path, name));
         }
         OVERRIDE_ASYNC(int, lremovexattr, const char *path, const char *name) {
-            PERFORM(OPID_LREMOVEXATTR, dynamic_cast<IFileSystemXAttr*>(m_fs)->lremovexattr(path, name));
+            PERFORM(OPID_LREMOVEXATTR, m_xattr->lremovexattr(path, name));
         }
     };
     int exportfs_init(uint32_t thread_pool_capacity)
