@@ -20,7 +20,6 @@ limitations under the License.
 #include <vector>
 #include <mutex>
 #include <condition_variable>
-#include <boost/lockfree/spsc_queue.hpp>
 #include <sched.h>
 #include "filesystem.h"
 #include "async_filesystem.h"
@@ -29,36 +28,37 @@ limitations under the License.
 #include <photon/io/fd-events.h>
 #include <photon/common/event-loop.h>
 #include <photon/common/alog.h>
+#include <photon/common/lockfree_queue.h>
 
 namespace photon {
 namespace fs
 {
     static EventLoop* evloop = nullptr;
-    typedef boost::lockfree::spsc_queue<std::function<void()>, boost::lockfree::capacity<65536> > spsc;
+    using Queue = LockfreeSPSCRingQueue<std::function<void()>*, 65536>;
 
     class ExportBase
     {
     public:
         static std::mutex mutex;
         using F0 = std::function<void()>;
-        static spsc op_queue;
+        static Queue op_queue;
         static int ref;
         static condition_variable cond;
         static ThreadPoolBase* pool;
-        static void perform(uint64_t /*timeout*/, const F0& act)
+        static void perform(uint64_t /*timeout*/, F0 act)
         {
             {
                 std::lock_guard<std::mutex> lock(mutex);
-                while (!op_queue.push(act)) sched_yield();
+                op_queue.send(new F0(std::move(act)));
             }
             thread_interrupt(evloop->loop_thread(), EINPROGRESS);
         }
         static int wait4events(void*, EventLoop*)
         {
-            if (op_queue.read_available()) return 1;
+            if (!op_queue.empty()) return 1;
             auto th = photon::CURRENT;
             int ret = photon::thread_usleep_defer(1000UL * 1000, [&] {
-                if (op_queue.read_available()) photon::thread_interrupt(th, EINPROGRESS);
+                if (op_queue.empty()) photon::thread_interrupt(th, EINPROGRESS);
             });
             if (ret < 0) {
                 if (errno == EINPROGRESS) {
@@ -70,22 +70,23 @@ namespace fs
         }
         static int on_events(void*, EventLoop*)
         {
-            //TODO: thread pooling
             ++ref;
+            thread* th = nullptr;
             if (pool != nullptr)
-                pool->thread_create(&do_opq, nullptr);
+                th = pool->thread_create(&do_opq, nullptr);
             else
-                photon::thread_create(&do_opq, nullptr);
-            photon::thread_yield_to(nullptr); // let `th` to run and pop an op
+                th = photon::thread_create(&do_opq, nullptr);
+            photon::thread_yield_to(th); // let `th` to run and pop an op
             return 0;
         }
         static void* do_opq(void*)
         {
             DEFER({if (--ref == 0) cond.notify_all();});
-            if (op_queue.read_available() == 0) return nullptr;
-            F0 func;
+            if (op_queue.empty()) return nullptr;
+            F0* func;
             op_queue.pop(func);
-            func();
+            (*func)();
+            delete func;
             return nullptr;
         }
         template<typename R, typename RT = typename AsyncResult<R>::result_type>
@@ -127,7 +128,7 @@ namespace fs
     };
 
     __attribute__((visibility("hidden"))) std::mutex ExportBase::mutex;
-    __attribute__((visibility("hidden"))) spsc ExportBase::op_queue;
+    __attribute__((visibility("hidden"))) Queue ExportBase::op_queue;
     __attribute__((visibility("hidden"))) int ExportBase::ref = 1;
     __attribute__((visibility("hidden"))) condition_variable ExportBase::cond;
     __attribute__((visibility("hidden"))) ThreadPoolBase* ExportBase::pool = nullptr;
@@ -552,7 +553,9 @@ namespace fs
         evloop = nullptr;
         if (ExportBase::pool != nullptr) delete_thread_pool(ExportBase::pool);
         ExportBase::pool = nullptr;
-        ExportBase::op_queue.reset();
+        while (!ExportBase::op_queue.empty()) {
+            delete ExportBase::op_queue.recv();
+        }
         return 0;
     }
     IAsyncFile* export_as_async_file(IFile* file)
