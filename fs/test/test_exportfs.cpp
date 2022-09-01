@@ -43,10 +43,9 @@ int callback(void*, AsyncResult<T>* ret) {
     return 0;
 }
 
-template<uint64_t val>
-int callbackf(void*, AsyncResult<IAsyncFile*>* ret) {
+int callbackf(void* ptr, AsyncResult<IAsyncFile*>* ret) {
     auto pt = static_cast<ExportAsAsyncFile*>(ret->result);
-    EXPECT_EQ(val, reinterpret_cast<uint64_t>(pt->m_file));
+    EXPECT_EQ(ptr, pt->m_file);
     LOG_DEBUG("DONE `", VALUE(ret->operation));
     work--;
     return 0;
@@ -158,10 +157,10 @@ TEST(ExportFS, basic) {
     CALL_TEST(file, fstat, cbint, nullptr);
     CALL_TEST(file, ftruncate, cbint, 0);
 
-    IFile* paf_magic = reinterpret_cast<IFile*>(magic);
+    IFile* paf_magic = reinterpret_cast<IFile*>(mockfile);
     DIR* pad_magic = reinterpret_cast<DIR*>(magic);
     Callback<AsyncResult<IAsyncFile*>*> cbaf;
-    cbaf.bind(nullptr, callbackf<magic>);
+    cbaf.bind(mockfile, callbackf);
     Callback<AsyncResult<AsyncDIR*>*> cbad;
     cbad.bind(nullptr, callbackd<magic>);
 
