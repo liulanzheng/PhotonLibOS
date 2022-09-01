@@ -234,18 +234,34 @@ namespace fs
         }
         OVERRIDE_ASYNC(ssize_t, fgetxattr, const char *name, void *value, size_t size)
         {
+            if (!m_xattr) {
+                callback_umimplemented(done);
+                return;
+            }
             PERFORM(OPID_FGETXATTR, m_xattr->fgetxattr(name, value, size));
         }
         OVERRIDE_ASYNC(ssize_t, flistxattr, char *list, size_t size)
         {
+            if (!m_xattr) {
+                callback_umimplemented(done);
+                return;
+            }
             PERFORM(OPID_FLISTXATTR, m_xattr->flistxattr(list, size));
         }
         OVERRIDE_ASYNC(int, fsetxattr, const char *name, const void *value, size_t size, int flags)
         {
+            if (!m_xattr) {
+                callback_umimplemented(done);
+                return;
+            }
             PERFORM(OPID_FSETXATTR, m_xattr->fsetxattr(name, value, size, flags));
         }
         OVERRIDE_ASYNC(int, fremovexattr, const char *name)
         {
+            if (!m_xattr) {
+                callback_umimplemented(done);
+                return;
+            }
             PERFORM(OPID_FREMOVEXATTR, m_xattr->fremovexattr(name));
         }
         template<typename R>
@@ -440,27 +456,59 @@ namespace fs
             PERFORM(OPID_OPENDIR, wrap(m_fs->opendir(name)));
         }
         OVERRIDE_ASYNC(ssize_t, getxattr, const char *path, const char *name, void *value, size_t size) {
+            if (!m_xattr) {
+                callback_umimplemented(done);
+                return;
+            }
             PERFORM(OPID_GETXATTR, m_xattr->getxattr(path, name, value, size));
         }
         OVERRIDE_ASYNC(ssize_t, lgetxattr, const char *path, const char *name, void *value, size_t size) {
+            if (!m_xattr) {
+                callback_umimplemented(done);
+                return;
+            }
             PERFORM(OPID_LGETXATTR, m_xattr->lgetxattr(path, name, value, size));
         }
         OVERRIDE_ASYNC(ssize_t, listxattr, const char *path, char *list, size_t size) {
+            if (!m_xattr) {
+                callback_umimplemented(done);
+                return;
+            }
             PERFORM(OPID_LISTXATTR, m_xattr->listxattr(path, list, size));
         }
         OVERRIDE_ASYNC(ssize_t, llistxattr, const char *path, char *list, size_t size) {
+            if (!m_xattr) {
+                callback_umimplemented(done);
+                return;
+            }
             PERFORM(OPID_LLISTXATTR, m_xattr->llistxattr(path, list, size));
         }
         OVERRIDE_ASYNC(int, setxattr, const char *path, const char *name, const void *value, size_t size, int flags) {
+            if (!m_xattr) {
+                callback_umimplemented(done);
+                return;
+            }
             PERFORM(OPID_SETXATTR, m_xattr->setxattr(path, name, value, size, flags));
         }
         OVERRIDE_ASYNC(int, lsetxattr, const char *path, const char *name, const void *value, size_t size, int flags) {
+            if (!m_xattr) {
+                callback_umimplemented(done);
+                return;
+            }
             PERFORM(OPID_LSETXATTR, m_xattr->lsetxattr(path, name, value, size, flags))
         }
         OVERRIDE_ASYNC(int, removexattr, const char *path, const char *name) {
+            if (!m_xattr) {
+                callback_umimplemented(done);
+                return;
+            }
             PERFORM(OPID_REMOVEXATTR, m_xattr->removexattr(path, name));
         }
         OVERRIDE_ASYNC(int, lremovexattr, const char *path, const char *name) {
+            if (!m_xattr) {
+                callback_umimplemented(done);
+                return;
+            }
             PERFORM(OPID_LREMOVEXATTR, m_xattr->lremovexattr(path, name));
         }
     };
