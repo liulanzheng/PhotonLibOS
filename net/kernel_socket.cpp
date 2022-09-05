@@ -39,7 +39,6 @@ limitations under the License.
 #include <photon/common/event-loop.h>
 #include <photon/net/basic_socket.h>
 #include <photon/net/utils.h>
-#include <photon/net/zerocopy.h>
 
 #include "base_socket.h"
 
@@ -444,18 +443,17 @@ protected:
 
 class ZeroCopySocketStream : public KernelSocketStream {
 protected:
-    net::ZerocopyEventEntry* m_event_entry;
-    uint32_t m_num_calls;
-    bool m_socket_error;
+    uint32_t m_num_calls = 0;
 
 public:
-    explicit ZeroCopySocketStream(int fd) : KernelSocketStream(fd) {
-        m_num_calls = 0;
-        m_socket_error = false;
-        m_event_entry = new ZerocopyEventEntry(fd);
-    }
+    explicit ZeroCopySocketStream(int fd) : KernelSocketStream(fd) { }
 
-    ~ZeroCopySocketStream() { delete m_event_entry; }
+    ~ZeroCopySocketStream() { }
+
+    ssize_t write(const void* buf, size_t count) override {
+        struct iovec iov { const_cast<void*>(buf), count };
+        return writev_mutable(&iov, 1);
+    }
 
     ssize_t writev_mutable(iovec* iov, int iovcnt) override {
         ssize_t n_written;
@@ -467,14 +465,8 @@ public:
             LOG_ERRNO_RETURN(0, n_written, "zerocopy failed");
         }
 
-        int ret = m_event_entry->zerocopy_wait(m_num_calls - 1, m_timeout);
-        if (ret == 0) {
-            m_socket_error = true;
-            LOG_ERRNO_RETURN(ETIMEDOUT, -1, "zerocopy wait timeout (active)")
-        }
-        if (m_socket_error) {
-            LOG_ERRNO_RETURN(ETIMEDOUT, -1, "zerocopy wait timeout (passive)");
-        }
+        auto ret = zerocopy_confirm(fd, m_num_calls - 1, m_timeout);
+        if (ret < 0) return ret;
         return n_written;
     }
 };
@@ -487,6 +479,10 @@ public:
         if (KernelSocketServer::init() != 0) {
             return -1;
         }
+        if (!net::zerocopy_available()) {
+            LOG_WARN("zerocopy not available, use standard socket instead!!");
+            return isok_ = 0;
+        }
         int v = 1;
         if (::setsockopt(m_listen_fd, SOL_SOCKET, SO_ZEROCOPY, &v, sizeof(v)) != 0) {
             LOG_ERRNO_RETURN(0, -1, "fail to set sock opt of SO_ZEROCOPY");
@@ -495,8 +491,10 @@ public:
     }
 
 protected:
+    bool isok_ = true;
     KernelSocketStream* create_stream(int fd) override {
-        return new ZeroCopySocketStream(fd);
+        if (isok_) return new ZeroCopySocketStream(fd);
+        return new KernelSocketStream(fd);
     }
 };
 
