@@ -218,8 +218,8 @@ bool ISocketStream::skip_read(size_t count) {
     return true;
 }
 
-ssize_t recv_errqueue(int fd, uint32_t &ret_counter) {
-    char control[128] = {};
+static ssize_t recv_errqueue(int fd, uint32_t &ret_counter) {
+    char control[128];
     msghdr msg = {};
     msg.msg_control = control;
     msg.msg_controllen = sizeof(control);
@@ -244,7 +244,7 @@ ssize_t recv_errqueue(int fd, uint32_t &ret_counter) {
     return 0;
 }
 
-int64_t read_counter(int fd, uint64_t timeout) {
+static int64_t read_counter(int fd, uint64_t timeout) {
     uint32_t counter = 0;
     auto ret = doio(LAMBDA(recv_errqueue(fd, counter)),
                 LAMBDA_TIMEOUT(photon::wait_for_fd_error(fd, timeout)));

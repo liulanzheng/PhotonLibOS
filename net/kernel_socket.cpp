@@ -446,9 +446,7 @@ protected:
     uint32_t m_num_calls = 0;
 
 public:
-    explicit ZeroCopySocketStream(int fd) : KernelSocketStream(fd) { }
-
-    ~ZeroCopySocketStream() { }
+    using KernelSocketStream::KernelSocketStream;
 
     ssize_t write(const void* buf, size_t count) override {
         struct iovec iov { const_cast<void*>(buf), count };
@@ -481,7 +479,7 @@ public:
         }
         if (!net::zerocopy_available()) {
             LOG_WARN("zerocopy not available, use standard socket instead!!");
-            return isok_ = 0;
+            return isok_ = false;
         }
         int v = 1;
         if (::setsockopt(m_listen_fd, SOL_SOCKET, SO_ZEROCOPY, &v, sizeof(v)) != 0) {

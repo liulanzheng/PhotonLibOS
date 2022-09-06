@@ -151,8 +151,7 @@ static bool do_zerocopy_available() {
     int result = 0;
     int ret = Utility::version_compare(kernel_version, "4.15", result);
     if (ret != 0) {
-        LOG_ERROR("Unable to detect kernel version, not using zero-copy");
-        return false;
+        LOG_ERROR_RETURN(0, false, "Unable to detect kernel version, not using zero-copy");
     }
     return result >= 0;
 }
