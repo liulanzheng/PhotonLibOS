@@ -301,6 +301,7 @@ public:
         if (workth) LOG_ERROR_RETURN(EALREADY, -1, "Already listening");
         if (block) return accept_loop();
         auto th = photon::thread_create11(&KernelSocketServer::accept_loop, this);
+        photon::thread_enable_join(th);
         photon::thread_yield_to(th);
         return 0;
     }
@@ -311,7 +312,7 @@ public:
             workth = nullptr;
             if (waiting) {
                 photon::thread_interrupt(th);
-                photon::thread_yield_to(th);
+                photon::thread_join((join_handle*)th);
             }
         }
     }
