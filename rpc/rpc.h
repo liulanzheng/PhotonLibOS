@@ -170,8 +170,8 @@ namespace rpc
             Response response;
             // some service (like preadv) may need an iovector
             // invoke actual service function in ServerClass by overloading
-            static_cast<ServerClass*>(obj) -> do_rpc_service(request, &response, &iov, stream);
-
+            auto fini = static_cast<ServerClass*>(obj) -> do_rpc_service(request, &response, &iov, stream);
+            (void)fini;
             SerializerIOV respmsg;
             respmsg.serialize(response);
             return rs(&respmsg.iov);
