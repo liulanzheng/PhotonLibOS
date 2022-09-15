@@ -22,7 +22,7 @@ limitations under the License.
 #include "io/aio-wrapper.h"
 #include "net/curl.h"
 #include "net/socket.h"
-#include "net/zerocopy.h"
+#include "net/utils.h"
 #include "fs/exportfs.h"
 
 namespace photon {
