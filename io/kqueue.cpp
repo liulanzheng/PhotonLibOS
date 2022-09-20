@@ -1,4 +1,4 @@
-#include "fd-events.h"
+#include <photon/io/fd-events.h>
 #include <inttypes.h>
 #include <unistd.h>
 #include <sys/event.h>
@@ -91,7 +91,7 @@ public:
     }
 
     virtual int add_interest(Event e) override {
-        int ret;
+        int ret = 0;
         if (e.interests & EVENT_READ)
             ret = enqueue(e.fd, EVFILT_READ, EV_ADD, e.data);
         if (!ret && e.interests & EVENT_WRITE)
@@ -101,7 +101,7 @@ public:
         return ret;
     }
     virtual int rm_interest(Event e) override {
-        int ret;
+        int ret = 0;
         if (e.interests & EVENT_READ)
             ret = enqueue(e.fd, EVFILT_READ, EV_DELETE, e.data);
         if (!ret && e.interests & EVENT_WRITE)

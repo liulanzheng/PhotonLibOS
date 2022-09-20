@@ -32,7 +32,9 @@ limitations under the License.
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <gtest/gtest-spi.h>
+#ifdef __linux__
 #include <malloc.h>
+#endif
 #include <fcntl.h>
 #include <unistd.h>
 #include <ctime>

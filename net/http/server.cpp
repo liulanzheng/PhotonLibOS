@@ -20,7 +20,6 @@ limitations under the License.
 #include <string>
 #include <fcntl.h>
 #include <sys/statvfs.h>
-#include <sys/vfs.h>
 #include <queue>
 #include <photon/thread/thread11.h>
 #include <photon/io/signalfd.h>
@@ -45,6 +44,10 @@ limitations under the License.
 #include <boost/beast/core/static_buffer.hpp>
 #include <boost/beast/http/error.hpp>
 #include <boost/beast/http/read.hpp>
+
+#ifndef MSG_MORE
+# define MSG_MORE 0
+#endif
 
 namespace photon {
 namespace net {
