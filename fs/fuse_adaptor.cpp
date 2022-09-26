@@ -675,12 +675,12 @@ int fuser_go_exportfs(IFileSystem *fs_, int argc, char *argv[]) {
 
     umask(0);
     fs = efs;
-    auto pth = photon::CURRENT;
-    auto th = std::thread([&] {
+    photon::semaphore exit_sem(0);
+    std::thread([&] {
         fuse_main(argc, argv, &xmp_oper, NULL);
-        photon::thread_interrupt(pth);
-    });
-    photon::thread_suspend();
+        exit_sem.signal(1);
+    }).detach();
+    exit_sem.wait(1);
     return 0;
 }
 
