@@ -145,8 +145,21 @@ DEFINE_ENGINE_INIT_FINI(iouring);
 DEFINE_ENGINE_INIT_FINI(kqueue);
 
 inline int fd_events_init() {
+#ifdef __APPLE__
+    return fd_events_kqueue_init();
+#else
     return fd_events_epoll_init();
+#endif
 }
+
+inline CascadingEventEngine* new_default_cascading_engine() {
+#ifdef __APPLE__
+    return new_kqueue_cascading_engine();
+#else
+    return new_epoll_cascading_engine();
+#endif
+}
+
 
 #undef DEFINE_ENGINE_INIT_FINI
 

@@ -23,8 +23,10 @@ limitations under the License.
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/un.h>
+#ifdef __linux__
 #include <sys/epoll.h>
 #include <sys/sendfile.h>
+#endif
 #include <unistd.h>
 #include <memory>
 #include <unordered_map>
@@ -45,6 +47,23 @@ limitations under the License.
 #ifndef SO_ZEROCOPY
 #define SO_ZEROCOPY 60
 #endif
+
+LogBuffer& operator<<(LogBuffer& log, const in_addr& iaddr) {
+    return log << photon::net::IPAddr(ntohl(iaddr.s_addr));
+}
+
+LogBuffer& operator<<(LogBuffer& log, const sockaddr_in& addr) {
+    return log << photon::net::EndPoint(addr);
+}
+
+LogBuffer& operator<<(LogBuffer& log, const sockaddr& addr) {
+    if (addr.sa_family == AF_INET) {
+        log << (const sockaddr_in&)addr;
+    } else {
+        log.printf("<sockaddr>");
+    }
+    return log;
+}
 
 namespace photon {
 namespace net {
@@ -443,6 +462,7 @@ protected:
     }
 };
 
+#ifdef __linux__
 class ZeroCopySocketStream : public KernelSocketStream {
 protected:
     uint32_t m_num_calls = 0;
@@ -803,6 +823,7 @@ protected:
                             LAMBDA_TIMEOUT(wait_for_readable(timeout)));
     }
 };
+#endif
 
 /* ET Socket - End */
 
@@ -814,29 +835,19 @@ LogBuffer& operator<<(LogBuffer& log, const EndPoint ep) {
     return log << ep.addr << ':' << ep.port;
 }
 
-LogBuffer& operator<<(LogBuffer& log, const in_addr& iaddr) {
-    return log << net::IPAddr(ntohl(iaddr.s_addr));
-}
-
-LogBuffer& operator<<(LogBuffer& log, const sockaddr_in& addr) {
-    return log << net::EndPoint(addr);
-}
-
-LogBuffer& operator<<(LogBuffer& log, const sockaddr& addr) {
-    if (addr.sa_family == AF_INET) {
-        log << (const sockaddr_in&)addr;
-    } else {
-        log.printf("<sockaddr>");
-    }
-    return log;
-}
-
 extern "C" ISocketClient* new_tcp_socket_client() {
     return new KernelSocketClient(AF_INET, true);
 }
 extern "C" ISocketServer* new_tcp_socket_server() {
     return NewObj<KernelSocketServer>(AF_INET, false, true)->init();
 }
+extern "C" ISocketClient* new_uds_client() {
+    return new KernelSocketClient(AF_UNIX, true);
+}
+extern "C" ISocketServer* new_uds_server(bool autoremove) {
+    return NewObj<KernelSocketServer>(AF_UNIX, autoremove, true)->init();
+}
+#ifdef __linux__
 extern "C" ISocketServer* new_zerocopy_tcp_server() {
     return NewObj<ZeroCopySocketServer>(AF_INET, false, true)->init();
 }
@@ -846,18 +857,13 @@ extern "C" ISocketClient* new_iouring_tcp_client() {
 extern "C" ISocketServer* new_iouring_tcp_server() {
     return NewObj<IouringSocketServer>(AF_INET, false, false)->init();
 }
-extern "C" ISocketClient* new_uds_client() {
-    return new KernelSocketClient(AF_UNIX, true);
-}
-extern "C" ISocketServer* new_uds_server(bool autoremove) {
-    return NewObj<KernelSocketServer>(AF_UNIX, autoremove, true)->init();
-}
 extern "C" ISocketClient* new_et_tcp_socket_client() {
     return new ETKernelSocketClient(AF_INET, true);
 }
 extern "C" ISocketServer* new_et_tcp_socket_server() {
     return NewObj<ETKernelSocketServer>(AF_INET, false, true)->init();
 }
+#endif
 
 }
 }

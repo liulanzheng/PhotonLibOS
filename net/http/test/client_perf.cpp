@@ -159,9 +159,11 @@ int main(int argc, char** argv) {
     ret = photon::fd_events_init();
     if (ret < 0) return -1;
     DEFER({ photon::fd_events_fini(); });
+#ifdef __linux__
     ret = net::et_poller_init();
     if (ret < 0) return -1;
     DEFER(net::et_poller_fini());
+#endif
     ret = net::cURL::init(CURL_GLOBAL_ALL, 0, 0);
     if (ret < 0) return -1;
     DEFER({ photon::thread_sleep(1); net::cURL::fini(); });

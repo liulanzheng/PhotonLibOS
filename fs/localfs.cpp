@@ -141,6 +141,8 @@ namespace fs
             return UISysCall(::fremovexattr(fd, name));
         }
 #else
+        UNIMPLEMENTED(int fsync() override);
+        UNIMPLEMENTED(int fdatasync() override);
         UNIMPLEMENTED(ssize_t fgetxattr(const char *name, void *value, size_t size) override);
         UNIMPLEMENTED(ssize_t flistxattr(char *list, size_t size) override);
         UNIMPLEMENTED(int fsetxattr(const char *name, const void *value, size_t size, int flags) override);
@@ -226,6 +228,7 @@ namespace fs
 #endif
     };
 
+#ifdef __linux__
     template<typename AIOEngine>
     class AioFileAdaptor final : public BaseFileAdaptor
     {
@@ -263,7 +266,7 @@ namespace fs
             return ret;
         }
     };
-
+#endif
     class LocalDIR : public DIR
     {
     public:
@@ -320,7 +323,11 @@ namespace fs
     template<typename T> static
     IFile* file_ctor(int fd, IFileSystem* fs)
     {
+#ifdef __APPLE__
+        return new BaseFileAdaptor(fd, fs);
+#else
         return new AioFileAdaptor<T>(fd, fs);
+#endif
     }
     template<> // static (explicit specialization cannot have a storage class)
     IFile* file_ctor<psync>(int fd, IFileSystem* fs)
@@ -514,6 +521,7 @@ namespace fs
     public:
         explicit IouringFileSystem(int io_engine) : LocalFileSystemAdaptor(io_engine) {}
 
+#ifdef __linux__
         IFile* open(const char* pathname, int flags) override {
             int fd = iouring_open(pathname, flags, 0644);
             return new_local_file(fd, pathname);
@@ -527,6 +535,7 @@ namespace fs
         int mkdir(const char* pathname, mode_t mode) override {
             return iouring_mkdir(pathname, mode);
         }
+#endif
     };
 
     IFileSystem* new_localfs_adaptor(const char* root_path, int io_engine_type)

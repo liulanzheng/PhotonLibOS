@@ -15,9 +15,9 @@ target_link_libraries(pure_libcurl PRIVATE photon ${testing_libs})
 #target_link_libraries(client_function_test PRIVATE photon ${testing_libs})
 #add_test(NAME client_function_test COMMAND $<TARGET_FILE:client_function_test>)
 #
-#add_executable(server_function_test server_function_test.cpp)
-#target_link_libraries(server_function_test PRIVATE photon ${testing_libs})
-#add_test(NAME server_function_test COMMAND $<TARGET_FILE:server_function_test>)
+add_executable(server_function_test server_function_test.cpp)
+target_link_libraries(server_function_test PRIVATE photon ${testing_libs})
+add_test(NAME server_function_test COMMAND $<TARGET_FILE:server_function_test>)
 
 add_executable(cookie_jar_test cookie_jar_test.cpp)
 target_link_libraries(cookie_jar_test PRIVATE photon ${testing_libs})

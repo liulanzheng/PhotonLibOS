@@ -3,13 +3,13 @@
 namespace photon {
 
 // a helper class to translate events into underlay representation
-template<uint32_t UNDERLAY_EVENT_READ_,
-        uint32_t UNDERLAY_EVENT_WRITE_,
-        uint32_t UNDERLAY_EVENT_ERROR_>
+template<int UNDERLAY_EVENT_READ_,
+        int UNDERLAY_EVENT_WRITE_,
+        int UNDERLAY_EVENT_ERROR_>
 struct EventsMap {
-    const static uint32_t UNDERLAY_EVENT_READ = UNDERLAY_EVENT_READ_;
-    const static uint32_t UNDERLAY_EVENT_WRITE = UNDERLAY_EVENT_WRITE_;
-    const static uint32_t UNDERLAY_EVENT_ERROR = UNDERLAY_EVENT_ERROR_;
+    const static int UNDERLAY_EVENT_READ = UNDERLAY_EVENT_READ_;
+    const static int UNDERLAY_EVENT_WRITE = UNDERLAY_EVENT_WRITE_;
+    const static int UNDERLAY_EVENT_ERROR = UNDERLAY_EVENT_ERROR_;
     static_assert(UNDERLAY_EVENT_READ != UNDERLAY_EVENT_WRITE, "...");
     static_assert(UNDERLAY_EVENT_READ != UNDERLAY_EVENT_ERROR, "...");
     static_assert(UNDERLAY_EVENT_ERROR != UNDERLAY_EVENT_WRITE, "...");
@@ -17,9 +17,9 @@ struct EventsMap {
     static_assert(UNDERLAY_EVENT_WRITE, "...");
     static_assert(UNDERLAY_EVENT_ERROR, "...");
 
-    uint64_t ev_read, ev_write, ev_error;
+    int ev_read, ev_write, ev_error;
 
-    EventsMap(uint64_t event_read, uint64_t event_write, uint64_t event_error) {
+    EventsMap(int event_read, int event_write, int event_error) {
         ev_read = event_read;
         ev_write = event_write;
         ev_error = event_error;
@@ -31,8 +31,8 @@ struct EventsMap {
         assert(ev_error != ev_write);
     }
 
-    uint32_t translate_bitwisely(uint64_t events) const {
-        uint32_t ret = 0;
+    int translate_bitwisely(int events) const {
+        int ret = 0;
         if (events & ev_read)
             ret |= UNDERLAY_EVENT_READ;
         if (events & ev_write)
@@ -42,7 +42,7 @@ struct EventsMap {
         return ret;
     }
 
-    uint32_t translate_byval(uint64_t event) const {
+    int translate_byval(int event) const {
         if (event == ev_read)
             return UNDERLAY_EVENT_READ;
         if (event == ev_write)

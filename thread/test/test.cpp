@@ -1519,7 +1519,7 @@ void* testwork(void*) {
     return nullptr;
 }
 
-#ifndef __aarch64__
+#if !defined(__aarch64__) && defined(__linux__)
 TEST(photon, free_stack) {
     auto th = thread_enable_join(thread_create(&testwork, nullptr));
     thread_join(th);
@@ -1828,7 +1828,7 @@ int main(int argc, char** arg)
     google::ParseCommandLineFlags(&argc, &arg, true);
     default_audit_logger.log_output = log_output_stdout;
     photon::thread_init();
-            set_log_output_level(ALOG_INFO);
+    set_log_output_level(ALOG_INFO);
 
     if (FLAGS_vcpus <= 1)
     {

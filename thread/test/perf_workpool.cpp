@@ -31,7 +31,7 @@ static constexpr size_t concurrent = 64;
 static constexpr size_t bs = 4UL * 1024;
 static constexpr size_t turn = data_size / bs / concurrent;
 
-photon::WorkPool pool(pool_size, photon::INIT_EVENT_EPOLL, 0);
+photon::WorkPool pool(pool_size, photon::INIT_EVENT_DEFAULT, 0);
 
 void* task(void* arg) {
     auto fs =
@@ -71,7 +71,7 @@ int main() {
     // system(
     //     "dd if=/dev/zero of=/tmp/workpool_perf bs=1G count=40; sysctl "
     //     "vm.drop_caches=3");
-    photon::init(photon::INIT_EVENT_EPOLL, photon::INIT_IO_LIBAIO);
+    photon::init(photon::INIT_EVENT_DEFAULT, photon::INIT_IO_LIBAIO);
     DEFER(photon::fini());
     std::vector<photon::join_handle*> jhs;
     auto start = photon::now;

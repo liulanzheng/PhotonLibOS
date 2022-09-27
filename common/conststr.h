@@ -225,9 +225,9 @@ struct TSpliter {
     using Current = decltype(Cut::Head::template strip<IGN>());
     using Next = TSpliter<SP, IGN, typename Cut::Tail>;
     using Array = typename Next::Array::template Prepend<Current>;
-    static constexpr Current current{};
-    static constexpr Next next{};
-    static constexpr Array array{};
+    static constexpr Current current() { return {}; };
+    static constexpr Next next() { return {}; };
+    static constexpr Array array() { return {}; };
 };
 
 template <char SP, char IGN>
@@ -236,9 +236,9 @@ struct TSpliter<SP, IGN, TString<>> {
     using Current = TString<>;
     using Next = TSpliter;
     using Array = TStrArray<>;
-    static constexpr Current current{};
-    static constexpr Next next{};
-    static constexpr Array array{};
+    static constexpr Current current() { return {}; };
+    static constexpr Next next() { return {}; };
+    static constexpr Array array() { return {}; };
 };
 
 template <char SP, char ch, char... chs>

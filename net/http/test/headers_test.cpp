@@ -239,11 +239,13 @@ int main(int argc, char** arg) {
     DEFER(photon::thread_fini());
     photon::fd_events_init();
     DEFER(photon::fd_events_fini());
+#ifdef __linux
     if (net::et_poller_init() < 0) {
         LOG_ERROR("net::et_poller_init failed");
         exit(EAGAIN);
     }
     DEFER(net::et_poller_fini());
+#endif
     set_log_output_level(ALOG_DEBUG);
     ::testing::InitGoogleTest(&argc, arg);
     LOG_DEBUG("test result:`", RUN_ALL_TESTS());
