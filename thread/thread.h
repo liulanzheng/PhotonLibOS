@@ -132,6 +132,13 @@ namespace photon
         return ((partial_thread*)th) -> vcpu;
     }
 
+    using thread_key_t = uint32_t;
+
+    int thread_key_create(thread_key_t* key, void (* dtor)(void*));
+    void* thread_getspecific(thread_key_t key);
+    int thread_setspecific(thread_key_t key, const void* value);
+    int thread_key_delete(thread_key_t key);
+
     uint32_t get_vcpu_num();
 
     /**

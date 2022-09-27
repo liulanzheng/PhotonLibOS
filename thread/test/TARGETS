@@ -68,4 +68,28 @@ targets = {
             '-lphoton',
         ],
     ),
+    'test-specific-key': cpp_fast_test(
+        incs=[ './' ],
+        srcs=[
+            'test-specific-key.cpp',
+        ],
+        static_deps=[
+            'gtest-1.7.0:gtest',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+    ),
+    'test-thread-local': cpp_fast_test(
+        incs=[ './' ],
+        srcs=[
+            'test-thread-local.cpp',
+        ],
+        static_deps=[
+            'gtest-1.7.0:gtest',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+    ),
 }
