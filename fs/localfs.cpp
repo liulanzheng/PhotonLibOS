@@ -26,11 +26,11 @@ limitations under the License.
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <sys/ioctl.h>
+#include <sys/xattr.h>
 #include <dirent.h>
 #ifdef __linux__
 #include <linux/fs.h>
 #include <sys/vfs.h>
-#include <sys/xattr.h>
 #include <linux/fiemap.h>
 #ifndef FALLOC_FL_KEEP_SIZE
 #define FALLOC_FL_KEEP_SIZE     0x01 /* default is extend size */
@@ -39,6 +39,10 @@ limitations under the License.
 #define FALLOC_FL_PUNCH_HOLE    0x02 /* de-allocates range */
 #endif
 #endif //__linux__
+#ifdef __APPLE__
+#include <sys/param.h>
+#include <sys/mount.h>
+#endif
 #include "virtual-file.h"
 #include "fiemap.h"
 #include "subfs.h"
@@ -140,14 +144,26 @@ namespace fs
         {
             return UISysCall(::fremovexattr(fd, name));
         }
-#else
+#elif defined(__APPLE__)
+        virtual ssize_t fgetxattr(const char *name, void *value, size_t size) override final
+        {
+            return UISysCall(::fgetxattr(fd, name, value, size, 0, 0));
+        }
+        virtual ssize_t flistxattr(char *list, size_t size) override final
+        {
+            return UISysCall(::flistxattr(fd, list, size, 0));
+        }
+        virtual int fsetxattr(const char *name, const void *value, size_t size, int flags) override final
+        {
+            return UISysCall(::fsetxattr(fd, name, value, size, 0, flags));
+        }
+        virtual int fremovexattr(const char *name) override final
+        {
+            return UISysCall(::fremovexattr(fd, name, 0));
+        }
+#endif
         UNIMPLEMENTED(int fsync() override);
         UNIMPLEMENTED(int fdatasync() override);
-        UNIMPLEMENTED(ssize_t fgetxattr(const char *name, void *value, size_t size) override);
-        UNIMPLEMENTED(ssize_t flistxattr(char *list, size_t size) override);
-        UNIMPLEMENTED(int fsetxattr(const char *name, const void *value, size_t size, int flags) override);
-        UNIMPLEMENTED(int fremovexattr(const char *name) override);
-#endif
     };
 
     class PsyncFileAdaptor final : public BaseFileAdaptor
@@ -201,15 +217,6 @@ namespace fs
             return UISysCall(::sync_file_range(fd, offset, nbytes, flags));
         }
 #endif
-#ifdef __APPLE__
-        UNIMPLEMENTED(ssize_t preadv(const struct iovec *iov, int iovcnt, off_t offset) override);
-        UNIMPLEMENTED(ssize_t pwritev(const struct iovec *iov, int iovcnt, off_t offset) override);
-        virtual int fdatasync() override
-        {
-            thread_yield();
-            return UISysCall(::fcntl(fd, F_FULLFSYNC));
-        }
-#else
         virtual ssize_t preadv(const struct iovec *iov, int iovcnt, off_t offset) override
         {
             thread_yield();
@@ -220,6 +227,13 @@ namespace fs
             thread_yield();
             return UISysCall(::pwritev(fd, iov, iovcnt, offset));
         }
+#ifdef __APPLE__
+        virtual int fdatasync() override
+        {
+            thread_yield();
+            return UISysCall(::fcntl(fd, F_FULLFSYNC));
+        }
+#else
         virtual int fdatasync() override
         {
             thread_yield();
@@ -462,7 +476,6 @@ namespace fs
             ::sync();
             return 0;
         }
-#ifdef __linux__
         virtual int statfs(const char *path, struct statfs *buf) override
         {
             return UISysCall(::statfs(path, buf));
@@ -471,6 +484,7 @@ namespace fs
         {
             return UISysCall(::statvfs(path, buf));
         }
+#ifdef __linux__
         virtual ssize_t getxattr(const char *path, const char *name, void *value, size_t size) override
         {
             return UISysCall(::getxattr(path, name, value, size));
@@ -503,17 +517,39 @@ namespace fs
         {
             return UISysCall(::lremovexattr(path, name));
         }
-#else
-        UNIMPLEMENTED(int statfs(const char *path, struct statfs *buf) override);
-        UNIMPLEMENTED(int statvfs(const char *path, struct statvfs *buf) override);
-        UNIMPLEMENTED(ssize_t getxattr(const char *path, const char *name, void *value, size_t size) override);
-        UNIMPLEMENTED(ssize_t lgetxattr(const char *path, const char *name, void *value, size_t size) override);
-        UNIMPLEMENTED(ssize_t listxattr(const char *path, char *list, size_t size) override);
-        UNIMPLEMENTED(ssize_t llistxattr(const char *path, char *list, size_t size) override);
-        UNIMPLEMENTED(int setxattr(const char *path, const char *name, const void *value, size_t size, int flags) override);
-        UNIMPLEMENTED(int lsetxattr(const char *path, const char *name, const void *value, size_t size, int flags) override);
-        UNIMPLEMENTED(int removexattr(const char *path, const char *name) override);
-        UNIMPLEMENTED(int lremovexattr(const char *path, const char *name) override);
+#elif defined(__APPLE__)
+        virtual ssize_t getxattr(const char *path, const char *name, void *value, size_t size) override
+        {
+            return UISysCall(::getxattr(path, name, value, size, 0, 0));
+        }
+        virtual ssize_t lgetxattr(const char *path, const char *name, void *value, size_t size) override
+        {
+            return UISysCall(::getxattr(path, name, value, size, 0, XATTR_NOFOLLOW));
+        }
+        virtual ssize_t listxattr(const char *path, char *list, size_t size) override
+        {
+            return UISysCall(::listxattr(path, list, size, 0));
+        }
+        virtual ssize_t llistxattr(const char *path, char *list, size_t size) override
+        {
+            return UISysCall(::listxattr(path, list, size, XATTR_NOFOLLOW));
+        }
+        virtual int setxattr(const char *path, const char *name, const void *value, size_t size, int flags) override
+        {
+            return UISysCall(::setxattr(path, name, value, size, 0, flags));
+        }
+        virtual int lsetxattr(const char *path, const char *name, const void *value, size_t size, int flags) override
+        {
+            return UISysCall(::setxattr(path, name, value, size, 0, flags | XATTR_NOFOLLOW));
+        }
+        virtual int removexattr(const char *path, const char *name) override
+        {
+            return UISysCall(::removexattr(path, name, 0));
+        }
+        virtual int lremovexattr(const char *path, const char *name) override
+        {
+            return UISysCall(::removexattr(path, name, XATTR_NOFOLLOW));
+        }
 #endif
     };
 
