@@ -17,6 +17,7 @@
 #include "crc32c.h"
 
 static uint32_t (*crc32c_func)(const uint8_t*, size_t, uint32_t) = nullptr;
+static bool crc32c_hw_available = true;
 
 __attribute__((constructor)) static void crc_init() {
 #if ((defined(__x86_64__) || defined(__i386__)) && defined(__SSE4_2__))
@@ -25,25 +26,32 @@ __attribute__((constructor)) static void crc_init() {
     crc32c_func = crc32c_hw;
   } else {
     crc32c_func = crc32c_sw;
+    crc32c_hw_available = false;
   }
 #elif (defined(__aarch64__) && defined(__ARM_FEATURE_CRC32))
   crc32c_func = crc32c_hw;
 #else
   crc32c_func = crc32c_sw;
+  crc32c_hw_available = false;
 #endif
 }
 
 #if (defined(__aarch64__) && defined(__ARM_FEATURE_CRC32))
+#ifdef __APPLE__
+#define _crc32di __builtin_arm_crc32cd
+#define _crc32qi __builtin_arm_crc32cb
+#else
 #define _crc32di __builtin_aarch64_crc32cx
 #define _crc32qi __builtin_aarch64_crc32cb
+#endif
 #elif (defined(__aarch64__))
-uint32_t _crc32di(uint32_t value, uint64_t crc) {
+uint32_t _crc32di(uint32_t crc, uint64_t value) {
   __asm__("crc32cx %w[c], %w[c], %x[v]":[c]"+r"(crc):[v]"r"(value));
-  return value;
+  return crc;
 }
-uint32_t _crc32qi(uint32_t value, uint8_t crc) {
+static inline uint32_t _crc32qi(uint32_t crc, uint8_t value) {
   __asm__("crc32cb %w[c], %w[c], %w[v]":[c]"+r"(crc):[v]"r"(value));
-  return value;
+  return crc;
 }
 #else
 #define _crc32di __builtin_ia32_crc32di
@@ -754,4 +762,8 @@ uint32_t crc32c_extend(const void *data, size_t nbytes, uint32_t crc) {
 
 uint32_t crc32c(const void *data, size_t nbytes) {
   return crc32c_extend(reinterpret_cast<const uint8_t*>(data), nbytes, 0);
+}
+
+bool is_crc32c_hw_available() {
+    return crc32c_hw_available;
 }
