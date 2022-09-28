@@ -156,6 +156,9 @@ set(EXTERNAL_LIB_ARGS
         -lpthread
         )
 
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    list(APPEND EXTERNAL_LIB_ARGS -lgcc)  # solve [hidden symbol `__cpu_model'] problem
+endif ()
 IF (CMAKE_SYSTEM_NAME MATCHES "Linux")
     list(APPEND EXTERNAL_LIB_ARGS ${AIO_LIBRARIES} -lrt)
 endif ()
@@ -167,24 +170,44 @@ if (ENABLE_SASL)
 endif ()
 target_link_libraries(external_lib INTERFACE ${EXTERNAL_LIB_ARGS})
 
-
-if (APPLE)
-set(shared_linklibs external_lib -Wl,-force_load easy_weak)
-set(static_linklibs easy_weak external_lib)
-else ()
-set(shared_linklibs -Wl,-whole-archive uring easy_weak -Wl,-nowhole-archive external_lib)
-set(static_linklibs uring easy_weak external_lib)
-endif ()
-
 # Link photon dynamic lib
 add_library(photon SHARED $<TARGET_OBJECTS:photon_obj>)
 set_target_properties(photon PROPERTIES OUTPUT_NAME photon)
-target_link_libraries(photon ${shared_linklibs})
+if (APPLE)
+target_link_libraries(
+        photon
+        external_lib
+        -Wl,-force_load
+        easy_weak
+)
+else ()
+target_link_libraries(
+        photon
+        -Wl,--whole-archive
+        uring
+        easy_weak
+        -Wl,--no-whole-archive
+        external_lib
+)
+endif ()
 
 # Archive photon static lib
 add_library(photon_static STATIC $<TARGET_OBJECTS:photon_obj>)
 target_link_libraries(photon_static ${static_linklibs})
-set_target_properties(photon_static PROPERTIES OUTPUT_NAME photon)
+if (APPLE)
+target_link_libraries(
+        photon_static
+        easy_weak
+        external_lib
+)
+else ()
+target_link_libraries(
+        photon_static
+        uring
+        easy_weak
+        external_lib
+)
+endif ()
 
 # Third party
 add_subdirectory(third_party)

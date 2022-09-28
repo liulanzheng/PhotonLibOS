@@ -38,19 +38,20 @@ static thread_local uint64_t g_event_engine = 0, g_io_engine = 0;
 int init(uint64_t event_engine, uint64_t io_engine) {
     INIT(1, thread);
     {
-#ifdef __linux__
+#if defined(__linux__)
         INIT_EVENT(EPOLL, epoll) else
-        INIT_EVENT(IOURING, iouring) else
+        INIT_EVENT(IOURING, iouring)
+#elif defined(__APPLE__)
+        INIT_EVENT(KQUEUE, kqueue)
 #endif
-        INIT_EVENT(KQUEUE, kqueue);
     }
+    INIT_EVENT(SIGNALFD, signalfd)
+    INIT_IO(LIBCURL, libcurl)
 #ifdef __linux__
-    INIT_EVENT(SIGNALFD, signalfd);
-    INIT_IO(LIBAIO, libaio_wrapper);
-    INIT_IO(SOCKET_EDGE_TRIGGER, et_poller);
-    INIT_IO(LIBCURL, libaio_wrapper);
+    INIT_IO(LIBAIO, libaio_wrapper)
+    INIT_IO(SOCKET_EDGE_TRIGGER, et_poller)
 #endif
-    INIT_IO(EXPORTFS, exportfs);
+    INIT_IO(EXPORTFS, exportfs)
     g_event_engine = event_engine;
     g_io_engine = io_engine;
     return 0;
@@ -60,19 +61,20 @@ int init(uint64_t event_engine, uint64_t io_engine) {
 #define FINI_EVENT(flag, x) FINI(INIT_EVENT_##flag & g_event_engine, fd_events_##x)
 #define FINI_IO(flag, x)    FINI(INIT_IO_##flag & g_io_engine, x)
 int fini() {
+    FINI_EVENT(SIGNALFD, signalfd)
 #ifdef __linux__
-    FINI_IO(SOCKET_EDGE_TRIGGER, et_poller);
-    FINI_IO(LIBAIO, libaio_wrapper);
-    FINI_EVENT(SIGNALFD, signalfd);
-    FINI_IO(LIBCURL, libaio_wrapper);
+    FINI_IO(LIBAIO, libaio_wrapper)
+    FINI_IO(SOCKET_EDGE_TRIGGER, et_poller)
 #endif
-    FINI_IO(EXPORTFS, exportfs);
+    FINI_IO(LIBCURL, libcurl)
+    FINI_IO(EXPORTFS, exportfs)
     {
-#ifdef __linux__
+#if defined(__linux__)
         FINI_EVENT(EPOLL, epoll) else
-        FINI_EVENT(IOURING, iouring) else
+        FINI_EVENT(IOURING, iouring)
+#elif defined(__APPLE__)
+        FINI_EVENT(KQUEUE, kqueue)
 #endif
-        FINI_EVENT(KQUEUE, kqueue);
     }
     FINI(1, thread);
     g_event_engine = g_io_engine = 0;

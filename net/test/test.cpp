@@ -496,7 +496,7 @@ TEST(TCPServer, start_and_terminate_nonblocking) {
 TEST(TCPServer, listen_twice) {
     auto server = net::new_tcp_socket_server();
     DEFER(delete server);
-    server->bind(5432, net::IPAddr());
+    server->bind(5432, net::IPAddr("127.0.0.1"));
     server->listen();
     int ret, err;
     ret = server->start_loop();
@@ -520,7 +520,7 @@ TEST(TLSSocket, basic) {
     auto server = net::new_tls_server(ctx, net::new_tcp_socket_server(), true);
     DEFER(delete server);
 
-    server->bind(31524, net::IPAddr());
+    server->bind(31524, net::IPAddr("127.0.0.1"));
     server->timeout(10UL * 1024 * 1024);
 
     auto logHandle = [&](ISocketStream* sock) {

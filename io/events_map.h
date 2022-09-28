@@ -3,13 +3,18 @@
 namespace photon {
 
 // a helper class to translate events into underlay representation
-template<int UNDERLAY_EVENT_READ_,
-        int UNDERLAY_EVENT_WRITE_,
-        int UNDERLAY_EVENT_ERROR_>
+#ifdef __APPLE__
+typedef int EVENT_TYPE;  // On macOS, event_type are negative integer.
+#else
+typedef uint32_t EVENT_TYPE;
+#endif
+template<EVENT_TYPE UNDERLAY_EVENT_READ_,
+        EVENT_TYPE UNDERLAY_EVENT_WRITE_,
+        EVENT_TYPE UNDERLAY_EVENT_ERROR_>
 struct EventsMap {
-    const static int UNDERLAY_EVENT_READ = UNDERLAY_EVENT_READ_;
-    const static int UNDERLAY_EVENT_WRITE = UNDERLAY_EVENT_WRITE_;
-    const static int UNDERLAY_EVENT_ERROR = UNDERLAY_EVENT_ERROR_;
+    const static EVENT_TYPE UNDERLAY_EVENT_READ = UNDERLAY_EVENT_READ_;
+    const static EVENT_TYPE UNDERLAY_EVENT_WRITE = UNDERLAY_EVENT_WRITE_;
+    const static EVENT_TYPE UNDERLAY_EVENT_ERROR = UNDERLAY_EVENT_ERROR_;
     static_assert(UNDERLAY_EVENT_READ != UNDERLAY_EVENT_WRITE, "...");
     static_assert(UNDERLAY_EVENT_READ != UNDERLAY_EVENT_ERROR, "...");
     static_assert(UNDERLAY_EVENT_ERROR != UNDERLAY_EVENT_WRITE, "...");
@@ -17,9 +22,9 @@ struct EventsMap {
     static_assert(UNDERLAY_EVENT_WRITE, "...");
     static_assert(UNDERLAY_EVENT_ERROR, "...");
 
-    int ev_read, ev_write, ev_error;
+    EVENT_TYPE ev_read, ev_write, ev_error;
 
-    EventsMap(int event_read, int event_write, int event_error) {
+    EventsMap(EVENT_TYPE event_read, EVENT_TYPE event_write, EVENT_TYPE event_error) {
         ev_read = event_read;
         ev_write = event_write;
         ev_error = event_error;
@@ -31,8 +36,8 @@ struct EventsMap {
         assert(ev_error != ev_write);
     }
 
-    int translate_bitwisely(int events) const {
-        int ret = 0;
+    EVENT_TYPE translate_bitwisely(EVENT_TYPE events) const {
+        EVENT_TYPE ret = 0;
         if (events & ev_read)
             ret |= UNDERLAY_EVENT_READ;
         if (events & ev_write)
@@ -42,7 +47,7 @@ struct EventsMap {
         return ret;
     }
 
-    int translate_byval(int event) const {
+    EVENT_TYPE translate_byval(EVENT_TYPE event) const {
         if (event == ev_read)
             return UNDERLAY_EVENT_READ;
         if (event == ev_write)

@@ -33,7 +33,7 @@ namespace photon
     static int sgfd = -1;
     static void* sighandlers[SIGNAL_MAX + 1];
     static sigset_t infoset = {0};
-    static sigset_t sigset = {static_cast<sigset_t>(-1UL)};
+    static sigset_t sigset = {-1U};
     static EventLoop* eloop = nullptr;
 #ifdef __APPLE__
     struct kevent _events[32];
@@ -49,7 +49,7 @@ namespace photon
       if (ret < 0) LOG_WARN("failed to submit events with kevent()"); \
     }
 #else
-#define WATCH_SIGNAL(signum)
+#define WATCH_SIGNAL(signum, handler)
 #endif
 
     static int set_signal_mask()
