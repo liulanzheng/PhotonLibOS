@@ -1,6 +1,12 @@
 # $$PHOTON_UNPUBLISHED_FILE$$
 
 targets = {
+    'simple-example': cpp_program(
+        srcs=['simple/simple.cpp'],
+        ldflags=[
+            '-lphoton',
+        ],
+    ),
     'net-perf': cpp_program(
         incs=[],
         srcs=['perf/net-perf.cpp'],
