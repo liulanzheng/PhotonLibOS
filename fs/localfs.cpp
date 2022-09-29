@@ -21,6 +21,7 @@ limitations under the License.
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <utime.h>
 #include <sys/uio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -454,6 +455,10 @@ namespace fs
         {
             ::sync();
             return 0;
+        }
+        virtual int utime(const char *path, const struct utimbuf *file_times) override
+        {
+            return UISysCall(::utime(path, file_times));
         }
 #ifdef __linux__
         virtual int statfs(const char *path, struct statfs *buf) override
