@@ -1,6 +1,7 @@
 # $$PHOTON_UNPUBLISHED_FILE$$
 
 includes = {
+    '../checksum/test/TARGETS',
     '../executor/test/TARGETS',
     '../memory-stream/test/TARGETS',
     '../metric-meter/test/TARGETS',

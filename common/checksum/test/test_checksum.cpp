@@ -11,9 +11,12 @@
 #define DATA_DIR ""
 #endif
 
+#define xstr(arg) str(arg)
+#define str(s) #s
+
 class TestChecksum : public ::testing::Test {
     virtual void SetUp() {
-        in.open(DATA_DIR "checksum.in");
+        in.open(xstr(DATA_DIR) "checksum.in");
         ASSERT_TRUE(!!in);
         uint32_t value;
         std::string str;
@@ -45,8 +48,8 @@ TEST_F(TestChecksum, crc32c_hw) {
             auto crc = crc32c_hw(reinterpret_cast<const uint8_t*>(data), len, 0);
             EXPECT_EQ(cases[i].first, crc);
         }
-        auto time_cost = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - start).count();
-        std::cout << "crc32c_hw time spent: " << time_cost << std::endl;
+        int time_cost = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - start).count();
+        printf("crc32c_hw time spent: %dns \n", time_cost);
     } else {
         std::cout << "skip crc32c_hw test on unsupported paltform." << std::endl;
     }
@@ -61,6 +64,12 @@ TEST_F(TestChecksum, crc32c_sw) {
         auto crc = crc32c_sw(reinterpret_cast<const uint8_t*>(data), len, 0);
         EXPECT_EQ(cases[i].first, crc);
     }
-    auto time_cost = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - start).count();
-    std::cout << "crc32c_sw time spent: " << time_cost << std::endl;
+    int time_cost = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - start).count();
+    printf("crc32c_sw time spent: %dns \n", time_cost);
+}
+
+int main(int argc, char **argv)
+{
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
 }

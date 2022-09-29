@@ -152,10 +152,15 @@ apt install cmake
 apt install libssl-dev libcurl4-openssl-dev libaio-dev
 ```
 
+#### macOS
+```shell
+brew install cmake openssl
+```
+
 ### 2. Build from source
 ```shell
 mkdir build && cd build
-cmake ..
+cmake ..  // On macOS, we need add -DOPENSSL_ROOT_DIR=/path/to/openssl/
 make -j
 ```
 All the libs and executables will be saved in `build/output`.
@@ -170,6 +175,8 @@ dnf config-manager --set-enabled powertools
 dnf install gtest-devel gmock-devel gflags-devel fuse-devel libgsasl-devel
 # Ubuntu
 apt install libgtest-dev libgmock-dev libgflags-dev libfuse-dev libgsasl7-dev
+# macOS
+brew install gflags googletest gsasl
 
 cmake -D BUILD_TESTING=1 -D ENABLE_SASL=1 -D ENABLE_FUSE=1 -D CMAKE_BUILD_TYPE=Debug ..
 make -j

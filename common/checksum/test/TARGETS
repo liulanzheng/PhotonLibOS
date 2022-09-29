@@ -1,0 +1,20 @@
+# $$PHOTON_UNPUBLISHED_FILE$$
+
+targets = {
+    'test_checksum': cpp_fast_test(
+        testing=[':test_checksum'],
+        incs=['./'],
+        srcs=[
+            'test_checksum.cpp'
+        ],
+        static_deps=[
+            'gtest-1.7.0:gtest',
+        ],
+        ccflags = [
+            '-DDATA_DIR=%s%s/' % (ALIMAKE_REPO_ROOT, ALIMAKE_TARGETS_DIR),
+        ],
+        ldflags=[
+            '-lphoton',
+        ]
+    ),
+}
