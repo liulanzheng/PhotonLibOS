@@ -41,6 +41,7 @@ struct stat;
 struct statfs;
 struct statvfs;
 struct iovector;
+struct utimbuf;
 
 namespace photon {
 namespace fs
@@ -248,6 +249,7 @@ namespace fs
         virtual int lstat(const char *path, struct stat *buf)=0;
         virtual int access(const char *pathname, int mode)=0;
         virtual int truncate(const char *path, off_t length)=0;
+        virtual int utime(const char *path, const struct utimbuf *file_times)=0;
         virtual int syncfs()=0;
         int sync() { return syncfs(); }
 

@@ -183,6 +183,7 @@ TEST(ExportFS, basic) {
     EXPECT_CALL(*mockfs, lstat(_, _)).Times(AtLeast(1)).WillRepeatedly(Return(0));
     EXPECT_CALL(*mockfs, access(_, _)).Times(AtLeast(1)).WillRepeatedly(Return(0));
     EXPECT_CALL(*mockfs, truncate(_, _)).Times(AtLeast(1)).WillRepeatedly(Return(0));
+    EXPECT_CALL(*mockfs, utime(_, _)).Times(AtLeast(1)).WillRepeatedly(Return(0));
     EXPECT_CALL(*mockfs, syncfs()).Times(AtLeast(1)).WillRepeatedly(Return(0));
     EXPECT_CALL(*mockfs, opendir(_)).Times(AtLeast(1)).WillRepeatedly(Return(pad_magic));
 
