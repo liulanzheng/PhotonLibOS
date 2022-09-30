@@ -500,6 +500,10 @@ namespace fs
         {
             callback_umimplemented(done);
         }
+        OVERRIDE_ASYNC(int, utime, const char *path, const struct utimbuf *file_times)
+        {
+            callback_umimplemented(done);
+        }
         OVERRIDE_ASYNC0(int, syncfs)
         {
             callback_umimplemented(done);
