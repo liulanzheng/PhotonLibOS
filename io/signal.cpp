@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-#include "signalfd.h"
+#include "signal.h"
 #include <unistd.h>
 #ifdef __APPLE__
 #include <sys/event.h>

@@ -22,7 +22,7 @@ limitations under the License.
 #include <sys/statvfs.h>
 #include <queue>
 #include <photon/thread/thread11.h>
-#include <photon/io/signalfd.h>
+#include <photon/io/signal.h>
 #include <photon/net/socket.h>
 #include <photon/common/alog-stdstring.h>
 #include <photon/io/fd-events.h>

@@ -27,7 +27,7 @@ limitations under the License.
 
 #include <photon/common/alog.h>
 #include <photon/io/fd-events.h>
-#include <photon/io/signalfd.h>
+#include <photon/io/signal.h>
 #include <photon/thread/thread11.h>
 #include <photon/common/utility.h>
 #include "socket.h"

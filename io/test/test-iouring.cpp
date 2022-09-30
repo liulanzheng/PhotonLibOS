@@ -24,7 +24,7 @@ limitations under the License.
 
 #include <photon/io/fd-events.h>
 #include <photon/io/aio-wrapper.h>
-#include <photon/io/signalfd.h>
+#include <photon/io/signal.h>
 #include <photon/fs/localfs.h>
 #include <photon/fs/filesystem.h>
 #include <photon/common/checksum/crc32c.h>

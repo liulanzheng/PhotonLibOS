@@ -28,7 +28,7 @@ limitations under the License.
 
 #include <photon/photon.h>
 #include <photon/io/aio-wrapper.h>
-#include <photon/io/signalfd.h>
+#include <photon/io/signal.h>
 #include <photon/thread/thread11.h>
 #include <photon/common/alog.h>
 #include <photon/common/alog-stdstring.h>

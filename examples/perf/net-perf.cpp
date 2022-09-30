@@ -21,7 +21,7 @@ limitations under the License.
 #include <gflags/gflags.h>
 
 #include <photon/photon.h>
-#include <photon/io/signalfd.h>
+#include <photon/io/signal.h>
 #include <photon/common/io-alloc.h>
 #include <photon/thread/thread11.h>
 #include <photon/thread/workerpool.h>

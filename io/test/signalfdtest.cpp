@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-#include <photon/io/signalfd.h>
+#include <photon/io/signal.h>
 #include <photon/io/fd-events.h>
 #include <photon/common/utility.h>
 #include <photon/common/alog.h>

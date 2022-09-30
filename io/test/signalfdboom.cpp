@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 #define protected public
-#include <photon/io/signalfd.h>
+#include <photon/io/signal.h>
 #include <photon/io/fd-events.h>
 #include <photon/common/alog.h>
 #undef protected

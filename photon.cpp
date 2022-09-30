@@ -18,7 +18,7 @@ limitations under the License.
 
 #include "thread/thread.h"
 #include "io/fd-events.h"
-#include "io/signalfd.h"
+#include "io/signal.h"
 #include "io/aio-wrapper.h"
 #include "net/curl.h"
 #include "net/socket.h"

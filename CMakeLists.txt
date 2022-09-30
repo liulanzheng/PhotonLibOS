@@ -130,7 +130,7 @@ file(GLOB PHOTON_SRC
         fs/virtual-file.cpp
         fs/xfile.cpp
         fs/httpfs/*.cpp
-        io/signalfd.cpp
+        io/signal.cpp
         net/*.cpp
         net/http/*.cpp
         net/security-context/tls-stream.cpp
