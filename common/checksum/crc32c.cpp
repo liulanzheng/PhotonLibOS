@@ -17,7 +17,6 @@
 #include "crc32c.h"
 
 static uint32_t (*crc32c_func)(const uint8_t*, size_t, uint32_t) = nullptr;
-static bool crc32c_hw_available = true;
 
 __attribute__((constructor)) static void crc_init() {
 #if ((defined(__x86_64__) || defined(__i386__)) && defined(__SSE4_2__))
@@ -26,13 +25,11 @@ __attribute__((constructor)) static void crc_init() {
     crc32c_func = crc32c_hw;
   } else {
     crc32c_func = crc32c_sw;
-    crc32c_hw_available = false;
   }
 #elif (defined(__aarch64__) && defined(__ARM_FEATURE_CRC32))
   crc32c_func = crc32c_hw;
 #else
   crc32c_func = crc32c_sw;
-  crc32c_hw_available = false;
 #endif
 }
 
@@ -45,7 +42,7 @@ __attribute__((constructor)) static void crc_init() {
 #define _crc32qi __builtin_aarch64_crc32cb
 #endif
 #elif (defined(__aarch64__))
-uint32_t _crc32di(uint32_t crc, uint64_t value) {
+static inline uint32_t _crc32di(uint32_t crc, uint64_t value) {
   __asm__("crc32cx %w[c], %w[c], %x[v]":[c]"+r"(crc):[v]"r"(value));
   return crc;
 }
@@ -765,5 +762,5 @@ uint32_t crc32c(const void *data, size_t nbytes) {
 }
 
 bool is_crc32c_hw_available() {
-    return crc32c_hw_available;
+    return crc32c_func == crc32c_hw;
 }

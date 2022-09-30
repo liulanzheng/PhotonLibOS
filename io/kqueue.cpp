@@ -1,4 +1,3 @@
-#ifdef __APPLE__
 #include <photon/io/fd-events.h>
 #include <inttypes.h>
 #include <unistd.h>
@@ -184,5 +183,3 @@ CascadingEventEngine* new_kqueue_cascading_engine() {
 
 
 } // namespace photon
-
-#endif

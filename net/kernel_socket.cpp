@@ -34,7 +34,6 @@ limitations under the License.
 #include <photon/common/alog.h>
 #include <photon/common/iovector.h>
 #include <photon/io/fd-events.h>
-#include <photon/io/events_map.h>
 #include <photon/thread/thread11.h>
 #include <photon/thread/list.h>
 #include <photon/thread/timer.h>
@@ -42,8 +41,12 @@ limitations under the License.
 #include <photon/common/event-loop.h>
 #include <photon/net/basic_socket.h>
 #include <photon/net/utils.h>
+#ifdef PHOTON_URING
+#include <photon/io/iouring-wrapper.h>
+#endif
 
 #include "base_socket.h"
+#include "../io/events_map.h"
 
 #ifndef SO_ZEROCOPY
 #define SO_ZEROCOPY 60
@@ -522,6 +525,7 @@ protected:
     }
 };
 
+#ifdef PHOTON_URING
 class IouringSocketStream : public KernelSocketStream {
 public:
     using KernelSocketStream::KernelSocketStream;
@@ -610,6 +614,7 @@ protected:
         return photon::iouring_accept(fd, addr, addrlen, m_timeout);
     }
 };
+#endif
 
 /* ET Socket - Start */
 
@@ -855,12 +860,14 @@ extern "C" ISocketServer* new_uds_server(bool autoremove) {
 extern "C" ISocketServer* new_zerocopy_tcp_server() {
     return NewObj<ZeroCopySocketServer>(AF_INET, false, true)->init();
 }
+#ifdef PHOTON_URING
 extern "C" ISocketClient* new_iouring_tcp_client() {
     return new IouringSocketClient(AF_INET, false);
 }
 extern "C" ISocketServer* new_iouring_tcp_server() {
     return NewObj<IouringSocketServer>(AF_INET, false, false)->init();
 }
+#endif // PHOTON_URING
 extern "C" ISocketClient* new_et_tcp_socket_client() {
     return new ETKernelSocketClient(AF_INET, true);
 }

@@ -577,10 +577,10 @@ public:
     HTTPServerImpl() {}
     ~HTTPServerImpl() {
         status = Status::stopping;
-        for (auto it = connection_map.begin(); it != connection_map.end();) {
-            it->second->shutdown(ShutdownHow::ReadWrite);
-            it = connection_map.erase(it);
+        for (auto it : connection_map) {
+            it.second->shutdown(ShutdownHow::ReadWrite);
         }
+        connection_map.clear();
         while (working_thread_cnt != 0) {
             photon::thread_usleep(50 * 1000);
         }

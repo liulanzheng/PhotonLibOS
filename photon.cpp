@@ -37,14 +37,14 @@ static thread_local uint64_t g_event_engine = 0, g_io_engine = 0;
 #define INIT_IO(flag, x)    INIT(INIT_IO_##flag & io_engine, x)
 int init(uint64_t event_engine, uint64_t io_engine) {
     INIT(1, thread);
-    {
 #if defined(__linux__)
-        INIT_EVENT(EPOLL, epoll) else
-        INIT_EVENT(IOURING, iouring)
+    INIT_EVENT(EPOLL, epoll)
+#ifdef PHOTON_URING
+    else INIT_EVENT(IOURING, iouring)
+#endif  // PHOTON_URING
 #elif defined(__APPLE__)
-        INIT_EVENT(KQUEUE, kqueue)
+    INIT_EVENT(KQUEUE, kqueue)
 #endif
-    }
     INIT_EVENT(SIGNALFD, signalfd)
     INIT_IO(LIBCURL, libcurl)
 #ifdef __linux__
@@ -68,14 +68,14 @@ int fini() {
 #endif
     FINI_IO(LIBCURL, libcurl)
     FINI_IO(EXPORTFS, exportfs)
-    {
 #if defined(__linux__)
-        FINI_EVENT(EPOLL, epoll) else
-        FINI_EVENT(IOURING, iouring)
+    FINI_EVENT(EPOLL, epoll)
+#ifdef PHOTON_URING
+    else FINI_EVENT(IOURING, iouring)
+#endif // PHOTON_URING
 #elif defined(__APPLE__)
-        FINI_EVENT(KQUEUE, kqueue)
+    FINI_EVENT(KQUEUE, kqueue)
 #endif
-    }
     FINI(1, thread);
     g_event_engine = g_io_engine = 0;
     return 0;

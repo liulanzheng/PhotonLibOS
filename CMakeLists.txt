@@ -1,3 +1,5 @@
+include(CheckCXXCompilerFlag)
+
 cmake_minimum_required(VERSION 3.14)
 
 project(
@@ -11,6 +13,7 @@ execute_process(COMMAND uname -m OUTPUT_VARIABLE ARCH OUTPUT_STRIP_TRAILING_WHIT
 if (NOT (${ARCH} STREQUAL x86_64) AND NOT (${ARCH} STREQUAL aarch64) AND NOT (${ARCH} STREQUAL arm64))
     message(FATAL_ERROR "Unknown CPU architecture ${ARCH}")
 endif ()
+check_cxx_compiler_flag("-Werror -mcrc32" COMPILER_HAS_MCRC32_FLAG)
 
 # Compiler options
 set(CMAKE_CXX_STANDARD 14)
@@ -26,11 +29,15 @@ if (${ARCH} STREQUAL x86_64)
 elseif (${ARCH} STREQUAL aarch64)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mcpu=generic+crc -fsigned-char")
 endif ()
+if (COMPILER_HAS_MCRC32_FLAG)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mcrc32")
+endif ()
 
 set(CMAKE_C_FLAGS ${CMAKE_CXX_FLAGS})
 set(CMAKE_C_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
 set(CMAKE_C_FLAGS_RELEASE ${CMAKE_CXX_FLAGS_RELEASE})
 
+option(ENABLE_URING "enable io_uring function" ON)
 option(ENABLE_FUSE "enable fuse function" OFF)
 option(ENABLE_SASL "enable sasl" OFF)
 add_compile_options(-Wall)  # -Werror is not enable yet
@@ -65,25 +72,28 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux")
     if (ENABLE_FUSE)
         find_package(fuse REQUIRED)
     endif ()
-    # Fetch liburing
-    FetchContent_Declare(
-            liburing
-            GIT_REPOSITORY https://github.com/axboe/liburing.git
-            GIT_TAG 469b5e80ce42be53ec748ddea8523a3c16ea5465
-            UPDATE_COMMAND ./configure
-    )
-    FetchContent_MakeAvailable(liburing)
-    set(liburing_include_dir ${liburing_SOURCE_DIR}/src/include)
-    add_library(
-            uring
-            STATIC
-            ${liburing_SOURCE_DIR}/src/setup.c
-            ${liburing_SOURCE_DIR}/src/queue.c
-            ${liburing_SOURCE_DIR}/src/register.c
-            ${liburing_SOURCE_DIR}/src/syscall.c
-    )
-    target_compile_options(uring PRIVATE -Wno-implicit-function-declaration)
-    target_include_directories(uring PRIVATE ${liburing_include_dir})
+    if (ENABLE_URING)
+        add_compile_definitions(PHOTON_URING)
+        # Fetch liburing
+        FetchContent_Declare(
+                liburing
+                GIT_REPOSITORY https://github.com/axboe/liburing.git
+                GIT_TAG 469b5e80ce42be53ec748ddea8523a3c16ea5465
+                UPDATE_COMMAND ./configure
+        )
+        FetchContent_MakeAvailable(liburing)
+        set(liburing_include_dir ${liburing_SOURCE_DIR}/src/include)
+        add_library(
+                uring
+                STATIC
+                ${liburing_SOURCE_DIR}/src/setup.c
+                ${liburing_SOURCE_DIR}/src/queue.c
+                ${liburing_SOURCE_DIR}/src/register.c
+                ${liburing_SOURCE_DIR}/src/syscall.c
+        )
+        target_compile_options(uring PRIVATE -Wno-implicit-function-declaration)
+        target_include_directories(uring PRIVATE ${liburing_include_dir})
+    endif ()
 endif()
 find_package(OpenSSL REQUIRED)
 find_package(ZLIB REQUIRED)
@@ -131,9 +141,10 @@ file(GLOB PHOTON_SRC
 if (APPLE)
     list(APPEND PHOTON_SRC io/kqueue.cpp)
 else ()
-    list(APPEND PHOTON_SRC io/aio-wrapper.cpp)
-    list(APPEND PHOTON_SRC io/epoll.cpp)
-    list(APPEND PHOTON_SRC io/iouring-wrapper.cpp)
+    list(APPEND PHOTON_SRC io/aio-wrapper.cpp io/epoll.cpp)
+    if (ENABLE_URING)
+        list(APPEND PHOTON_SRC io/iouring-wrapper.cpp)
+    endif ()
 endif ()
 if (ENABLE_FUSE)
     list(APPEND PHOTON_SRC io/fuse-adaptor.cpp)
@@ -161,9 +172,12 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 endif ()
 IF (CMAKE_SYSTEM_NAME MATCHES "Linux")
     list(APPEND EXTERNAL_LIB_ARGS ${AIO_LIBRARIES} -lrt)
-endif ()
-if (ENABLE_FUSE)
-    list(APPEND EXTERNAL_LIB_ARGS ${FUSE_LIBRARIES})
+    if (ENABLE_FUSE)
+        list(APPEND EXTERNAL_LIB_ARGS ${FUSE_LIBRARIES})
+    endif ()
+    if (ENABLE_URING)
+        list(APPEND EXTERNAL_LIB_ARGS uring)
+    endif()
 endif ()
 if (ENABLE_SASL)
     list(APPEND EXTERNAL_LIB_ARGS ${GSASL_LIBRARIES})
@@ -184,7 +198,6 @@ else ()
 target_link_libraries(
         photon
         -Wl,--whole-archive
-        uring
         easy_weak
         -Wl,--no-whole-archive
         external_lib
@@ -203,7 +216,6 @@ target_link_libraries(
 else ()
 target_link_libraries(
         photon_static
-        uring
         easy_weak
         external_lib
 )

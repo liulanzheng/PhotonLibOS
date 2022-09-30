@@ -16,7 +16,6 @@ limitations under the License.
 
 #pragma once
 #include <photon/thread/thread.h>
-#include <photon/io/iouring-wrapper.h>
 
 namespace photon {
 

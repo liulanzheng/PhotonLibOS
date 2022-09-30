@@ -5,6 +5,9 @@ includes = {
     'examples/TARGETS',
 }
 
+iofiles = glob('io/*.cpp')
+iofiles.remove("io/kqueue.cpp")
+
 targets = {
 	'photon' : cpp_exportable_library (
         incs = [
@@ -18,7 +21,7 @@ targets = {
                 glob('common/executor/*.cpp') +
                 glob('fs/*.cpp') +
                 glob('fs/httpfs/*.cpp') +
-                glob('io/*.cpp') +
+                iofiles +
                 glob('net/*.cpp') +
                 glob('net/http/*.cpp') +
                 glob('net/security-context/*.cpp') +
@@ -52,6 +55,7 @@ targets = {
         ccflags = [
             '-D_FILE_OFFSET_BITS=64',
             '-DFUSE_USE_VERSION=29',
+            '-DPHOTON_URING=1',
         ],
         ldflags = [
             '--version-script=%s/io/libaioversion.map' % ALIMAKE_TARGETS_DIR,

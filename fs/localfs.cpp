@@ -49,7 +49,9 @@ limitations under the License.
 #include <photon/io/aio-wrapper.h>
 #include <photon/common/alog.h>
 #include <photon/thread/thread.h>
+#ifdef PHOTON_URING
 #include <photon/io/iouring-wrapper.h>
+#endif
 
 
 // UN-interrupted syscall
@@ -364,9 +366,11 @@ namespace fs
                 case ioengine_libaio:
                     _ctor = &file_ctor<libaio>;
                     break;
+#ifdef PHOTON_URING
                 case ioengine_iouring:
                     _ctor = &file_ctor<iouring>;
                     break;
+#endif
 #endif
                 default:
                     _ctor = &file_ctor<psync>;
@@ -557,7 +561,7 @@ namespace fs
     public:
         explicit IouringFileSystem(int io_engine) : LocalFileSystemAdaptor(io_engine) {}
 
-#ifdef __linux__
+#if defined(__linux__) && defined(PHOTON_URING)
         IFile* open(const char* pathname, int flags) override {
             int fd = iouring_open(pathname, flags, 0644);
             return new_local_file(fd, pathname);

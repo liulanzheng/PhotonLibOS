@@ -48,15 +48,9 @@ inline void convert(const std::string& v, uint64_t& value) {
     value = std::atoll(v.c_str());
 }
 
-inline void convert(const std::string& v, int64_t& value) {
-    value = std::atoll(v.c_str());
-}
-
-#ifdef __APPLE__
 inline void convert(const std::string& v, ssize_t& value) {
     value = std::atoll(v.c_str());
 }
-#endif
 
 inline void convert(const std::string& v, char* value, size_t size) {
     strncpy(value, v.data(), size - 1);
