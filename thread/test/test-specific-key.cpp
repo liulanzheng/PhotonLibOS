@@ -17,6 +17,7 @@ limitations under the License.
 #include <gtest/gtest.h>
 
 #include <photon/thread/thread11.h>
+#include <photon/thread/thread-key.h>
 #include <photon/common/alog.h>
 
 struct Value {
@@ -88,15 +89,14 @@ TEST(key, dtor) {
 }
 
 TEST(key, overflow) {
-    const uint32_t max_key_num = 256;
     photon::thread_key_t key;
-    for (uint32_t i = 0; i < max_key_num; ++i) {
+    for (uint64_t i = 0; i < photon::THREAD_KEYS_MAX; ++i) {
         ASSERT_EQ(0, photon::thread_key_create(&key, &Value::key_dtor));
         ASSERT_EQ(i, key);
         ASSERT_EQ(0, photon::thread_setspecific(key, &g_value));
     }
     ASSERT_EQ(EAGAIN, photon::thread_key_create(&key, &Value::key_dtor));
-    for (uint32_t i = 0; i < max_key_num; ++i) {
+    for (uint64_t i = 0; i < photon::THREAD_KEYS_MAX; ++i) {
         ASSERT_EQ(0, photon::thread_key_delete(i));
     }
     ASSERT_EQ(0, photon::thread_key_create(&key, &Value::key_dtor));

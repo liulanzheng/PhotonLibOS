@@ -13,3 +13,11 @@ add_test(NAME test-thread COMMAND $<TARGET_FILE:test-thread>)
 add_executable(test-std-compat test-std-compat.cpp)
 target_link_libraries(test-std-compat PRIVATE photon ${testing_libs})
 add_test(NAME test-std-compat COMMAND $<TARGET_FILE:test-std-compat>)
+
+add_executable(test-specific-key test-specific-key.cpp)
+target_link_libraries(test-specific-key PRIVATE photon ${testing_libs})
+add_test(NAME test-specific-key COMMAND $<TARGET_FILE:test-specific-key>)
+
+add_executable(test-thread-local test-thread-local.cpp)
+target_link_libraries(test-thread-local PRIVATE photon ${testing_libs})
+add_test(NAME test-thread-local COMMAND $<TARGET_FILE:test-thread-local>)

@@ -16,7 +16,6 @@ limitations under the License.
 
 #include <gtest/gtest.h>
 
-#include <string>
 #include <photon/thread/thread11.h>
 #include <photon/thread/thread-local.h>
 #include <photon/common/alog.h>
@@ -27,10 +26,10 @@ static int expected_times = 0;
 struct Finalizer {
     ~Finalizer() {
         if (destruct_times != expected_times) {
-            LOG_ERROR("destruct times is not expected");
+            LOG_ERROR("destruct times (`) is not expected as (`)", destruct_times, expected_times);
             abort();
         }
-        LOG_INFO("empty value has destructed ` times", destruct_times);
+        LOG_INFO("Success: empty value has destructed ` times", destruct_times);
     }
     int destruct_times = 0;
 };
@@ -47,49 +46,44 @@ struct Value {
     bool empty = false;
 };
 
-Value* get_thread_local_value() {
-    static ThreadLocal<Value> v1;
-    return &v1;
+static photon::thread_local_ptr<Value>& get_v1() {
+    static photon::thread_local_ptr<Value> v1;
+    return v1;
 }
 
-Value* get_thread_local_value_with_constructor() {
-    static ThreadLocal<Value> v2(Value("value"));
-    return &v2;
-}
+static photon::thread_local_ptr<Value, const char*> v2("value");
 
 TEST(tls, tls_variable) {
     auto th1 = photon::thread_create11([] {
-        auto p = get_thread_local_value();
-        p->v = "value";
+        auto& v1 = get_v1();
+        v1->v = "value";
         expected_times++;
     });
     photon::thread_enable_join(th1);
     photon::thread_join((photon::join_handle*) th1);
 
     auto th2 = photon::thread_create11([] {
-        auto p = get_thread_local_value();
-        ASSERT_TRUE(p->v.empty());
+        auto& v1 = get_v1();
+        ASSERT_TRUE(v1->v.empty());
         expected_times++;
     });
     photon::thread_enable_join(th2);
     photon::thread_join((photon::join_handle*) th2);
 
-    auto p = get_thread_local_value();
-    ASSERT_TRUE(p->v.empty());
+    auto& v1 = get_v1();
+    ASSERT_TRUE(v1->v.empty());
     expected_times++;
 }
 
 TEST(tls, tls_variable_with_param) {
     auto th1 = photon::thread_create11([] {
-        auto p = get_thread_local_value_with_constructor();
-        ASSERT_FALSE(p->v.empty());
-        p->v = "";
+        ASSERT_FALSE(v2->v.empty());
+        v2->v = "";
     });
     photon::thread_enable_join(th1);
     photon::thread_join((photon::join_handle*) th1);
 
-    auto p = get_thread_local_value_with_constructor();
-    ASSERT_FALSE(p->v.empty());
+    ASSERT_FALSE(v2->v.empty());
 }
 
 int main(int argc, char** arg) {

@@ -1,67 +1,74 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 
 #pragma once
 
 #include <memory>
-#include <photon/thread/thread.h>
+#include <functional>
+#include <photon/thread/thread-key.h>
+#include <photon/common/callback.h>
+#include <photon/common/tuple-assistance.h>
+#include <photon/common/utility.h>
 
-template<typename T>
-class ThreadLocal {
+namespace photon {
+
+template<typename T, typename...ARGS>
+class thread_local_ptr {
 public:
-    ThreadLocal() : ThreadLocal(std::function<T*()>([] { return new T(); })) {}
-
-    explicit ThreadLocal(const T& t) : ThreadLocal([t] { return new T(t); }) {}
-
-    explicit ThreadLocal(T&& t) : ThreadLocal([t] { return new T(std::move(t)); }) {}
-
-    explicit ThreadLocal(std::function<T*()> c, std::function<void(T*)> d = std::default_delete<T>())
-            : m_ctor(c), m_dtor(d) {
-        photon::thread_key_create(&m_key, default_exit);
+    explicit thread_local_ptr(ARGS&& ...args) : m_args(std::forward<ARGS>(args)...) {
+        int ret = photon::thread_key_create(&m_key, &dtor);
+        if (ret != 0)
+            abort();
     }
 
-    ~ThreadLocal() {
+    ~thread_local_ptr() {
         photon::thread_key_delete(m_key);
     }
 
-    T* operator&() const {
+    T* operator->() const {
         return get();
     }
 
-    explicit operator T&() const = delete;
-    ThreadLocal(const ThreadLocal& l) = delete;
-    ThreadLocal& operator=(ThreadLocal& l) = delete;
-    ThreadLocal(ThreadLocal&& rhs) noexcept = delete;
-    ThreadLocal& operator=(ThreadLocal&& rhs) noexcept = delete;
-    ThreadLocal& operator=(const T& t) noexcept = delete;
-    ThreadLocal& operator=(T&& t) noexcept = delete;
+    thread_local_ptr(const thread_local_ptr& l) = delete;
+    thread_local_ptr& operator=(const thread_local_ptr& l) = delete;
+    thread_local_ptr(thread_local_ptr&& rhs) noexcept = delete;
+    thread_local_ptr& operator=(thread_local_ptr&& rhs) noexcept = delete;
 
 private:
-    T* get() const {
-        auto data = (Data*) photon::thread_getspecific(m_key);
-        if (data == nullptr) {
-            data = new Data();
-            data->tl = this;
-            data->t = m_ctor();
-            photon::thread_setspecific(m_key, data);
-            return data->t;
+    T* get() const __attribute__ ((const)) {
+        void* data = photon::thread_getspecific(m_key);
+        if (!data) {
+            struct ctor {
+                T* operator()(const ARGS& ...args) {
+                    return new T(args...);
+                }
+            };
+            data = tuple_assistance::apply(ctor(), m_args);
+            if (data)
+                photon::thread_setspecific(m_key, data);
         }
-        return data->t;
+        return (T*) data;
     }
 
-    static void default_exit(void* v) {
-        auto d = (Data*) v;
-        if (d && d->tl->m_dtor)
-            d->tl->m_dtor(d->t);
-        delete d;
+    static void dtor(void* data) {
+        delete (T*) data;
     }
 
-    struct Data {
-        const ThreadLocal* tl;
-        T* t;
-    };
-
-    // For static ThreadLocal<T> var, the constructor of var will be called only once,
-    // so we must store how var is allocated and initialized, by using m_ctor
-    std::function<T*()> m_ctor = nullptr;
-    std::function<void(T*)> m_dtor = nullptr;
-    photon::thread_key_t m_key = -1U;
+    std::tuple<ARGS...> m_args;
+    photon::thread_key_t m_key = std::numeric_limits<photon::thread_key_t>::max();
 };
+
+}
