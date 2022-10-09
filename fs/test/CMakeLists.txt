@@ -7,7 +7,7 @@ target_link_libraries(test-fs PRIVATE photon ${testing_libs})
 add_test(NAME test-fs COMMAND $<TARGET_FILE:test-fs>)
 
 add_executable(test-exportfs test_exportfs.cpp)
-target_link_libraries(test-exportfs PRIVATE photon ${testing_libs})
+target_link_libraries(test-exportfs PRIVATE photon_static ${testing_libs})
 add_test(NAME test-exportfs COMMAND $<TARGET_FILE:test-exportfs>)
 
 add_executable(test-filecopy test_filecopy.cpp)

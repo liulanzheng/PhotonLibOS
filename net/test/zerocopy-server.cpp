@@ -192,7 +192,7 @@ int main(int argc, char** argv) {
     set_log_output_level(ALOG_INFO);
     gflags::ParseCommandLineFlags(&argc, &argv, true);
 
-    if (photon::init(INIT_EVENT_IOURING | INIT_EVENT_SIGNALFD,
+    if (photon::init(INIT_EVENT_IOURING | INIT_EVENT_SIGNAL,
                      INIT_IO_LIBAIO | INIT_IO_SOCKET_EDGE_TRIGGER) < 0)
         return -1;
     DEFER(photon::fini());

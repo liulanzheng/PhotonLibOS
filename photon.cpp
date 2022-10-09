@@ -28,8 +28,8 @@ namespace photon {
 
 using namespace fs;
 using namespace net;
-inline int fd_events_signalfd_init() { return sync_signal_init(); }
-inline int fd_events_signalfd_fini() { return sync_signal_fini(); }
+inline int fd_events_signal_init() { return sync_signal_init(); }
+inline int fd_events_signal_fini() { return sync_signal_fini(); }
 static thread_local uint64_t g_event_engine = 0, g_io_engine = 0;
 
 #define INIT(cond, x)       if (cond) { if (x##_init() < 0) return -1; }
@@ -45,7 +45,7 @@ int init(uint64_t event_engine, uint64_t io_engine) {
 #elif defined(__APPLE__)
     INIT_EVENT(KQUEUE, kqueue)
 #endif
-    INIT_EVENT(SIGNALFD, signalfd)
+    INIT_EVENT(SIGNAL, signal)
     INIT_IO(LIBCURL, libcurl)
 #ifdef __linux__
     INIT_IO(LIBAIO, libaio_wrapper)
@@ -61,7 +61,7 @@ int init(uint64_t event_engine, uint64_t io_engine) {
 #define FINI_EVENT(flag, x) FINI(INIT_EVENT_##flag & g_event_engine, fd_events_##x)
 #define FINI_IO(flag, x)    FINI(INIT_IO_##flag & g_io_engine, x)
 int fini() {
-    FINI_EVENT(SIGNALFD, signalfd)
+    FINI_EVENT(SIGNAL, signal)
 #ifdef __linux__
     FINI_IO(LIBAIO, libaio_wrapper)
     FINI_IO(SOCKET_EDGE_TRIGGER, et_poller)
