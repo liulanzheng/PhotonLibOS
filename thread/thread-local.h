@@ -38,6 +38,10 @@ public:
         photon::thread_key_delete(m_key);
     }
 
+    T& operator*() {
+        return *get();
+    }
+
     T* operator->() const {
         return get();
     }

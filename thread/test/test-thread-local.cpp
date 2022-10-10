@@ -53,6 +53,9 @@ static photon::thread_local_ptr<Value>& get_v1() {
 
 static photon::thread_local_ptr<Value, const char*> v2("value");
 
+static photon::thread_local_ptr<int, int> v3(3);
+static photon::thread_local_ptr<int> v4;
+
 TEST(tls, tls_variable) {
     auto th1 = photon::thread_create11([] {
         auto& v1 = get_v1();
@@ -84,6 +87,19 @@ TEST(tls, tls_variable_with_param) {
     photon::thread_join((photon::join_handle*) th1);
 
     ASSERT_FALSE(v2->v.empty());
+}
+
+TEST(tls, tls_variable_POD) {
+    auto th1 = photon::thread_create11([] {
+        ASSERT_EQ(3, *v3);
+        *v3 = 4;
+        ASSERT_EQ(4, *v3);
+        ASSERT_EQ(0, *v4);
+    });
+    photon::thread_enable_join(th1);
+    photon::thread_join((photon::join_handle*) th1);
+
+    ASSERT_EQ(3, *v3);
 }
 
 int main(int argc, char** arg) {
