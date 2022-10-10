@@ -903,8 +903,8 @@ void defer_ctx(void* th)
 TEST(context_switch, defer)
 {
     auto th = thread_create(&to_ctx, nullptr);
-    auto r = prepare_usleep(CURRENT, 1000*1000, nullptr);
-    switch_context_defer(r.t0, r.next, &defer_ctx, th);
+    auto r = prepare_usleep(1000*1000, nullptr);
+    switch_context_defer(r.from, r.to, &defer_ctx, th);
 }
 
 template<typename...Ts>
@@ -1612,7 +1612,7 @@ TEST(thread11, lambda) {
         sem.signal(1);
     };
     photon::thread_create11(lambda2);
-    EXPECT_EQ(0, sem.wait(1, 1UL*1000*1000));    
+    EXPECT_EQ(0, sem.wait(1, 1UL*1000*1000));
 }
 
 struct simple_functor {
@@ -1672,7 +1672,7 @@ struct invoke_functor {
 
 struct invoke_typed_functor {
     photon::semaphore &sem;
-    int operator()(char) { 
+    int operator()(char) {
         sem.signal(1);
         return 0;
     }

@@ -408,9 +408,9 @@ public:
         return view().ends_with(x);
     }
 #endif
-    bool all_digits(uint64_t* v = nullptr) const
+    bool all_digits() const
     {
-        return view().all_digits(v);
+        return view().all_digits();
     }
 
     template<typename...Ts>
