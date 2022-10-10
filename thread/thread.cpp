@@ -1501,9 +1501,9 @@ namespace photon
     }
     int vcpu_fini()
     {
-        deallocate_tls();
         auto& current = CURRENT;
         if (!current) return -1;
+        deallocate_tls();
         auto vcpu = current->vcpu;
         while(current->next() != current->prev()) photon::thread_yield();
         assert(!current->single());
