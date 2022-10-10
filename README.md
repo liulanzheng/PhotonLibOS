@@ -16,7 +16,9 @@ as the [photon](https://en.wikipedia.org/wiki/Photon) particle, which exactly is
 
 ## What's New
 
-* Version 0.4 has come. Photon now supports coroutine local variables. Similar to the C++11 `thread_local` keyword. See [doc](doc/thread-local.md).
+* Version 0.4 has come, bringing us two major changes:
+  1. Support macOS
+  2. Support coroutine local variables. Similar to the C++11 `thread_local` keyword. See [doc](doc/thread-local.md).
 * Photon 0.3 was released on 2 Sep 2022. Except for bug fixes and improvements, a new `photon::std` namespace is added.
 Developers can search for `std::thread`, `std::mutex` in their own projects, and replace them all into the equivalents of `photon::std::<xxx>`.
 It's a quick way to transform thread-based programs to coroutine-based ones.
