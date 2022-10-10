@@ -347,8 +347,8 @@ TEST(http_server, mux_handler) {
 }
 
 int main(int argc, char** arg) {
-    photon::thread_init();
-    DEFER(photon::thread_fini());
+    photon::vcpu_init();
+    DEFER(photon::vcpu_fini());
     photon::fd_events_init();
     DEFER(photon::fd_events_fini());
 #ifdef __linux__

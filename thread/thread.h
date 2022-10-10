@@ -25,8 +25,8 @@ limitations under the License.
 
 namespace photon
 {
-    int thread_init();
-    int thread_fini();
+    int vcpu_init();
+    int vcpu_fini();
     int wait_all();
     int timestamp_updater_init();
     int timestamp_updater_fini();

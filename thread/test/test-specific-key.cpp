@@ -105,8 +105,8 @@ TEST(key, overflow) {
 }
 
 int main(int argc, char** arg) {
-    photon::thread_init();
-    DEFER(photon::thread_fini());
+    photon::vcpu_init();
+    DEFER(photon::vcpu_fini());
 
     ::testing::InitGoogleTest(&argc, arg);
     int ret = RUN_ALL_TESTS();

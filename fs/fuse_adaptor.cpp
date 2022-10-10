@@ -661,8 +661,8 @@ int fuser_go(IFileSystem* fs_, int argc, char* argv[])
 
 int fuser_go_exportfs(IFileSystem *fs_, int argc, char *argv[]) {
     if (!fs_) return 0;
-    photon::thread_init();
-    DEFER(photon::thread_fini());
+    photon::vcpu_init();
+    DEFER(photon::vcpu_fini());
     photon::fd_events_init();
     DEFER(photon::fd_events_fini());
 

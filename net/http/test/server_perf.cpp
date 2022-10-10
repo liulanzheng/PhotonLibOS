@@ -74,8 +74,8 @@ public:
 
 int main(int argc, char** argv) {
     gflags::ParseCommandLineFlags(&argc, &argv, true);
-    photon::thread_init();
-    DEFER(photon::thread_fini());
+    photon::vcpu_init();
+    DEFER(photon::vcpu_fini());
     photon::fd_events_init();
     DEFER(photon::fd_events_fini());
     set_log_output_level(ALOG_INFO);

@@ -556,9 +556,9 @@ int main(int argc, char** arg) {
     testing::FLAGS_gtest_break_on_failure = true;
     gflags::ParseCommandLineFlags(&argc, &arg, true);
 
-    int ret = photon::thread_init();
+    int ret = photon::vcpu_init();
     if (ret != 0) return -1;
-    DEFER(photon::thread_fini());
+    DEFER(photon::vcpu_fini());
     ret = photon::fd_events_init();
     if (ret != 0) return -1;
     DEFER(photon::fd_events_fini());

@@ -36,7 +36,7 @@ static thread_local uint64_t g_event_engine = 0, g_io_engine = 0;
 #define INIT_EVENT(flag, x) INIT(INIT_EVENT_##flag & event_engine, fd_events_##x)
 #define INIT_IO(flag, x)    INIT(INIT_IO_##flag & io_engine, x)
 int init(uint64_t event_engine, uint64_t io_engine) {
-    INIT(1, thread);
+    INIT(1, vcpu);
 #if defined(__linux__)
     INIT_EVENT(EPOLL, epoll)
 #ifdef PHOTON_URING
@@ -76,7 +76,7 @@ int fini() {
 #elif defined(__APPLE__)
     FINI_EVENT(KQUEUE, kqueue)
 #endif
-    FINI(1, thread);
+    FINI(1, vcpu);
     g_event_engine = g_io_engine = 0;
     return 0;
 }

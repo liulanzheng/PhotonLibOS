@@ -115,8 +115,8 @@ TEST(SignalFD, blockall) {
 int main(int argc, char** arg)
 {
     LOG_INFO("Set native signal handler");
-    thread_init();
-    DEFER({thread_fini();});
+    vcpu_init();
+    DEFER({vcpu_fini();});
     auto ret = fd_events_init();
     if (ret != 0)
         LOG_ERROR_RETURN(0, -1, "failed to init fdevents");

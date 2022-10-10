@@ -487,11 +487,11 @@ namespace photon
     int timestamp_updater_init() {
         if (!ts_updater) {
             std::thread([&]{
+                pthread_t current_tid = pthread_self();
                 pthread_t pid = 0;
-                if (!ts_updater.compare_exchange_weak(pid, pthread_self(), std::memory_order_acq_rel))
+                if (!ts_updater.compare_exchange_weak(pid, current_tid, std::memory_order_acq_rel))
                     return;
-                pid = pthread_self();
-                while (pid == ts_updater.load(std::memory_order_relaxed)) {
+                while (current_tid == ts_updater.load(std::memory_order_relaxed)) {
                     usleep(500);
                     update_now();
                 }
@@ -1489,7 +1489,7 @@ namespace photon
         return 0;
     }
 
-    int thread_init()
+    int vcpu_init()
     {
         if (CURRENT) return -1;      // re-init has no side-effect
         _n_vcpu++;
@@ -1499,7 +1499,7 @@ namespace photon
         update_now();
         return get_vcpu_num();
     }
-    int thread_fini()
+    int vcpu_fini()
     {
         deallocate_tls();
         auto& current = CURRENT;

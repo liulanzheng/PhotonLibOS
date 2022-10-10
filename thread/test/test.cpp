@@ -797,8 +797,8 @@ TEST(RWLock, smp) {
     std::vector<std::thread> ths;
     for (int i=0 ;i< 10;i++) {
         ths.emplace_back([&]{
-            photon::thread_init();
-            DEFER(photon::thread_fini());
+            photon::vcpu_init();
+            DEFER(photon::vcpu_fini());
             for (int i = 0; i < 100; i++){
                 auto ret = lock.lock(WLOCK);
                 // LOG_INFO("Locked");
@@ -930,9 +930,9 @@ void std_threads_create_join(int N, Ts&&...xs)
 
 void photon_do(int n, thread_entry start, void* args)
 {
-    photon::thread_init();
+    photon::vcpu_init();
     photon::threads_create_join(n, start, args);
-    photon::thread_fini();
+    photon::vcpu_fini();
 }
 
 struct smp_args
@@ -1046,8 +1046,8 @@ TEST(smp, rwlock) {
     srw_count = 0;
     swriting = false;
     std_threads_create_join(10, [&]{
-        photon::thread_init();
-        DEFER(photon::thread_fini());
+        photon::vcpu_init();
+        DEFER(photon::vcpu_fini());
         std::vector<photon::join_handle*> handles;
         for (uint64_t i=0; i<100;i++) {
             uint64_t arg = (i << 32) | (rand()%10 < 7 ? photon::RLOCK : photon::WLOCK);
@@ -1203,8 +1203,8 @@ TEST(mutex, timeout_is_zero) {
     std::atomic<int> cnt(0);
     for (int i=0;i<32;i++) {
         ths.emplace_back([&]{
-            photon::thread_init();
-            DEFER(photon::thread_fini());
+            photon::vcpu_init();
+            DEFER(photon::vcpu_fini());
             for(int j=0;j<10000;j++) {
                 auto ret = mtx.lock(0);
                 if (ret == 0)
@@ -1396,8 +1396,8 @@ TEST(workpool, async_work_lambda_threadpool_append) {
 
     for (int i=0;i<4;i++) {
         std::thread([&]{
-            photon::thread_init();
-            DEFER(photon::thread_fini());
+            photon::vcpu_init();
+            DEFER(photon::vcpu_fini());
             pool->join_current_vcpu_into_workpool();
         }).detach();
     }
@@ -1449,8 +1449,8 @@ TEST(photon, migrate) {
     photon::thread *th;
     photon::semaphore sem, semdone;
     std::thread worker([&vcpu, &sem, &th, &semdone]{
-        photon::thread_init();
-        DEFER(photon::thread_fini());
+        photon::vcpu_init();
+        DEFER(photon::vcpu_fini());
         th = CURRENT;
         vcpu = photon::get_vcpu();
         sem.signal(1);
@@ -1550,10 +1550,10 @@ TEST(smp, join_on_smp) {
     jh.clear();
     for (int i=0;i<3;i++) {
         jt.emplace_back([&]{
-            photon::thread_init();
+            photon::vcpu_init();
             DEFER({
                 LOG_INFO("before FINI");
-                photon::thread_fini();
+                photon::vcpu_fini();
                 LOG_INFO("FINI");
             });
             {
@@ -1835,7 +1835,7 @@ int main(int argc, char** arg)
     ::testing::InitGoogleTest(&argc, arg);
     google::ParseCommandLineFlags(&argc, &arg, true);
     default_audit_logger.log_output = log_output_stdout;
-    photon::thread_init();
+    photon::vcpu_init();
     set_log_output_level(ALOG_INFO);
 
     if (FLAGS_vcpus <= 1)
@@ -1846,10 +1846,10 @@ int main(int argc, char** arg)
     std::vector<std::thread> ths;
     for(int i=1; i<=FLAGS_vcpus; i++) {
         ths.emplace_back([i]{
-            photon::thread_init();
+            photon::vcpu_init();
             set_log_output_level(ALOG_INFO);
             run_all_tests(i);
-            photon::thread_fini();
+            photon::vcpu_fini();
         });
     }
 
@@ -1866,7 +1866,7 @@ int main(int argc, char** arg)
     //aSem.wait(10);
 
     wait_for_completion(0);
-    while(photon::thread_fini() != 0)
+    while(photon::vcpu_fini() != 0)
     {
         LOG_DEBUG("wait for other vCPU(s) to end");
         ::usleep(1000*1000);
