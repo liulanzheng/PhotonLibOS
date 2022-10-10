@@ -24,6 +24,7 @@ limitations under the License.
 
 #include <photon/photon.h>
 #include <photon/thread/thread11.h>
+#include <photon/thread/thread-local.h>
 
 namespace photon {
 namespace std {

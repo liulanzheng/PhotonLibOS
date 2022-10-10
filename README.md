@@ -16,6 +16,7 @@ as the [photon](https://en.wikipedia.org/wiki/Photon) particle, which exactly is
 
 ## What's New
 
+* Version 0.4 has come. Photon now supports coroutine local variables. Similar to the C++11 `thread_local` keyword. See [doc](doc/thread-local.md).
 * Photon 0.3 was released on 2 Sep 2022. Except for bug fixes and improvements, a new `photon::std` namespace is added.
 Developers can search for `std::thread`, `std::mutex` in their own projects, and replace them all into the equivalents of `photon::std::<xxx>`.
 It's a quick way to transform thread-based programs to coroutine-based ones.
@@ -48,8 +49,6 @@ and prepared to wrap them into the framework. It is a real killer in the low lev
 
 Compare Photon with fio when reading an 3.5TB NVMe raw device.
 
-<details><summary>Results</summary><p>
-
 |        | IO Engine |  IO Type  | IO Size | IO Depth | DirectIO | QPS  | Throughput | CPU util |
 |:------:|:---------:|:---------:|:-------:|:--------:|:--------:|:----:|:----------:|:--------:|
 | Photon | io_uring  | Rand-read |   4KB   |   128    |   Yes    | 433K |   1.73GB   |   100%   |
@@ -57,8 +56,6 @@ Compare Photon with fio when reading an 3.5TB NVMe raw device.
 |  fio   |  libaio   | Rand-read |   4KB   |   128    |   Yes    | 279K |   1.11GB   |   100%   |
 
 Note that fio only enables 1 job (process).
-
-</p></details>
 
 Conclusion: Photon is faster than fio under this circumstance.
 
@@ -117,16 +114,12 @@ Conclusion: Photon socket has the best per-core QPS.
 
 Compare Photon and Nginx when serving static files, using Apache Bench(ab) as client.
 
-<details><summary>Results</summary><p>
-
 |        | File Size | QPS  | CPU util |
 |:------:|:---------:|:----:|:--------:|
 | Photon |    4KB    | 114K |   100%   |
 | Nginx  |    4KB    | 97K  |   100%   |
 
 Note that Nginx only enables 1 worker (process).
-
-</p></details>
 
 Conclusion: Photon is faster than Nginx under this circumstance.
 
