@@ -28,10 +28,12 @@ namespace photon
     int thread_init();
     int thread_fini();
     int wait_all();
+    int timestamp_updater_init();
+    int timestamp_updater_fini();
 
     struct thread;
     extern "C" __thread thread* CURRENT;
-    extern uint64_t now;
+    extern volatile uint64_t now;
 
     enum states
     {
@@ -103,7 +105,7 @@ namespace photon
     struct vcpu_base {
         MasterEventEngine* master_event_engine;
         std::atomic<uint32_t> nthreads;
-        uint32_t id;
+        states state;
         volatile uint64_t switch_count;
     };
 

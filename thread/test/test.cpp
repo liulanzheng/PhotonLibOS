@@ -397,6 +397,14 @@ TEST(Perf, ThreadSwitch)
     }
 }
 
+TEST(Perf, ThreadSwitchWithStandaloneTSUpdater)
+{
+    timestamp_updater_init();
+    DEFER(timestamp_updater_fini());
+    test_thread_switch(10, 64 * 1024);
+    return;
+}
+
 thread_local int shot_count;
 thread_local photon::condition_variable shot_cond;
 uint64_t on_timer_asdf(void* arg)
