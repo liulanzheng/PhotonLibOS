@@ -29,7 +29,7 @@ same syntax as `thread_local`, but implements it in a close way.
 static photon::thread_local_ptr<int> pI;
 
 int main() {
-    if (photon::init(photon::INIT_EVENT_EPOLL, photon::INIT_IO_NONE))
+    if (photon::init())
         abort();
     DEFER(photon::fini());
     
