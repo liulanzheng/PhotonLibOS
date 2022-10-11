@@ -492,7 +492,7 @@ namespace photon
             auto c_sec = vp->basetime[REALTIME_CLOCK].sec;
             auto c_ns = vp->basetime[REALTIME_CLOCK].nsec;
             auto c_last = vp->cycle_last;
-            if (c_sec * 1000ULL * 1000 + (c_ns) / 1000 < last_now) {
+            if (((c_sec << 30) + c_ns) < ((sec << 30) + ns)) {
                 return last_now;
             }
             ns = c_ns;
