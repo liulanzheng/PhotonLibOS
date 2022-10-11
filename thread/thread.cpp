@@ -441,10 +441,57 @@ namespace photon
         return th;
     }
 
+#if defined(__x86_64__)
+    #include <sys/auxv.h>
+    static struct MimicVDSOTimeX86 {
+        static constexpr size_t BASETIME_MAX = 12;
+        static constexpr size_t HIRES_PROC_CLOCK = 2;
+
+        struct vgtod_ts {
+            uint64_t sec;
+            uint64_t nsec;
+        };
+
+        struct vgtod_data {
+            unsigned int seq;
+
+            int vclock_mode;
+            uint64_t cycle_last;
+            uint64_t mask;
+            uint32_t mult;
+            uint32_t shift;
+
+            struct vgtod_ts basetime[BASETIME_MAX];
+
+            int tz_minuteswest;
+            int tz_dsttime;
+        };
+
+        vgtod_data* vp = nullptr;
+
+        MimicVDSOTimeX86() {
+            uintptr_t gptr = getauxval(AT_SYSINFO_EHDR);
+            if (gptr) vp = (vgtod_data*)(gptr - 0x3000 + 0x80);
+        }
+
+        operator bool() const { return vp; }
+
+        uint64_t get_now() const {
+            if (!vp) return -1;
+            return vp->basetime[HIRES_PROC_CLOCK].sec * 1000ULL * 1000 +
+                   (vp->basetime[HIRES_PROC_CLOCK].nsec) / 1000;
+        }
+    } __mimic_vdso_time_x86;
+#endif
+
     volatile uint64_t now;
     static std::atomic<pthread_t> ts_updater(0);
     static inline uint64_t update_now()
     {
+#if defined(__x86_64__)
+        if (__builtin_expect(!!__mimic_vdso_time_x86, 1))
+            return photon::now = __mimic_vdso_time_x86.get_now();
+#endif
         struct timeval tv;
         gettimeofday(&tv, NULL);
         uint64_t nnow = tv.tv_sec;
@@ -474,6 +521,10 @@ namespace photon
     }
     static uint32_t last_tsc = 0;
     static inline uint64_t if_update_now() {
+#if defined(__x86_64__)
+        if (__builtin_expect(!!__mimic_vdso_time_x86, 1))
+            return photon::now = __mimic_vdso_time_x86.get_now();
+#endif
         if (ts_updater.load(std::memory_order_relaxed)) {
             return photon::now;
         }
