@@ -123,4 +123,22 @@ targets = {
             '-lphoton',
         ],
     ),
+    'test_base64': cpp_fast_test (
+        testing = ['base64'],
+        incs = [
+            '../',
+            '../../'
+        ], 
+        srcs = [
+            'test_base64.cpp',
+        ],
+        static_deps = [
+            'gtest-1.7.0:gtest',
+            'gtest-1.7.0:gtest_main',
+            'gmock-1.7.0:gmock',
+        ],
+        ldflags = [
+            '-lphoton',
+        ],
+    ),
 }
