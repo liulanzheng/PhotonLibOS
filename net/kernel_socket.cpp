@@ -425,7 +425,7 @@ protected:
     }
 
     virtual int fd_accept(int fd, struct sockaddr *addr, socklen_t *addrlen) {
-        return net::accept(fd, addr, addrlen, m_timeout);
+        return net::accept(fd, addr, addrlen);
     }
 
     int do_accept() { return fd_accept(m_listen_fd, nullptr, nullptr); }
@@ -456,7 +456,7 @@ protected:
             if (sess) {
                 photon::thread_create11(&KernelSocketServer::handler, m_handler, sess);
             } else {
-                LOG_WARN("KernelSocketServer: failed to accept new connections");
+                LOG_WARN("KernelSocketServer: failed to accept new connections: `", ERRNO());
                 photon::thread_usleep(1000);
             }
         }
@@ -611,7 +611,7 @@ protected:
     }
 
     int fd_accept(int fd, struct sockaddr* addr, socklen_t* addrlen) override {
-        return photon::iouring_accept(fd, addr, addrlen, m_timeout);
+        return photon::iouring_accept(fd, addr, addrlen, -1);
     }
 };
 #endif
@@ -827,7 +827,7 @@ protected:
     }
 
     int fd_accept(int fd, struct sockaddr* addr, socklen_t* addrlen) override {
-        auto timeout = m_timeout;
+        uint64_t timeout = -1;
         return (int) etdoio(LAMBDA(::accept4(fd, addr, addrlen, SOCK_NONBLOCK)),
                             LAMBDA_TIMEOUT(wait_for_readable(timeout)));
     }
