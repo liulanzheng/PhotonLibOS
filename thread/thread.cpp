@@ -443,9 +443,9 @@ namespace photon
 
 #if defined(__x86_64__)
     #include <sys/auxv.h>
-    static struct MimicVDSOTimeX86 {
+    struct MimicVDSOTimeX86 {
         static constexpr size_t BASETIME_MAX = 12;
-        static constexpr size_t HIRES_PROC_CLOCK = 2;
+        static constexpr size_t REALTIME_CLOCK = 2;
 
         struct vgtod_ts {
             uint64_t sec;
@@ -468,18 +468,40 @@ namespace photon
         };
 
         vgtod_data* vp = nullptr;
+        uint64_t sec = 0;
+        uint64_t ns = 0;
+        uint64_t last_now = 0;
 
         MimicVDSOTimeX86() {
             uintptr_t gptr = getauxval(AT_SYSINFO_EHDR);
             if (gptr) vp = (vgtod_data*)(gptr - 0x3000 + 0x80);
         }
 
+        __attribute__((always_inline)) static inline uint64_t rdtsc64() {
+            uint32_t low, hi;
+            asm volatile("rdtsc" : "=a"(low), "=d"(hi) : :);
+            return ((uint64_t)hi << 32) | low;
+        }
+
         operator bool() const { return vp; }
 
-        uint64_t get_now() const {
-            if (!vp) return -1;
-            return vp->basetime[HIRES_PROC_CLOCK].sec * 1000ULL * 1000 +
-                   (vp->basetime[HIRES_PROC_CLOCK].nsec) / 1000;
+        uint64_t get_now() {
+            if (!vp) {
+                return -1;
+            }
+            auto c_sec = vp->basetime[REALTIME_CLOCK].sec;
+            auto c_ns = vp->basetime[REALTIME_CLOCK].nsec;
+            auto c_last = vp->cycle_last;
+            if (c_sec * 1000ULL * 1000 + (c_ns) / 1000 < last_now) {
+                return last_now;
+            }
+            ns = c_ns;
+            sec = c_sec;
+            auto cycles = rdtsc64();
+            if (__builtin_expect(!!(cycles > c_last), 1))
+                ns += ((cycles - c_last) * vp->mult) >> vp->shift;
+            last_now = sec * 1000ULL * 1000 + (ns) / 1000;
+            return last_now;
         }
     } __mimic_vdso_time_x86;
 #endif
