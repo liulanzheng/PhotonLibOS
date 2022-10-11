@@ -501,6 +501,8 @@ namespace photon
             if (__builtin_expect(!!(cycles > c_last), 1))
                 ns += ((cycles - c_last) * vp->mult) >> vp->shift;
             last_now = sec * 1000ULL * 1000 + (ns) / 1000;
+            sec = last_now / (1000ULL * 1000);
+            ns = ns % (1000ULL * 1000 * 1000);
             return last_now;
         }
     } __mimic_vdso_time_x86;
