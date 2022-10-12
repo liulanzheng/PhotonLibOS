@@ -147,54 +147,6 @@ void Base64Encode(std::string_view in, std::string &out) {
     for (size_t i = 0; i < (3 - remain); ++i) out[out_size - i - 1] = '=';
 }
 
-typedef unsigned char BYTE;
-static inline bool is_base64(BYTE c) {
-    return (isalnum(c) || (c == '+') || (c == '/'));
-}
-void Base64Decode(std::string_view in, std::string &out) {
-    static const std::string base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                                        "abcdefghijklmnopqrstuvwxyz"
-                                        "0123456789+/";
-    int in_len = in.size();
-    int i = 0;
-    int j = 0;
-    int in_ = 0;
-    BYTE char_array_4[4], char_array_3[3];
-    out = "";
-
-    while (in_len-- && (in[in_] != '=') && is_base64(in[in_])) {
-        char_array_4[i++] = in[in_];
-        in_++;
-        if (i == 4) {
-            for (i = 0; i < 4; i++)
-                char_array_4[i] = base64_chars.find(char_array_4[i]);
-
-            char_array_3[0] = (char_array_4[0] << 2) + ((char_array_4[1] & 0x30) >> 4);
-            char_array_3[1] = ((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2);
-            char_array_3[2] = ((char_array_4[2] & 0x3) << 6) + char_array_4[3];
-
-            for (i = 0; (i < 3); i++)
-                out += char_array_3[i];
-            i = 0;
-        }
-    }
-
-    if (i) {
-        for (j = i; j < 4; j++)
-            char_array_4[j] = 0;
-
-        for (j = 0; j < 4; j++)
-            char_array_4[j] = base64_chars.find(char_array_4[j]);
-
-        char_array_3[0] = (char_array_4[0] << 2) + ((char_array_4[1] & 0x30) >> 4);
-        char_array_3[1] = ((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2);
-        char_array_3[2] = ((char_array_4[2] & 0x3) << 6) + char_array_4[3];
-
-        for (j = 0; (j < i - 1); j++)
-            out += char_array_3[j];
-    }
-}
-
 static bool do_zerocopy_available() {
     utsname buf = {};
     uname(&buf);
@@ -211,6 +163,103 @@ static bool do_zerocopy_available() {
 bool zerocopy_available() {
     static bool r = do_zerocopy_available();
     return r;
+}
+
+
+static const char base64_index_min = '+';
+static const char base64_index_max = 'z';
+static const unsigned char base64_index_count = 80; //= '+' - 'z' + 1
+#define EI 255
+static unsigned char base64_index_map[]= {
+    //'+', ',', '-', '.', '/', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ':', ';', '<', '=', '>', '?', '@',
+       62,  EI,  EI,  EI,  63,  52,  53,  54,  55,  56,  57,  58,  59,  60,  61,  EI,  EI,  EI,  EI,  EI,  EI,  EI,
+    //'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+        0,   1,   2,   3,   4,   5,   6,   7,   8,   9,  10,  11,  12,  13,  14,  15,  16,  17,  18,  19,  20,  21,  22,  23,  24,  25,
+    //'[', '\', ']', '^', '_', '`',
+        EI, EI,  EI,  EI,  EI,  EI,
+    //abcdefghijklmnopqrstuvwxyz
+        26, 27,  28,  29,  30,  31,  32,  33,  34,  35,  36,  37, 38, 39, 40, 41, 42,  43,  44,  45,  46,  47,  48,  49,  50,  51,  52 };
+
+static unsigned char get_index_of(char val, bool &ok) {
+    ok = true;
+    if (val < base64_index_min || val > base64_index_max) {
+        ok = false;
+        return 0;
+    }
+     unsigned char ret = base64_index_map[val - base64_index_min];
+     ok = (ret != EI);
+     return ret;
+}
+ #undef EI
+
+bool base64_translate_4to3(const char *in, char *out)  {
+    struct xlator {
+        unsigned char _;
+        unsigned char a : 6;
+        unsigned char b : 6;
+        unsigned char c : 6;
+        unsigned char d : 6;
+    } __attribute__((packed));
+    static_assert(sizeof(xlator) == 4, "...");
+
+    xlator v;
+    bool f1, f2, f3, f4;
+    v.a = get_index_of(*(in+3), f1);
+    v.b = get_index_of(*(in+2), f2);
+    v.c = get_index_of(*(in+1), f3);
+    v.d = get_index_of(*(in),   f4);
+
+
+    *(uint32_t *)out = ntohl(*(uint32_t *)&v);
+    return (f1 && f2 && f3 && f4);
+}
+bool Base64Decode(std::string_view in, std::string &out) {
+    if (in.size() == 0 || in.size() % 4 != 0) {
+        return false;
+    }
+
+    int pad = 0;
+    if (in[in.size() - 1] == '=') {
+        pad = 1;
+        if (in[in.size() - 2] == '='){
+            pad = 2;
+        }
+    }
+
+    auto out_size = (in.size()/4 ) * 3 - pad;
+    out.resize(out_size);
+
+    auto _in = &in[0];
+    auto _out = &out[0];
+    auto end = _in + (in.size() - pad);
+
+    for (; _in + 4 <= end; _in += 4, _out += 3 ) {
+        if (!base64_translate_4to3(_in, _out)) {
+            return false;
+        }
+    }
+
+    if (!pad) {
+        return true;
+    }
+
+    char in_temp[4];
+    memcpy(in_temp, _in, 4);
+    in_temp[3] = 'A';
+    if (pad == 2) {
+      in_temp[2] = 'A';
+    }
+
+    char tail[4];
+    if (!base64_translate_4to3(in_temp, tail)) {
+        return false;
+    }
+
+    *(_out) = tail[0];
+    if (pad == 1) {
+        *(_out + 1) = tail[1];
+    }
+    return true;
 }
 
 }  // namespace net
