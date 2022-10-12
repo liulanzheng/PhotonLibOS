@@ -77,6 +77,7 @@ namespace PMock {
         MOCK_METHOD2(access, int(const char *pathname, int mode));
         MOCK_METHOD2(truncate, int(const char *path, off_t length));
         MOCK_METHOD2(utime, int(const char *path, const struct utimbuf *file_times));
+        MOCK_METHOD3(mknod, int(const char *path, mode_t mode, dev_t dev));
         MOCK_METHOD0(syncfs, int());
         MOCK_METHOD1(opendir, DIR*(const char *name));
         MOCK_METHOD4(getxattr, ssize_t(const char*, const char*, void*, size_t));

@@ -445,6 +445,10 @@ namespace fs
         {
             PERFORM(OPID_UTIME, m_fs->utime(path, file_times));
         }
+        OVERRIDE_ASYNC(int, mknod, const char *path, mode_t mode, dev_t dev)
+        {
+            PERFORM(OPID_MKNOD, m_fs->mknod(path, mode, dev));
+        }
         OVERRIDE_ASYNC0(int, syncfs)
         {
             PERFORM(OPID_SYNCFS, m_fs->syncfs());
