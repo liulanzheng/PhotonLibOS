@@ -545,7 +545,7 @@ namespace photon
     #endif
     }
     static uint32_t last_tsc = 0;
-    static inline uint64_t if_update_now(int accurate = 0) {
+    static inline uint64_t if_update_now(bool accurate = false) {
 #if defined(__x86_64__) && defined(__linux__)
         if (PHOTON_LIKELY(__mimic_vdso_time_x86)) {
             return photon::now = __mimic_vdso_time_x86.get_now(accurate);
@@ -752,7 +752,7 @@ namespace photon
             SCOPED_LOCK(current->lock);
             prepare_usleep(current, useconds, waitq);
         });
-        if_update_now(1);
+        if_update_now(useconds != -1UL);
         switch_context(r.t0, r.next);
         assert(r.t0->waitq == nullptr);
         return r.t0->set_error_number();
