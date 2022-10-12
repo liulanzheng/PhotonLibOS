@@ -274,6 +274,10 @@ namespace fs
         {
             return m_fs->utime(path, file_times);
         }
+        virtual int mknod(const char *path, mode_t mode, dev_t dev) override
+        {
+            return m_fs->mknod(path, mode, dev);
+        }
         /*
         virtual ssize_t getxattr(const char *path, const char *name, void *value, size_t size) override
         {

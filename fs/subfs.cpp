@@ -213,6 +213,11 @@ namespace fs
             PathCat __(this, path);
             return underlayfs->utime(path, file_times);
         }
+        virtual int mknod(const char *path, mode_t mode, dev_t dev) override
+        {
+            PathCat __(this, path);
+            return underlayfs->mknod(path, mode, dev);
+        }
         /*
         virtual ssize_t getxattr(const char *path, const char *name, void *value, size_t size)
         {

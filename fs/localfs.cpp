@@ -460,6 +460,10 @@ namespace fs
         {
             return UISysCall(::utime(path, file_times));
         }
+        virtual int mknod(const char *path, mode_t mode, dev_t dev) override
+        {
+            return UISysCall(::mknod(path, mode, dev));
+        }
 #ifdef __linux__
         virtual int statfs(const char *path, struct statfs *buf) override
         {
