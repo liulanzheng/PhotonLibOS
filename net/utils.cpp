@@ -250,11 +250,7 @@ bool Base64Decode(std::string_view in, std::string &out) {
     if (!base64_translate_4to3(in_tail, _out)) {
         return false;
     }
-    if (pad == 1) {
-        out.resize(out_size -1);
-    } else {
-        out.resize(out_size -2);
-    }
+    out.resize(out_size - pad);
     return true;
 #undef BUNIT
 }
