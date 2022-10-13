@@ -473,8 +473,29 @@ namespace photon
         uint64_t last_now = 0;
 
         MimicVDSOTimeX86() {
-            uintptr_t gptr = getauxval(AT_SYSINFO_EHDR);
-            if (gptr) vp = (vgtod_data*)(gptr - 0x3000 + 0x80);
+            vp = get_vvar_addr();
+        }
+
+        static vgtod_data* get_vvar_addr(){
+            // quickly parse /proc/self/maps to find [vvar] mapping
+            char mmaps[4096 * 4];
+            FILE* mmapsfile = fopen("/proc/self/maps", "r");
+            if (!mmapsfile) {
+                return nullptr;
+            }
+            size_t nread = fread(mmaps, 1, sizeof(mmaps) - 1, mmapsfile);
+            fclose(mmapsfile);
+            if (nread <= 0 || nread > sizeof(mmaps)) return nullptr;
+            mmaps[nread] = 0;
+            for (char* line = mmaps; line != NULL;) {
+                char* next_line = strchr(line, '\n');
+                if (next_line != NULL) *(next_line++) = 0;
+
+                if (strstr(line, "[vvar]"))
+                    return (vgtod_data*)(strtol(line, NULL, 16) + 0x80);
+                line = next_line;
+            }
+            return nullptr;
         }
 
         __attribute__((always_inline)) static inline uint64_t rdtsc64() {
