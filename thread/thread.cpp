@@ -441,7 +441,7 @@ namespace photon
         return th;
     }
 
-#if defined(__x86_64__) && defined(__linux__)
+#if defined(__x86_64__) && defined(__linux__) && defined(ENABLE_MIMIC_VDSO)
 #include <sys/auxv.h>
     struct MimicVDSOTimeX86 {
         static constexpr size_t BASETIME_MAX = 12;
@@ -513,7 +513,7 @@ namespace photon
     static std::atomic<pthread_t> ts_updater(0);
     static inline uint64_t update_now()
     {
-#if defined(__x86_64__)
+#if defined(__x86_64__) && defined(__linux__) && defined(ENABLE_MIMIC_VDSO)
         if (PHOTON_LIKELY(__mimic_vdso_time_x86))
             return photon::now = __mimic_vdso_time_x86.get_now();
 #endif
@@ -546,7 +546,7 @@ namespace photon
     }
     static uint32_t last_tsc = 0;
     static inline uint64_t if_update_now(bool accurate = false) {
-#if defined(__x86_64__) && defined(__linux__)
+#if defined(__x86_64__) && defined(__linux__) && defined(ENABLE_MIMIC_VDSO)
         if (PHOTON_LIKELY(__mimic_vdso_time_x86)) {
             return photon::now = __mimic_vdso_time_x86.get_now(accurate);
         }
