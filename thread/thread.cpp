@@ -498,7 +498,7 @@ namespace photon
             if (PHOTON_UNLIKELY(accurate)) {
                 auto rns = ns;
                 auto cycles = rdtsc64();
-                if (__builtin_expect(!!(cycles > last), 1))
+                if (PHOTON_LIKELY(cycles > last))
                     rns += ((cycles - last) * vp->mult) >> vp->shift;
                 return last_now = sec * US_PER_SEC + rns / NS_PER_US;
             }
@@ -514,7 +514,7 @@ namespace photon
     static inline uint64_t update_now()
     {
 #if defined(__x86_64__)
-        if (__builtin_expect(!!__mimic_vdso_time_x86, 1))
+        if (PHOTON_LIKELY(__mimic_vdso_time_x86))
             return photon::now = __mimic_vdso_time_x86.get_now();
 #endif
         struct timeval tv;
