@@ -214,26 +214,31 @@ bool base64_translate_4to3(const char *in, char *out)  {
     return (f1 && f2 && f3 && f4);
 }
 bool Base64Decode(std::string_view in, std::string &out) {
-    if (in.size() == 0 || in.size() % 4 != 0) {
+#define GSIZE 4 //Size of each group
+    auto in_size = in.size();
+    if (in_size == 0 || in_size % GSIZE != 0) {
         return false;
     }
 
+    char in_tail[GSIZE];
     int pad = 0;
-    if (in[in.size() - 1] == '=') {
+    if (in[in_size - 1] == '=') {
+        memcpy(in_tail, &(in[in_size - GSIZE]), GSIZE);
+        in_tail[GSIZE-1] = 'A';
         pad = 1;
-        if (in[in.size() - 2] == '='){
+
+        if (in[in_size - 2] == '='){
+            in_tail[GSIZE-2] = 'A';
             pad = 2;
         }
     }
-
-    auto out_size = (in.size()/4 ) * 3 - pad;
+    auto out_size = (in_size/GSIZE ) * 3;
     out.resize(out_size);
 
     auto _in = &in[0];
     auto _out = &out[0];
-    auto end = _in + (in.size() - pad);
-
-    for (; _in + 4 <= end; _in += 4, _out += 3 ) {
+    auto end = _in + (in_size - pad);
+    for (; _in + GSIZE <= end; _in += GSIZE, _out += 3 ) {
         if (!base64_translate_4to3(_in, _out)) {
             return false;
         }
@@ -242,24 +247,16 @@ bool Base64Decode(std::string_view in, std::string &out) {
     if (!pad) {
         return true;
     }
-
-    char in_temp[4];
-    memcpy(in_temp, _in, 4);
-    in_temp[3] = 'A';
-    if (pad == 2) {
-      in_temp[2] = 'A';
-    }
-
-    char tail[4];
-    if (!base64_translate_4to3(in_temp, tail)) {
+    if (!base64_translate_4to3(in_tail, _out)) {
         return false;
     }
-
-    *(_out) = tail[0];
     if (pad == 1) {
-        *(_out + 1) = tail[1];
+        out.resize(out_size -1);
+    } else {
+        out.resize(out_size -2);
     }
     return true;
+#undef BUNIT
 }
 
 }  // namespace net
