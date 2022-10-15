@@ -92,4 +92,26 @@ targets = {
             '-lphoton',
         ],
     ),
+    'test-tls-order-native': cpp_fast_test(
+        srcs=[
+            'test-tls-order-native.cpp',
+        ],
+        static_deps=[
+            'gtest-1.7.0:gtest',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+    ),
+    'test-tls-order-photon': cpp_fast_test(
+        srcs=[
+            'test-tls-order-photon.cpp',
+        ],
+        static_deps=[
+            'gtest-1.7.0:gtest',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+    ),
 }
