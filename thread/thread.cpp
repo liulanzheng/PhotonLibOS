@@ -14,10 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-#include <unistd.h>
-#include <sys/time.h>
-#include <sys/mman.h>
+#include <fcntl.h>
 #include <memory.h>
+#include <sys/mman.h>
+#include <sys/time.h>
+#include <unistd.h>
 #ifndef __aarch64__
 #include <emmintrin.h>
 #endif
@@ -479,13 +480,13 @@ namespace photon
         static vgtod_data* get_vvar_addr(){
             // quickly parse /proc/self/maps to find [vvar] mapping
             char mmaps[4096 * 4];
-            FILE* mmapsfile = fopen("/proc/self/maps", "r");
-            if (!mmapsfile) {
+            int mmapsfile = ::open("/proc/self/maps", O_RDONLY);
+            if (mmapsfile < 0) {
                 return nullptr;
             }
-            size_t nread = fread(mmaps, 1, sizeof(mmaps) - 1, mmapsfile);
-            fclose(mmapsfile);
-            if (nread <= 0 || nread > sizeof(mmaps)) return nullptr;
+            ssize_t nread = ::pread(mmapsfile, mmaps, sizeof(mmaps), 0);
+            ::close(mmapsfile);
+            if (nread <= 0) return nullptr;
             mmaps[nread] = 0;
             for (char* line = mmaps; line != NULL;) {
                 char* next_line = strchr(line, '\n');
