@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-#include <fcntl.h>
 #include <memory.h>
 #include <sys/mman.h>
 #include <sys/time.h>
@@ -477,24 +476,21 @@ namespace photon
             vp = get_vvar_addr();
         }
 
-        static vgtod_data* get_vvar_addr(){
+        static vgtod_data* get_vvar_addr() {
             // quickly parse /proc/self/maps to find [vvar] mapping
-            char mmaps[4096 * 4];
-            int mmapsfile = ::open("/proc/self/maps", O_RDONLY);
-            if (mmapsfile < 0) {
+            auto mmapsfile = fopen("/proc/self/maps", "r");
+            if (!mmapsfile) {
                 return nullptr;
             }
-            ssize_t nread = ::pread(mmapsfile, mmaps, sizeof(mmaps), 0);
-            ::close(mmapsfile);
-            if (nread <= 0) return nullptr;
-            mmaps[nread] = 0;
-            for (char* line = mmaps; line != NULL;) {
-                char* next_line = strchr(line, '\n');
-                if (next_line != NULL) *(next_line++) = 0;
-
+            DEFER(fclose(mmapsfile));
+            size_t len = 0;
+            char* line = nullptr;
+            // getline will alloc buffer and realloc when line point to nullptr
+            // so always free before return once
+            DEFER(free(line));
+            while ((getline(&line, &len, mmapsfile)) != EOF) {
                 if (strstr(line, "[vvar]"))
                     return (vgtod_data*)(strtol(line, NULL, 16) + 0x80);
-                line = next_line;
             }
             return nullptr;
         }
