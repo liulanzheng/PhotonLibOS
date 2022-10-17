@@ -265,6 +265,7 @@ public:
     IPAddr resolve(const char *host) override {
         auto ctr = [&]() -> IPAddr * {
             auto *ip = new IPAddr();
+            photon::semaphore sem;
             std::thread([&]() {
                 *ip = gethostbyname(host);
                 sem.signal(1);
@@ -288,7 +289,6 @@ public:
 private:
     ObjectCache<std::string, IPAddr *> dnscache_;
     uint64_t resolve_timeout_;
-    photon::semaphore sem;
 };
 
 Resolver* new_default_resolver(uint64_t cache_ttl, uint64_t resolve_timeout) {
