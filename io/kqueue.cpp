@@ -8,8 +8,7 @@
 
 namespace photon {
 
-constexpr static EventsMap<EVUnderlay<EVFILT_READ, EVFILT_WRITE, EVFILT_EXCEPT>,
-                           EVKey<EVENT_READ, EVENT_WRITE, EVENT_ERROR>>
+constexpr static EventsMap<EVUnderlay<EVFILT_READ, EVFILT_WRITE, EVFILT_EXCEPT>>
     evmap;
 
 class KQueue : public MasterEventEngine, public CascadingEventEngine {

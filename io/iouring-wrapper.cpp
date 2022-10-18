@@ -40,8 +40,7 @@ limitations under the License.
 
 namespace photon {
 
-constexpr static EventsMap<EVUnderlay<POLLIN | POLLRDHUP, POLLOUT, POLLERR>,
-                           EVKey<EVENT_READ, EVENT_WRITE, EVENT_ERROR>>
+constexpr static EventsMap<EVUnderlay<POLLIN | POLLRDHUP, POLLOUT, POLLERR>>
     evmap;
 
 class iouringEngine : public MasterEventEngine, public CascadingEventEngine {

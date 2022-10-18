@@ -1,5 +1,7 @@
 #pragma once
 
+#include <photon/io/fd-events.h>
+
 namespace photon {
 
 using EVENT_TYPE = int;
@@ -27,7 +29,8 @@ struct EVUnderlay : EVGroupBase<EV_READ_, EV_WRITE_, EV_ERROR_>, EVUBase {};
 template <EVENT_TYPE EV_READ_, EVENT_TYPE EV_WRITE_, EVENT_TYPE EV_ERROR_>
 struct EVKey : EVGroupBase<EV_READ_, EV_WRITE_, EV_ERROR_>, EVKBase {};
 
-template <typename EV_UNDERLAY, typename EV_KEY>
+template <typename EV_UNDERLAY,
+          typename EV_KEY = EVKey<EVENT_READ, EVENT_WRITE, EVENT_ERROR>>
 struct EventsMap {
     static_assert(std::is_base_of<EVUBase, EV_UNDERLAY>::value,
                   "EV_UNDERLAY should be type of EVUnderlay");
