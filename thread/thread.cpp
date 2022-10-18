@@ -1428,6 +1428,12 @@ namespace photon
         }
         return 0;
     }
+    bool is_master_event_engine_default() {
+        return CURRENT->vcpu->is_master_event_engine_default();
+    }
+    void reset_master_event_engine_default() {
+        CURRENT->vcpu->reset_master_event_engine_default();
+    }
     static void* idle_stub(void*)
     {
         constexpr uint64_t max = 10 * 1024 * 1024;
