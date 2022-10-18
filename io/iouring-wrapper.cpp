@@ -40,7 +40,9 @@ limitations under the License.
 
 namespace photon {
 
-static EventsMap<POLLIN | POLLRDHUP, POLLOUT, POLLERR> evmap(EVENT_READ, EVENT_WRITE, EVENT_ERROR);
+constexpr static EventsMap<EVUnderlay<POLLIN | POLLRDHUP, POLLOUT, POLLERR>,
+                           EVKey<EVENT_READ, EVENT_WRITE, EVENT_ERROR>>
+    evmap;
 
 class iouringEngine : public MasterEventEngine, public CascadingEventEngine {
 public:
@@ -116,6 +118,7 @@ public:
             if (m_cancel_fd < 0) {
                 LOG_ERRNO_RETURN(0, -1, "iouring: failed to create eventfd");
             }
+            printf("Init cancel fd %d\n", m_cancel_fd);
             m_cancel_poller = thread_create11(64 * 1024, &iouringEngine::run_cancel_poller, this);
             thread_enable_join(m_cancel_poller);
 
@@ -164,7 +167,9 @@ public:
             io_uring_sqe_set_data(sqe, &timer_ctx);
         }
 
+        printf("before aysnc io sleep\n");
         photon::thread_sleep(-1);
+        printf("after aysnc io sleep\n");
 
         if (errno == EOK) {
             // Interrupted by `wait_and_fire_events`
@@ -346,6 +351,7 @@ public:
     }
 
     int cancel_wait() override {
+        printf("Called cancel wait %d\n", m_cancel_fd);
         if (eventfd_write(m_cancel_fd, 1) != 0) {
             LOG_ERRNO_RETURN(0, -1, "iouring: write eventfd failed");
         }
@@ -385,7 +391,9 @@ private:
     void run_cancel_poller() {
         while (m_cancel_poller_running) {
             uint32_t poll_mask = evmap.translate_bitwisely(EVENT_READ);
+            printf("Poll cancel fd %d\n", m_cancel_fd);
             int ret = async_io(&io_uring_prep_poll_add, -1, m_cancel_fd, poll_mask);
+            printf("Poll cancel fd %d returned\n", m_cancel_fd);
             if (ret < 0) {
                 if (errno == EINTR) {
                     break;

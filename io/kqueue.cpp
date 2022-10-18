@@ -8,11 +8,11 @@
 
 namespace photon {
 
-using EVMAP = EventsMap<EVFILT_READ, EVFILT_WRITE, EVFILT_EXCEPT>;
-const static EVMAP evmap(EVENT_READ, EVENT_WRITE, EVENT_ERROR);
+constexpr static EventsMap<EVUnderlay<EVFILT_READ, EVFILT_WRITE, EVFILT_EXCEPT>,
+                           EVKey<EVENT_READ, EVENT_WRITE, EVENT_ERROR>>
+    evmap;
 
-class KQueue : public MasterEventEngine,
-               public CascadingEventEngine {
+class KQueue : public MasterEventEngine, public CascadingEventEngine {
 public:
     struct InFlightEvent {
         uint32_t interests = 0;
