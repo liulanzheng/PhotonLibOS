@@ -84,7 +84,7 @@ public:
     }
     bool all_digits() const
     {
-        return to_uint64(nullptr);
+        return to_uint64_check(nullptr);
     }
     estring_view substr(size_type pos = 0, size_type count = npos) const
     {
@@ -276,11 +276,11 @@ public:
     {
         return split(charset("\r\n"), consecutive_merge);
     }
-    bool     to_uint64(uint64_t* v = nullptr) const;
+    bool     to_uint64_check(uint64_t* v = nullptr) const;
     uint64_t to_uint64(uint64_t default_val = 0) const
     {
         uint64_t val;
-        return to_uint64(&val) ? val : default_val;
+        return to_uint64_check(&val) ? val : default_val;
     }
     // do not support 0x/0X prefix
     uint64_t hex_to_uint64() const;

@@ -19,6 +19,7 @@ limitations under the License.
 #include <cstddef>
 #include <type_traits>
 #include <utility>
+#include "string_view.h"
 // #include <string>
 
 #define _unused(x) ((void)(x))
@@ -292,6 +293,6 @@ public:
 #define unlikely(x) __builtin_expect(!!(x), 0)
 #endif
 
-
+int version_compare(std::string_view a, std::string_view b, int& result);
 void print_stacktrace();
 

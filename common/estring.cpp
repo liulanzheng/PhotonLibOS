@@ -53,7 +53,7 @@ size_t estring_view::find_last_not_of(const charset& set) const
     return npos;
 }
 
-bool estring_view::to_uint64(uint64_t* v) const
+bool estring_view::to_uint64_check(uint64_t* v) const
 {
     uint64_t val = 0;
     for (unsigned char c : *this) {
