@@ -2,12 +2,7 @@
 
 namespace photon {
 
-// a helper class to translate events into underlay representation
-#ifdef __APPLE__
-typedef int EVENT_TYPE;  // On macOS, event_type are negative integer.
-#else
-typedef uint32_t EVENT_TYPE;
-#endif
+using EVENT_TYPE = int;
 
 template <EVENT_TYPE EV_READ_, EVENT_TYPE EV_WRITE_, EVENT_TYPE EV_ERROR_>
 struct EVGroupBase {
