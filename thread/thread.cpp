@@ -498,7 +498,7 @@ namespace photon
         }
         void insert_list_before(thread* th) {
             SCOPED_FOREGROUND_LOCK(node->vcpu->runq_lock);
-            node->insert_tail(th);
+            node->insert_list_before(th);
         }
         void remove_from_list(thread* th) {
             assert(th->state == states::READY);
@@ -568,12 +568,13 @@ namespace photon
     // inline optimization for it, to make sure load CURRENT again before clean up
     __attribute__((noinline))
     static void thread_stub_cleanup() {
-        assert(!atomic_runq()->single());
         deallocate_tls();
-        auto sw = atomic_runq()->remove_current(states::DONE);
-        auto th = sw.from;
+        auto th = CURRENT;
         th->lock.lock();
+        th->state = states::DONE;
         th->cond.notify_all();
+        assert(!atomic_runq()->single());
+        auto sw = atomic_runq()->remove_current(states::DONE);
         th->vcpu->nthreads--;
         auto next = sw.to;
         if (!th->joinable)
@@ -615,7 +616,7 @@ namespace photon
         th->stack_size = stack_size;
         th->stack.init(p, &thread_stub);
         th->state = states::READY;
-       (th->vcpu = current->vcpu) -> nthreads++;
+        (th->vcpu = current->vcpu) -> nthreads++;
         atomic_runq()->insert_tail(th);
         th->retval = current;
         thread_yield_to(th);
@@ -819,14 +820,19 @@ namespace photon
         auto& sleepq = vcpu->sleepq;
         if (!standbyq.empty())
         {   // threads interrupted by other vcpus were not popped from sleepq
+
             auto q = standbyq.eject_whole_atomic();
-            for (auto th: thread_list(q)) {
-                assert(th->state == states::STANDBY);
-                th->state = states::READY;
-                sleepq.pop(th);
-                ++count;
+            if (q) {
+                thread_list list(q);
+                for (auto th: list) {
+                    assert(th->state == states::STANDBY);
+                    th->state = states::READY;
+                    sleepq.pop(th);
+                    ++count;
+                }
+                list.node = nullptr;
+                atomic_runq()->insert_list_before(q);
             }
-            atomic_runq()->insert_list_before(q);
             return count;
         }
 
@@ -1470,15 +1476,15 @@ namespace photon
      */
     int wait_all() {
         auto &sleepq = CURRENT->vcpu->sleepq;
-        do {
-            while (!atomic_runq()->size_1or2()) {
+        auto &standbyq = CURRENT->vcpu->standbyq;
+        while (!atomic_runq()->size_1or2() || !sleepq.empty() || !standbyq.empty()) {
+            if (!sleepq.empty()) {
+                thread_usleep(1000UL);
+            } else {
+                // sleep till all sleeping threads ends
                 thread_yield();
             }
-            while (!sleepq.empty()) {
-                // sleep till all sleeping threads ends
-                thread_usleep(1000UL);
-            }
-        } while (!sleepq.empty());
+        }
         return 0;
     }
 
@@ -1540,10 +1546,11 @@ namespace photon
         auto vcpu = CURRENT->vcpu = new vcpu_t;
         CURRENT->idx = -1;
         CURRENT->state = states::RUNNING;
+        vcpu->state = states::RUNNING;
         vcpu->nthreads = 1;
         vcpu->idle_worker = thread_create(&idle_stub, nullptr);
         thread_enable_join(vcpu->idle_worker);
-        update_now();
+        thread_yield_to(vcpu->idle_worker);
         return n;
     }
     int vcpu_fini()
@@ -1555,6 +1562,7 @@ namespace photon
         assert(!atomic_runq()->single());
         assert(vcpu->nthreads == 2); // idle_stub & current alive
         vcpu->state = states::DONE;  // instruct idle_worker to exit
+        thread_yield_to(vcpu->idle_worker);
         thread_join(vcpu->idle_worker);
         _n_vcpu--;
         CURRENT->state = states::DONE;
