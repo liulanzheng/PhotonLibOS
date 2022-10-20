@@ -173,7 +173,7 @@ namespace photon
 
         Stack stack;
         uint64_t ts_wakeup = 0;             /* Wakeup time when thread is sleeping */
-        condition_variable cond;            /* used for join, or timer REUSE */
+        semaphore join_sem;                 /* used for join, or timer REUSE */
 
         int set_error_number()
         {
@@ -421,6 +421,7 @@ namespace photon
 
         NullEventEngine _default_event_engine;
         vcpu_t() {
+            state = states::READY;
             master_event_engine = &_default_event_engine;
         }
         bool is_master_event_engine_default() {
@@ -559,6 +560,8 @@ namespace photon
     void photon_switch_context_defer_die(thread* dying_th, void** dest_context,
         void(*th_die)(thread*)) asm ("_photon_switch_context_defer_die");
 
+    extern void photon_switch_to(void**, void**) asm("_photon_switch_to");
+
     // Since thread may be moved from one vcpu to another
     // thread local CURRENT *** MUST *** re-load before cleanup
     // We found that in GCC ,compile with -O3 may leads compiler
@@ -567,22 +570,30 @@ namespace photon
     // Here seperate a standalone function threqad_stub_cleanup, and forbidden
     // inline optimization for it, to make sure load CURRENT again before clean up
     __attribute__((noinline))
-    static void thread_stub_cleanup() {
+    static void thread_stub_cleanup()
+    {
         deallocate_tls();
+        // if CURRENT is idle stub and during vcpu_fini
+        // main thread waiting for idle stub joining, now idle might be only
+        // thread in run-queue. To keep going, wake up waiter before remove
+        // current from run-queue.
         auto th = CURRENT;
-        th->lock.lock();
         th->state = states::DONE;
-        th->cond.notify_all();
-        assert(!atomic_runq()->single());
-        auto sw = atomic_runq()->remove_current(states::DONE);
         th->vcpu->nthreads--;
-        auto next = sw.to;
         if (!th->joinable)
         {
-            photon_switch_context_defer_die(th,
-                next->stack.pointer_ref(), &thread_die);
+            assert(!atomic_runq()->single());
+            auto sw = atomic_runq()->remove_current(states::DONE);
+            photon_switch_context_defer_die(th, sw.to->stack.pointer_ref(),
+                                            &thread_die);
         } else {
-            switch_context_defer(th, next, &spinlock_unlock, (void*)&th->lock);
+            auto sw = ({
+                SCOPED_LOCK(th->lock);
+                th->join_sem.signal(1);
+                assert(!atomic_runq()->single());
+                atomic_runq()->remove_current(states::DONE);
+            });
+            photon_switch_to((void**)nullptr, sw.to->stack.pointer_ref());
         }
     }
 
@@ -754,6 +765,8 @@ namespace photon
         if (ts_updater.load(std::memory_order_relaxed)) {
             return photon::now;
         }
+        if (accurate)
+            return update_now();
         uint32_t tsc = _rdtsc();
         if (last_tsc != tsc) {
             last_tsc = tsc;
@@ -898,9 +911,9 @@ namespace photon
             waitq->push_back(sw.from);
             sw.from->waitq = waitq;
         }
+        if_update_now(true);
         sw.from->ts_wakeup = sat_add(now, useconds);
         sw.from->vcpu->sleepq.push(sw.from);
-        if_update_now();
         return sw;
     }
 
@@ -1043,11 +1056,10 @@ namespace photon
         if (!th->joinable)
             LOG_ERROR_RETURN(ENOSYS, , "join is not enabled for thread ", th);
 
-        th->lock.lock();
-        if (th->state != states::DONE)
+        th->join_sem.wait(1);
         {
-            th->cond.wait(th->lock);
-            assert(th->single()); // th should be finished and removed out of runq
+            SCOPED_LOCK(th->lock);
+            assert(th->state == states::DONE);
         }
         thread_die(th);
     }
