@@ -1543,6 +1543,7 @@ namespace photon
         th->vcpu = vcpu;
         vcpu->move_to_standbyq_atomic(th);
         vcpu->nthreads++;
+        vcpu->master_event_engine->cancel_wait();
         return 0;
     }
 

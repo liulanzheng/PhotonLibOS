@@ -32,7 +32,7 @@ namespace photon
     int timestamp_updater_fini();
 
     struct thread;
-    extern "C" __thread thread* CURRENT;
+    extern __thread thread* CURRENT;
     extern volatile uint64_t now;
 
     enum states
