@@ -137,12 +137,15 @@ void Base64Encode(std::string_view in, std::string &out) {
     }
 
     char itail[4];
-    itail[3] = 0;
     itail[0] = _in[0];
     if (remain == 2) {
         itail[1] = _in[1];
     } else if (remain == 3) {
         *(short *)&itail[1] = *(short *)&_in[1];
+    } else {
+        itail[1] = 0;
+        itail[2] = 0;
+        itail[3] = 0;
     }
     base64_translate_3to4(itail, _out);
     for (size_t i = 0; i < (3 - remain); ++i) out[out_size - i - 1] = '=';
