@@ -390,6 +390,7 @@ namespace photon
 
     struct vcpu_t : public vcpu_base
     {
+        states state;
         // standby queue stores the threads that are running, but not
         // yet added to the run queue, until the run queue becomes empty
         thread_list standbyq;
@@ -462,6 +463,7 @@ namespace photon
 #endif
         }
         Switch remove_current(states new_state) {
+            assert(!single());
             auto from = node;
             SCOPED_FOREGROUND_LOCK(node->get_vcpu()->runq_lock);
             auto to = node = node->remove_from_list();
@@ -479,6 +481,7 @@ namespace photon
             return {from, to};
         }
         Switch goto_next() {
+            assert(!single());
             SCOPED_FOREGROUND_LOCK(node->get_vcpu()->runq_lock);
             return _do_goto(node->next());
         }
@@ -588,18 +591,15 @@ namespace photon
         th->get_vcpu()->nthreads--;
         if (!th->joinable)
         {
-            assert(!atomic_runq()->single());
             auto sw = atomic_runq()->remove_current(states::DONE);
             photon_switch_context_defer_die(th, sw.to->stack.pointer_ref(),
                                             &thread_die);
         } else {
-            auto sw = ({
-                SCOPED_LOCK(th->lock);
-                th->join_sem.signal(1);
-                assert(!atomic_runq()->single());
-                atomic_runq()->remove_current(states::DONE);
-            });
-            photon_switch_to((void**)nullptr, sw.to->stack.pointer_ref());
+            // make sure that thread stub is finished
+            th->lock.lock();
+            th->join_sem.signal(1);
+            auto sw = atomic_runq()->remove_current(states::DONE);
+            switch_context_defer(th, sw.to, spinlock_unlock, &th->lock);
         }
     }
 
@@ -842,7 +842,6 @@ namespace photon
         auto& sleepq = vcpu->sleepq;
         if (!standbyq.empty())
         {   // threads interrupted by other vcpus were not popped from sleepq
-
             auto q = standbyq.eject_whole_atomic();
             if (q) {
                 thread_list list(q);
@@ -1066,10 +1065,8 @@ namespace photon
             LOG_ERROR_RETURN(ENOSYS, , "join is not enabled for thread ", th);
 
         th->join_sem.wait(1);
-        {
-            SCOPED_LOCK(th->lock);
-            assert(th->state == states::DONE);
-        }
+        th->lock.lock();
+        assert(th->state == states::DONE);
         thread_die(th);
     }
     inline void thread_join(thread* th)

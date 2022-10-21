@@ -105,7 +105,6 @@ namespace photon
     struct vcpu_base {
         MasterEventEngine* master_event_engine;
         std::atomic<uint32_t> nthreads;
-        states state;
         volatile uint64_t switch_count;
     };
 
