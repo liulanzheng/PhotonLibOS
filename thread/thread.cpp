@@ -179,7 +179,7 @@ namespace photon
 
         Stack stack;
         uint64_t ts_wakeup = 0;             /* Wakeup time when thread is sleeping */
-        semaphore join_sem;                 /* used for join, or timer REUSE */
+        condition_variable cond;            /* used for join, or timer REUSE */
 
         int set_error_number()
         {
@@ -587,18 +587,16 @@ namespace photon
         // thread in run-queue. To keep going, wake up waiter before remove
         // current from run-queue.
         auto th = CURRENT;
+        th->lock.lock();
         th->state = states::DONE;
+        th->cond.notify_one();
         th->get_vcpu()->nthreads--;
+        auto sw = atomic_runq()->remove_current(states::DONE);
         if (!th->joinable)
         {
-            auto sw = atomic_runq()->remove_current(states::DONE);
             photon_switch_context_defer_die(th, sw.to->stack.pointer_ref(),
                                             &thread_die);
         } else {
-            // make sure that thread stub is finished
-            th->lock.lock();
-            th->join_sem.signal(1);
-            auto sw = atomic_runq()->remove_current(states::DONE);
             switch_context_defer(th, sw.to, spinlock_unlock, &th->lock);
         }
     }
@@ -1064,8 +1062,11 @@ namespace photon
         if (!th->joinable)
             LOG_ERROR_RETURN(ENOSYS, , "join is not enabled for thread ", th);
 
-        th->join_sem.wait(1);
+
         th->lock.lock();
+        if (th->state != states::DONE) {
+            th->cond.wait(th->lock);
+        }
         assert(th->state == states::DONE);
         thread_die(th);
     }
