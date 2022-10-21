@@ -636,7 +636,7 @@ namespace photon
         th->stack_size = stack_size;
         th->stack.init(p, &thread_stub);
         th->state = states::READY;
-        (th->vcpu = current->vcpu) -> nthreads++;
+       (th->vcpu = current->vcpu) -> nthreads++;
         atomic_runq()->insert_tail(th);
         th->retval = current;
         thread_yield_to(th);
@@ -1500,9 +1500,9 @@ namespace photon
         auto &standbyq = CURRENT->get_vcpu()->standbyq;
         while (!atomic_runq()->size_1or2() || !sleepq.empty() || !standbyq.empty()) {
             if (!sleepq.empty()) {
+                // sleep till all sleeping threads ends
                 thread_usleep(1000UL);
             } else {
-                // sleep till all sleeping threads ends
                 thread_yield();
             }
         }
@@ -1571,7 +1571,8 @@ namespace photon
         vcpu->nthreads = 1;
         vcpu->idle_worker = thread_create(&idle_stub, nullptr);
         thread_enable_join(vcpu->idle_worker);
-        thread_yield_to(vcpu->idle_worker);
+        // to update timestamp
+        thread_yield_to(CURRENT);
         return n;
     }
     int vcpu_fini()
@@ -1583,7 +1584,6 @@ namespace photon
         assert(!atomic_runq()->single());
         assert(vcpu->nthreads == 2); // idle_stub & current alive
         vcpu->state = states::DONE;  // instruct idle_worker to exit
-        thread_yield_to(vcpu->idle_worker);
         thread_join(vcpu->idle_worker);
         _n_vcpu--;
         CURRENT->state = states::DONE;
