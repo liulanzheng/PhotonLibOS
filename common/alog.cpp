@@ -227,7 +227,7 @@ static struct tm* alog_update_time()
     return alog_update_time(time(0) + 8 * 60 * 60);
 }
 
-class LogOutputFile : public BaseLogOutput {
+class LogOutputFile final : public BaseLogOutput {
 public:
     uint64_t log_file_size_limit = 0;
     char* log_file_name = nullptr;

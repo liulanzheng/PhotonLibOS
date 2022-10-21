@@ -70,6 +70,15 @@ targets = {
             '-lphoton',
         ],
     ),
+    'test_alog' : cpp_fast_test(
+        incs = [ './' ],
+        srcs = [ './test_alog.cpp' ],
+        static_deps = [
+            'gtest-1.7.0:gtest',
+            'gmock-1.7.0:gmock',
+            ':#photon'
+        ],
+    ),
     'perf_objcache' : cpp_program(
         incs = [ './' ],
         srcs = [ './perf_objcache.cpp' ],
