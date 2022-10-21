@@ -409,7 +409,7 @@ int log_output_file_close() {
 namespace photon
 {
     struct thread;
-    extern "C" __thread thread* CURRENT;
+    extern __thread thread* CURRENT;
 }
 
 static inline ALogInteger DEC_W2P0(uint64_t x)
