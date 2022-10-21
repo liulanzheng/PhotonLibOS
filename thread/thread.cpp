@@ -78,7 +78,10 @@ namespace photon
             return -1;
         }
         int cancel_wait() override {
-            notify.store(true, std::memory_order_release);
+            {
+                std::unique_lock<std::mutex> lock(_mutex);
+                notify.store(true, std::memory_order_release);
+            }
             _cvar.notify_all();
             return 0;
         }
@@ -1541,9 +1544,8 @@ namespace photon
         th->idx = -1;
         auto vcpu = (vcpu_t*)vb;
         th->vcpu = vcpu;
-        vcpu->move_to_standbyq_atomic(th);
         vcpu->nthreads++;
-        vcpu->master_event_engine->cancel_wait();
+        vcpu->move_to_standbyq_atomic(th);
         return 0;
     }
 
