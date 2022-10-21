@@ -248,7 +248,7 @@ void* thread_test_function(void* arg)
 void wait_for_completion(int vcpu_id = -1)
 {
     auto current = CURRENT;
-    auto& sleepq = current->vcpu->sleepq;
+    auto& sleepq = current->get_vcpu()->sleepq;
     while (true)
     {
         photon::thread_usleep(1);
