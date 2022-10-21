@@ -55,14 +55,12 @@ size_t estring_view::find_last_not_of(const charset& set) const
 
 bool estring_view::to_uint64_check(uint64_t* v) const
 {
-    uint64_t val = 0;
+    *v = 0;
     for (unsigned char c : *this) {
         if (c > '9' || c < '0')
             return false;
-        val = val * 10 + (c - '0');
+        *v = *v * 10 + (c - '0');
     }
-    if (v)
-        *v = val;
     return true;
 }
 

@@ -280,7 +280,8 @@ public:
     uint64_t to_uint64(uint64_t default_val = 0) const
     {
         uint64_t val;
-        return to_uint64_check(&val) ? val : default_val;
+        to_uint64_check(&val);
+        return val;
     }
     // do not support 0x/0X prefix
     uint64_t hex_to_uint64() const;
