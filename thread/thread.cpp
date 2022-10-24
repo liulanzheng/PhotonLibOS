@@ -390,7 +390,7 @@ namespace photon
 
     struct vcpu_t : public vcpu_base
     {
-        states state;
+        states state = states::READY;
         // standby queue stores the threads that are running, but not
         // yet added to the run queue, until the run queue becomes empty
         thread_list standbyq;
@@ -986,9 +986,9 @@ namespace photon
         assert("th->lock is locked");
         assert(th != CURRENT);
         th->error_number = error_number;
-        if (!CURRENT || (vcpu = CURRENT->get_vcpu()) != th->get_vcpu()) {
+        if (!CURRENT || (vcpu = th->get_vcpu()) != CURRENT->get_vcpu()) {
             th->dequeue_ready_atomic(states::STANDBY);
-            th->get_vcpu()->move_to_standbyq_atomic(th);
+            vcpu->move_to_standbyq_atomic(th);
         } else {
             th->dequeue_ready_atomic();
             vcpu->sleepq.pop(th);
@@ -1061,7 +1061,6 @@ namespace photon
         auto th = (thread*)jh;
         if (!th->joinable)
             LOG_ERROR_RETURN(ENOSYS, , "join is not enabled for thread ", th);
-
 
         th->lock.lock();
         if (th->state != states::DONE) {
@@ -1494,8 +1493,9 @@ namespace photon
      * @return 0 for all done, -1 for failure
      */
     int wait_all() {
-        auto &sleepq = CURRENT->get_vcpu()->sleepq;
-        auto &standbyq = CURRENT->get_vcpu()->standbyq;
+        auto vcpu = CURRENT->get_vcpu();
+        auto &sleepq = vcpu->sleepq;
+        auto &standbyq = vcpu->standbyq;
         while (!atomic_runq()->size_1or2() || !sleepq.empty() || !standbyq.empty()) {
             if (!sleepq.empty()) {
                 // sleep till all sleeping threads ends
@@ -1562,7 +1562,8 @@ namespace photon
         if (CURRENT) return -1;      // re-init has no side-effect
         auto n = ++_n_vcpu;
         CURRENT = new thread;
-        auto vcpu = CURRENT->vcpu = new vcpu_t;
+        auto vcpu = new vcpu_t;
+        CURRENT->vcpu = vcpu;
         CURRENT->idx = -1;
         CURRENT->state = states::RUNNING;
         vcpu->state = states::RUNNING;
@@ -1570,7 +1571,7 @@ namespace photon
         vcpu->idle_worker = thread_create(&idle_stub, nullptr);
         thread_enable_join(vcpu->idle_worker);
         // to update timestamp
-        thread_yield_to(CURRENT);
+        if_update_now(true);
         return n;
     }
     int vcpu_fini()
