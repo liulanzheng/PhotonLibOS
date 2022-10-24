@@ -981,12 +981,12 @@ namespace photon
 
     static void prelocked_thread_interrupt(thread* th, int error_number)
     {
-        vcpu_t* vcpu;
+        vcpu_t* vcpu = th->get_vcpu();
         assert(th && th->state == states::SLEEPING);
         assert("th->lock is locked");
         assert(th != CURRENT);
         th->error_number = error_number;
-        if (!CURRENT || (vcpu = th->get_vcpu()) != CURRENT->get_vcpu()) {
+        if (!CURRENT || vcpu != CURRENT->get_vcpu()) {
             th->dequeue_ready_atomic(states::STANDBY);
             vcpu->move_to_standbyq_atomic(th);
         } else {
