@@ -15,8 +15,11 @@ limitations under the License.
 */
 
 #include "alog.h"
+#include "lockfree_queue.h"
+#include "photon/thread/thread.h"
 #include <atomic>
 #include <mutex>
+#include <condition_variable>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -227,28 +230,21 @@ static struct tm* alog_update_time()
     return alog_update_time(time(0) + 8 * 60 * 60);
 }
 
-class LogOutputFile final : public BaseLogOutput {
+class BaseLogOutputFile : public BaseLogOutput {
 public:
     uint64_t log_file_size_limit = 0;
     char* log_file_name = nullptr;
     atomic<uint64_t> log_file_size{0};
     unsigned int log_file_max_cnt = 10;
 
-    virtual void destruct() override {
-        log_output_file_close();
-        delete this;
-    }
-
     int fopen(const char* fn) {
         auto mode   =   S_IRUSR | S_IWUSR  | S_IRGRP | S_IROTH;
         return open(fn, O_CREAT | O_WRONLY | O_APPEND, mode);
     }
 
-    void write(int, const char* begin, const char* end) override {
+    void do_write(const iovec* iov, int iovcnt, size_t length) {
         if (log_file_fd < 0) return;
-        uint64_t length = end - begin;
-        iovec iov{(void*)begin, length};
-        ::writev(log_file_fd, &iov, 1); // writev() is atomic, whereas write() is not
+        ::writev(log_file_fd, iov, iovcnt); // writev() is atomic, whereas write() is not
         throttle_block();
         if (log_file_name && log_file_size_limit) {
             log_file_size += length;
@@ -358,9 +354,94 @@ public:
     }
 };
 
-ILogOutput* new_log_output_file(const char* fn, uint64_t rotate_limit,
+class LogOutputFile final : public BaseLogOutputFile {
+public:
+    virtual void destruct() override {
+        log_output_file_close();
+        delete this;
+    }
+
+    void write(int, const char* begin, const char* end) override {
+         uint64_t length = end - begin;
+         iovec iov{(void*)begin, length};
+         do_write(&iov, 1, length);
+    }
+};
+
+class AsyncLogOutputFile final : public BaseLogOutputFile {
+public:
+    std::mutex mt;
+    std::condition_variable cv;
+    std::thread background;
+    LockfreeSPSCRingQueue<iovec, 16384> pending;
+    photon::spinlock lock;
+    bool stopped = false;
+
+    AsyncLogOutputFile() {
+        background = std::thread([&]() {
+            uint64_t interval = 1000;
+            iovec iovs[1024];
+            int iovcnt = 0;
+            size_t size = 0;
+            auto wb = [&]() mutable {
+                do_write(iovs, iovcnt, size);
+                for (int i = 0; i != iovcnt; ++i) delete (char*)iovs[i].iov_base;
+                iovcnt = 0;
+                size = 0;
+                interval = 100;
+            };
+            auto run = [&, wb = std::move(wb)]() mutable {
+                interval = 1000;
+                iovec iov;
+                while (pending.pop(iov)) {
+                    iovs[iovcnt++] = iov;
+                    size += iov.iov_len;
+                    if (size >= 128 * 1024UL || iovcnt == 1024) wb();
+                }
+                if (iovcnt != 0) wb();
+            };
+            while (!stopped) {
+                run();
+                std::unique_lock<std::mutex> l(mt);
+                if (!stopped) cv.wait_for(l, std::chrono::milliseconds(interval));
+            }
+            run();
+        });
+    }
+
+    virtual void destruct() override {
+        log_output_file_close();
+        if (!stopped) {
+            {
+                std::unique_lock<std::mutex> l(mt);
+                stopped = true;
+                cv.notify_all();
+            }
+            background.join();
+        }
+        delete this;
+    }
+
+    void write(int, const char* begin, const char* end) override {
+        uint64_t length = end - begin;
+        void* buf = new char[length];
+        memcpy(buf, begin, length);
+        iovec iov{buf, length};
+        bool pushed = ({
+            SCOPED_LOCK(lock);
+            pending.push(iov);
+        });
+        if (!pushed) {
+            delete (char*)buf;
+            cv.notify_all();
+        }
+    }
+};
+
+template<typename T>
+ILogOutput* create_log_output_file(const char* fn, uint64_t rotate_limit,
                                 int max_log_files, uint64_t throttle) {
-    auto ret = new LogOutputFile();
+    auto ret = new T();
     if (ret->log_output_file_setting(fn, rotate_limit, max_log_files) < 0) {
         delete ret;
         LOG_ERROR_RETURN(0, nullptr, "Failed to open log file ", fn);
@@ -370,11 +451,30 @@ ILogOutput* new_log_output_file(const char* fn, uint64_t rotate_limit,
     return ret;
 }
 
-ILogOutput* new_log_output_file(int fd, uint64_t throttle) {
-    auto ret = new LogOutputFile();
+template<typename T>
+ILogOutput* create_log_output_file(int fd, uint64_t throttle) {
+    auto ret = new T();
     ret->log_output_file_setting(fd);
     ret->set_throttle(throttle);
     return ret;
+}
+
+ILogOutput* new_log_output_file(const char* fn, uint64_t rotate_limit,
+                                int max_log_files, uint64_t throttle) {
+    return create_log_output_file<LogOutputFile>(fn, rotate_limit, max_log_files, throttle);
+}
+
+ILogOutput* new_log_output_file(int fd, uint64_t throttle) {
+    return create_log_output_file<LogOutputFile>(fd, throttle);
+}
+
+ILogOutput* new_async_log_output_file(const char* fn, uint64_t rotate_limit,
+                                int max_log_files, uint64_t throttle) {
+    return create_log_output_file<AsyncLogOutputFile>(fn, rotate_limit, max_log_files, throttle);
+}
+
+ILogOutput* new_async_log_output_file(int fd, uint64_t throttle) {
+    return create_log_output_file<AsyncLogOutputFile>(fd, throttle);;
 }
 
 // default_log_file is not defined in header
