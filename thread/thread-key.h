@@ -18,6 +18,7 @@ limitations under the License.
 
 #include <cstdint>
 #include <cstdlib>
+#include <photon/thread/thread.h>
 
 namespace photon {
 
@@ -35,6 +36,6 @@ int thread_setspecific(thread_key_t key, const void* value);
 
 int thread_key_delete(thread_key_t key);
 
-void deallocate_tls();
+void deallocate_tls(void** tls = &(((partial_thread*)CURRENT)->tls));
 
 }

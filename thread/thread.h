@@ -20,8 +20,10 @@ limitations under the License.
 #include <cerrno>
 #include <atomic>
 #include <type_traits>
-
 #include <photon/common/callback.h>
+#ifndef __aarch64__
+#include <emmintrin.h>
+#endif
 
 namespace photon
 {
@@ -148,13 +150,39 @@ namespace photon
      */
     int thread_migrate(thread* th, vcpu_base* vcpu);
 
+    inline void spin_wait() {
+#ifdef __aarch64__
+        asm volatile("isb" : : : "memory");
+#else
+        _mm_pause();
+#endif
+    }
+
     class spinlock {
     public:
-        int lock();
-        int try_lock();
-        void unlock();
+        int lock() {
+            while (unlikely(xchg())) {
+                while (likely(load())) {
+                    spin_wait();
+                }
+            }
+            return 0;
+        }
+        int try_lock() {
+            return (likely(!load()) &&
+                    likely(!xchg())) ? 0 : -1;
+        }
+        void unlock() {
+            _lock.store(false, std::memory_order_release);
+        }
     protected:
         std::atomic_bool _lock = {false};
+        bool xchg() {
+            return _lock.exchange(true, std::memory_order_acquire);
+        }
+        bool load() {
+            return _lock.load(std::memory_order_relaxed);
+        }
     };
 
     class ticket_spinlock {
