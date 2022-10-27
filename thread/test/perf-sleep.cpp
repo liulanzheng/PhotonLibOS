@@ -1,7 +1,6 @@
 #include <sys/time.h>
 #include <photon/common/alog.h>
 #include <photon/thread/thread.h>
-#include <photon/photon.h>
 using namespace photon;
 
 inline uint64_t now_time()
@@ -24,20 +23,24 @@ void perf_sleep() {
     thread_enable_join(th);
 
     auto t0 = now_time();
-    const uint64_t count = 1000 * 1000 * 10;
-    for (uint64_t i = 0; i < count; ++i) {
-        thread_usleep(2347812387);
-        thread_interrupt(th);
+    const uint64_t Ci = 10, Cj = 1000 * 1000;
+    for (uint64_t i = 0; i < Ci; ++i) {
+        for (uint64_t j = 0; j < Cj; ++j) {
+            thread_usleep(2347812387);
+            thread_interrupt(th);
+        }
+        LOG_INFO("`/` rounds", i, Ci);
     }
+    thread_usleep(2347812387);
     auto t1 = now_time();
-    LOG_INFO("time to ` rounds of sleep/interrupt: `us", count, t1 - t0);
+    LOG_INFO("time to ` rounds of sleep/interrupt: `us", Ci * Cj, t1 - t0);
     thread_interrupt(th, EEXIST);
     thread_join((join_handle*)th);
 }
 
 int main() {
-    photon::init();
+    vcpu_init();
     perf_sleep();
-    photon::fini();
+    vcpu_fini();
     return 0;
 }

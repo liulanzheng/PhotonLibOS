@@ -70,9 +70,13 @@ namespace photon
         std::mutex _mutex;
         std::condition_variable _cvar;
         std::atomic_bool notify{false};
+
+        __attribute__((noinline))
         int wait_for_fd(int fd, uint32_t interests, uint64_t timeout) override {
             return -1;
         }
+
+        __attribute__((noinline))
         int cancel_wait() override {
             {
                 std::unique_lock<std::mutex> lock(_mutex);
@@ -81,6 +85,8 @@ namespace photon
             _cvar.notify_all();
             return 0;
         }
+
+        __attribute__((noinline))
         ssize_t wait_and_fire_events(uint64_t timeout = -1) override {
             DEFER(notify.store(false, std::memory_order_release));
             if (!timeout) return 0;
@@ -444,9 +450,11 @@ namespace photon
         vcpu_t() {
             master_event_engine = &_default_event_engine;
         }
+
         bool is_master_event_engine_default() {
             return &_default_event_engine == master_event_engine;
         }
+
         void reset_master_event_engine_default() {
             auto& mee = master_event_engine;
             if (&_default_event_engine == mee) return;
@@ -1046,22 +1054,23 @@ namespace photon
         assert("th->lock is locked");
         assert(th != CURRENT);
         th->error_number = error_number;
-        if (!CURRENT || vcpu != CURRENT->get_vcpu()) {
+        RunQ rq;
+        if (unlikely(!rq.current || vcpu != rq.current->get_vcpu())) {
             th->dequeue_ready_atomic(states::STANDBY);
             vcpu->move_to_standbyq_atomic(th);
         } else {
             th->dequeue_ready_atomic();
             vcpu->sleepq.pop(th);
-            AtomicRunQ().insert_tail(th);
+            AtomicRunQ(rq).insert_tail(th);
         }
     }
     void thread_interrupt(thread* th, int error_number)
     {
-        if (!th)
+        if (unlikely(!th))
             LOG_ERROR_RETURN(EINVAL, , "invalid parameter");
-        if (th->state != states::SLEEPING) return;
+        if (unlikely(th->state != states::SLEEPING)) return;
         SCOPED_LOCK(th->lock);
-        if (th->state != states::SLEEPING) return;
+        if (unlikely(th->state != states::SLEEPING)) return;
 
         prelocked_thread_interrupt(th, error_number);
     }
@@ -1123,10 +1132,9 @@ namespace photon
             LOG_ERROR_RETURN(ENOSYS, , "join is not enabled for thread ", th);
 
         th->lock.lock();
-        if (th->state != states::DONE) {
+        while (th->state != states::DONE) {
             th->cond.wait(th->lock);
         }
-        assert(th->state == states::DONE);
         thread_die(th);
     }
     inline void thread_join(thread* th)
