@@ -656,21 +656,20 @@ namespace photon
 
         // do NOT use CURRENT directly, as the compiler may have
         // issues with regards to the global thread-local variable
-        RunQ rq;
-        rq.current->go();
+        auto th = RunQ().current;
+        th->go();
 
-        deallocate_tls(&rq.current->arg);
+        deallocate_tls(&th->arg);
         // if CURRENT is idle stub and during vcpu_fini
         // main thread waiting for idle stub joining, now idle might be only
         // thread in run-queue. To keep going, wake up waiter before remove
         // current from run-queue.
-        // auto th = CURRENT;
-        rq.current->lock.lock();
-        rq.current->state = states::DONE;
-        rq.current->cond.notify_one();
-        rq.current->get_vcpu()->nthreads--;
-        auto sw = AtomicRunQ(rq).remove_current(states::DONE);
-        if (!rq.current->joinable) {
+        th->lock.lock();
+        th->state = states::DONE;
+        th->cond.notify_one();
+        th->get_vcpu()->nthreads--;
+        auto sw = AtomicRunQ().remove_current(states::DONE);
+        if (!th->joinable) {
             photon_switch_context_defer_die(sw.from, sw.to);
         } else {
             switch_context_defer(sw.from, sw.to, spinlock_unlock, &sw.from->lock);
