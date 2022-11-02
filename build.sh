@@ -88,9 +88,7 @@ function _job_pool_worker()
                     --rm -v $PWD:$PWD -v $HOME/.dep_create_cache:$HOME/.dep_create_cache \
                     --name "para_ut.$$.$id$(echo "$cmd" | tr '/' '-')" \
                     reg.docker.alibaba-inc.com/cise/cise_7u2:latest \
-                    -c "osscmd config --host=oss-cn-hangzhou-zmf.aliyuncs.com \\
-                    --id=LTAIWsbCDjMKQbaW --key=7ljBjEVtgE0BT5NtUu8ZorOxS3YBfI ; \\
-                    cd $PWD; ${cmd} $@"  > "$cmd.runlog" 2>&1 ;
+                    -c "cd $PWD; ${cmd} $@"  > "$cmd.runlog" 2>&1 ;
 
             }
             # now check the exit code and prepend "ERROR" to the result log entry
