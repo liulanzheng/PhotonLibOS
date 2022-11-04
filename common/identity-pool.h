@@ -39,7 +39,7 @@ public:
 protected:
     uint32_t m_capacity, m_size = 0, m_refcnt = 0;
     uint32_t min_size_in_interval = 0;
-    photon::mutex m_mtx;
+    photon::spinlock m_mtx;
     photon::condition_variable m_cvar;
     Constructor m_ctor;
     Destructor  m_dtor;

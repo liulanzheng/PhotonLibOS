@@ -30,7 +30,7 @@ namespace photon
         void* arg;
         condition_variable cvar;
         bool joinable, joining;
-        photon::mutex m_mtx;
+        photon::spinlock m_mtx;
     };
 
     class ThreadPoolBase : protected IdentityPool0<TPControl>
