@@ -213,6 +213,7 @@ namespace photon
         void stackful_free(void* ptr) {
             assert(((uint64_t)ptr) < ((uint64_t)stackful_alloc_top));
             auto rc = stackful_alloc_top - sizeof(stack_alloc_header);
+            (void)rc;
             assert(ptr == (rc - ((stack_alloc_header*)rc)->size));
             stackful_alloc_top = (char*)ptr;
         }
