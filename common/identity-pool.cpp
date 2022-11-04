@@ -20,6 +20,7 @@ limitations under the License.
 
 void* IdentityPoolBase::get()
 {
+    photon::scoped_lock lock(m_mtx);
     void* obj = nullptr;
     assert(m_size <= m_capacity);
     if (m_size > 0) {
@@ -36,6 +37,7 @@ void* IdentityPoolBase::get()
 void IdentityPoolBase::put(void* obj)
 {
     if (!obj) return;
+    photon::scoped_lock lock(m_mtx);
     if (m_size < m_capacity) {
         m_items[m_size++] = obj;
     } else{
@@ -61,9 +63,10 @@ IdentityPoolBase::~IdentityPoolBase()
 {
     if (autoscale)
         disable_autoscale();
+    photon::scoped_lock lock(m_mtx);
     while (m_refcnt > 0) {
-        m_cvar.wait_no_lock(10 * 1000 * 1000);
-        LOG_WARN("IdentityPool is still in use, unable to destruct");
+        LOG_DEBUG("IdentityPool is still in use, wait to destruct");
+        m_cvar.wait(lock, 10 * 1000 * 1000);
     }
     assert(m_size <= m_capacity);
     while (m_size > 0)
