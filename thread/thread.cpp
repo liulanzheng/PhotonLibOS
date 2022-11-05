@@ -111,7 +111,7 @@ namespace photon
             _ptr = ptr;
 #ifdef __x86_64__
             push(0);
-            if ((uint64_t)_ptr % 16 != 0) push(0);
+            if ((uint64_t)_ptr % 16 == 0) push(0);
             push(ret2func);
             (uint64_t*&)_ptr -= 1;  // make room for rbp
 
@@ -494,9 +494,9 @@ namespace photon
             update_current = true;
         }
         ~AtomicRunQ() {
-            plock->foreground_unlock();
             if (update_current)
                 *pc = current;
+            plock->foreground_unlock();
         }
         static void prefetch_context(thread* from, thread* to)
         {
@@ -604,11 +604,12 @@ namespace photon
 
     inline void switch_context(thread* from, thread* to) {
         prepare_switch(from, to);
-        register void** t asm("rdi") =   to->stack.pointer_ref();
-        register void** f asm("rsi") = from->stack.pointer_ref();
+        auto _t_ = to->stack.pointer_ref();
+        register auto f asm("rsi") = from->stack.pointer_ref();
+        register auto t asm("rdi") = _t_;
         asm volatile ("call _photon_switch_context@plt" // (to, from)
                         : "+r"(t), "+r"(f)
-                        :  "r"(t),  "r"(f)
+                        :  "0"(t),  "1"(f)
                         : "rax", "rbx", "rcx", "rdx", "r8", "r9",
                           "r10", "r11", "r12", "r13", "r14", "r15"
         );
@@ -617,28 +618,16 @@ namespace photon
     inline void switch_context_defer(thread* from, thread* to,
                                void (*defer)(void*), void* arg) {
         prepare_switch(from, to);
-        register auto t asm("rdx") =   to->stack.pointer_ref();
+        auto _t_ = to->stack.pointer_ref();
         register auto f asm("rcx") = from->stack.pointer_ref();
+        register auto t asm("rdx") = _t_;
         register auto a asm("rdi") = arg;
         register auto d asm("rsi") = defer;
         asm volatile ("call _photon_switch_context_defer@plt" // (arg, defer, to, from)
                         : "+r"(t), "+r"(f), "+r"(a), "+r"(d)
-                        :  "r"(t),  "r"(f),  "r"(a),  "r"(d)
+                        :  "0"(t),  "1"(f),  "2"(a),  "3"(d)
                         : "rax", "rbx", "r8", "r9", "r10",
                           "r11", "r12", "r13", "r14", "r15"
-        );
-    }
-
-    inline void _photon_switch_context_defer_die(thread* from, thread* to) {
-        prepare_switch(from, to);
-        register auto a asm("rdi") = from;
-        register auto d asm("rsi") = &thread_die;
-        register auto t asm("rdx") = to->stack.pointer_ref();
-        asm volatile ("call _photon_switch_context_defer_die@plt" // (dying_th, thread_die, to)
-                        : "+r"(t), "+r"(a), "+r"(d)
-                        :  "r"(t),  "r"(a),  "r"(d)
-                        : "rax", "rbx", "rcx", "r8", "r9",
-                          "r10", "r11", "r12", "r13", "r14", "r15"
         );
     }
 
@@ -652,7 +641,7 @@ namespace photon
 
     static void thread_stub()
     {
-        // thread_yield(); // should return to the creating thread
+        thread_yield(); // should return to the creating thread
 
         // do NOT use CURRENT directly, as the compiler may have
         // issues with regards to the global thread-local variable
@@ -700,6 +689,11 @@ namespace photon
         th->state = states::READY;
        (th->vcpu = rq.current->vcpu) -> nthreads++;
         AtomicRunQ(rq).insert_tail(th);
+
+        // the initial stack is not suitably aligned for
+        // deferred execution (thread_usleep_defer etc.);
+        // so switch to it immediately to make it normal.
+        thread_yield_to(th);
         return th;
     }
 
