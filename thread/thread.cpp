@@ -106,15 +106,15 @@ namespace photon
     {
     public:
         template<typename F>
-        void init(void* ptr, F ret2func)
+        void init(void* ptr, F ret2func, thread* th)
         {
             _ptr = ptr;
+            assert((uint64_t)_ptr % 16 == 0);
 #ifdef __x86_64__
             push(0);
-            if ((uint64_t)_ptr % 16 == 0) push(0);
+            push(0);
             push(ret2func);
-            (uint64_t*&)_ptr -= 1;  // make room for rbp
-
+            push(th);   // rbp
 #elif defined(__aarch64__)
             // make room for r19~r30
             (uint64_t*&)_ptr -= 12;
@@ -166,12 +166,7 @@ namespace photon
 
         thread_entry start;
         void* retval;
-        void* go()
-        {
-            auto _arg = arg;
-            arg = nullptr;
-            return retval = start(_arg);
-        }
+        void go();
         vcpu_t* get_vcpu(){
             return (vcpu_t*)vcpu;
         }
@@ -631,39 +626,51 @@ namespace photon
         );
     }
 
-    extern "C" void _photon_switch_context_defer_die(
-        thread* dying_th, void (*thread_die)(thread*), void** to);
-    #define photon_switch_context_defer_die(from, to) {     \
-        prepare_switch(from, to);                           \
-        _photon_switch_context_defer_die(from,              \
-            &thread_die, to->stack.pointer_ref());          \
+
+    static void thread_stub() {
+        // this function is invoked by a return instruction,
+        // so we need to fix SP alignment problem by rsp -= 8
+        thread* th;
+        asm ("sub $8, %%rsp; \n"
+             "mov %%rbp, %0; \n"
+             : "=r"(th) );
+        th->go();
     }
 
-    static void thread_stub()
-    {
-        thread_yield(); // should return to the creating thread
+    extern "C" void _photon_switch_context_defer_die(void* arg,
+                            uint64_t defer_func_addr, void** to);
+    void thread::go() {
+        auto _arg = arg;
+        arg = nullptr;
+        retval = start(_arg);
 
-        // do NOT use CURRENT directly, as the compiler may have
-        // issues with regards to the global thread-local variable
-        auto th = RunQ().current;
-        th->go();
-
-        deallocate_tls(&th->arg);
+        deallocate_tls(&arg);
         // if CURRENT is idle stub and during vcpu_fini
         // main thread waiting for idle stub joining, now idle might be only
         // thread in run-queue. To keep going, wake up waiter before remove
         // current from run-queue.
-        th->lock.lock();
-        th->state = states::DONE;
-        th->cond.notify_one();
-        th->get_vcpu()->nthreads--;
-        auto sw = AtomicRunQ().remove_current(states::DONE);
-        if (!th->joinable) {
-            photon_switch_context_defer_die(sw.from, sw.to);
+        lock.lock();
+        state = states::DONE;
+        cond.notify_one();
+        auto sw = ({
+            AtomicRunQ arq;
+            arq.vcpu->nthreads--;
+            arq.remove_current(states::DONE);
+        });
+        assert(this == sw.from);
+        uint64_t func;
+        void* arg;
+        if (!joinable) {
+            func = (uint64_t)&thread_die;
+            arg = this;
         } else {
-            switch_context_defer(sw.from, sw.to, spinlock_unlock, &sw.from->lock);
+            func = (uint64_t)&spinlock_unlock;
+            arg = &lock;
         }
+        _photon_switch_context_defer_die(
+            arg, func, sw.to->stack.pointer_ref());
     }
+
 
     thread* thread_create(thread_entry start, void* arg, uint64_t stack_size)
     {
@@ -685,15 +692,10 @@ namespace photon
         th->start = start;
         th->arg = arg;
         th->stack_size = stack_size;
-        th->stack.init(p, &thread_stub);
+        th->stack.init(p, &thread_stub, th);
         th->state = states::READY;
        (th->vcpu = rq.current->vcpu) -> nthreads++;
         AtomicRunQ(rq).insert_tail(th);
-
-        // the initial stack is not suitably aligned for
-        // deferred execution (thread_usleep_defer etc.);
-        // so switch to it immediately to make it normal.
-        thread_yield_to(th);
         return th;
     }
 
