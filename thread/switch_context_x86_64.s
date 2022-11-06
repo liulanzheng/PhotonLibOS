@@ -14,35 +14,3 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-.globl _photon_switch_context
-#if !defined( __APPLE__ ) && !defined( __FreeBSD__ )
-.type  _photon_switch_context, @function
-#endif
-_photon_switch_context: //(void** rdi_to, void** rsi_from)
-push    %rbp
-mov     %rsp, (%rsi);   // rsi is `from`
-mov     (%rdi), %rsp;   // rdi is `to`
-pop     %rbp
-ret;
-
-
-.globl _photon_switch_context_defer
-#if !defined( __APPLE__ ) && !defined( __FreeBSD__ )
-.type  _photon_switch_context_defer, @function
-#endif
-_photon_switch_context_defer: //(void* rdi_arg, void (*rsi_defer)(void*),
-                              // void** rdx_to, void** rcx_from)
-push    %rbp
-mov     %rsp, (%rcx);
-
-.globl _photon_switch_context_defer_die
-#if !defined( __APPLE__ ) && !defined( __FreeBSD__ )
-.type  _photon_switch_context_defer_die, @function
-#endif
-_photon_switch_context_defer_die:   // (void* rdi_dying_th, void (*rsi_defer_die)(void*),
-                                    //  void** rdx_to_th)
-mov     (%rdx), %rsp;
-pop     %rbp
-jmp     *%rsi;  // call defer(arg/dying_th), and it will return to the caller
-
-

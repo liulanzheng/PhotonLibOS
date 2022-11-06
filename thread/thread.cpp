@@ -597,12 +597,35 @@ namespace photon
         to->get_vcpu()->switch_count++;
     }
 
+#ifdef __x86_64__
+    asm (
+    ".type	_photon_switch_context, @function   \n\t"
+    "_photon_switch_context:                    \n\t"
+    // (void** rdi_to, void** rsi_from)
+    "       push    %rbp                        \n\t"
+    "       mov     %rsp, (%rsi)                \n\t"
+    "       mov     (%rdi), %rsp                \n\t"
+    "       pop     %rbp                        \n\t"
+    "       ret                                 \n\t"
+    ".type	_photon_switch_context_defer, @function         \n\t"
+    "_photon_switch_context_defer:              \n\t"
+    // (void* rdi_arg, void (*rsi_defer)(void*), void** rdx_to, void** rcx_from)
+    "       push    %rbp                        \n\t"
+    "       mov     %rsp, (%rcx)                \n\t"
+    ".type	_photon_switch_context_defer_die, @function     \n\t"
+    "_photon_switch_context_defer_die:          \n\t"
+    // (void* rdi_arg, void (*rsi_defer)(void*), void** rdx_to_th)
+    "       mov     (%rdx), %rsp                \n\t"
+    "       pop     %rbp                        \n\t"
+    "       jmp     *%rsi                       \n\t"
+    );
+
     inline void switch_context(thread* from, thread* to) {
         prepare_switch(from, to);
         auto _t_ = to->stack.pointer_ref();
         register auto f asm("rsi") = from->stack.pointer_ref();
         register auto t asm("rdi") = _t_;
-        asm volatile ("call _photon_switch_context@plt" // (to, from)
+        asm volatile ("call _photon_switch_context" // (to, from)
                         : "+r"(t), "+r"(f)
                         :  "0"(t),  "1"(f)
                         : "rax", "rbx", "rcx", "rdx", "r8", "r9",
@@ -618,7 +641,7 @@ namespace photon
         register auto t asm("rdx") = _t_;
         register auto a asm("rdi") = arg;
         register auto d asm("rsi") = defer;
-        asm volatile ("call _photon_switch_context_defer@plt" // (arg, defer, to, from)
+        asm volatile ("call _photon_switch_context_defer" // (arg, defer, to, from)
                         : "+r"(t), "+r"(f), "+r"(a), "+r"(d)
                         :  "0"(t),  "1"(f),  "2"(a),  "3"(d)
                         : "rax", "rbx", "r8", "r9", "r10",
@@ -636,6 +659,7 @@ namespace photon
              : "=r"(th) );
         th->go();
     }
+#endif
 
     extern "C" void _photon_switch_context_defer_die(void* arg,
                             uint64_t defer_func_addr, void** to);
