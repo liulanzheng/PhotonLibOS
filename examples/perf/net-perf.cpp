@@ -117,6 +117,7 @@ static int ping_pong_client() {
 static int streaming_client() {
     photon::net::EndPoint ep{photon::net::IPAddr(FLAGS_ip.c_str()), (uint16_t) FLAGS_port};
     auto cli = photon::net::new_tcp_socket_client();
+    // auto cli = photon::net::new_iouring_tcp_client();
     if (cli == nullptr) {
         LOG_ERRNO_RETURN(0, -1, "fail to create client");
     }
@@ -193,7 +194,7 @@ static int echo_server() {
     };
 
     // Define handler for new connections (SocketStream)
-    auto handler = [&](photon::net::ISocketStream* arg) -> int {
+    auto handler = [&](photon::net::ISocketStream* sock) -> int {
         if (FLAGS_vcpu_num > 1) {
             work_pool->thread_migrate();
         }
@@ -202,7 +203,6 @@ static int echo_server() {
         void* buf = alloc.alloc(FLAGS_buf_size);
         DEFER(alloc.dealloc(buf));
 
-        auto sock = (photon::net::ISocketStream*) arg;
         while (true) {
             ssize_t ret1, ret2;
             ret1 = sock->recv(buf, FLAGS_buf_size);
@@ -213,6 +213,7 @@ static int echo_server() {
             if (ret2 != ret1) {
                 LOG_ERRNO_RETURN(0, -1, "write fail", VALUE(ret2));
             }
+            photon::thread_yield();
             qps++;
         }
         return 0;

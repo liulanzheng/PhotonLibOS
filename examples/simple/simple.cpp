@@ -127,10 +127,10 @@ int main() {
 
 void run_socket_server(photon::net::ISocketServer* server, photon::fs::IFile* file, AlignedAlloc& alloc,
                        photon::std::condition_variable& cv, photon::std::mutex& mu, bool& got_msg) {
-    auto handler = [&](photon::net::ISocketStream* arg) -> int {
-        void* buf = alloc.alloc(1024);
-        auto sock = (photon::net::ISocketStream*) arg;
+    void* buf = alloc.alloc(1024);
+    DEFER(alloc.dealloc(buf));
 
+    auto handler = [&](photon::net::ISocketStream* sock) -> int {
         // read is a wrapper for fully recv
         ssize_t ret = sock->read(buf, 1024);
         if (ret <= 0) {
