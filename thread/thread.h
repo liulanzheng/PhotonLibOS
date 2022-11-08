@@ -115,17 +115,16 @@ namespace photon
 
     // A helper struct in order to make some function calls inline.
     // The memory layout of its first 4 fields is the same as the one of thread.
-    struct partial_thread
-    {
+    struct partial_thread {
         uint64_t _, __;
-        vcpu_base* vcpu;
+        volatile vcpu_base* vcpu;
+        uint64_t ___[5];
         void* tls;
-        // ...
     };
 
-    inline vcpu_base* get_vcpu(thread* th = CURRENT)
-    {
-        return ((partial_thread*)th) -> vcpu;
+    inline vcpu_base* get_vcpu(thread* th = CURRENT) {
+        auto vcpu = ((partial_thread*)th) -> vcpu;
+        return (vcpu_base*)vcpu;
     }
 
     uint32_t get_vcpu_num();

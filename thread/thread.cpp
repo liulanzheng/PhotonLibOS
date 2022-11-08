@@ -106,7 +106,7 @@ namespace photon
     {
     public:
         template<typename F>
-        void init(void* ptr, F ret2func, thread* th)
+        void init(void* ptr, F ret2func)
         {
             _ptr = ptr;
             assert((uint64_t)_ptr % 16 == 0);
@@ -114,7 +114,7 @@ namespace photon
             push(0);
             push(0);
             push(ret2func);
-            push(th);   // rbp
+            push(ptr);   // rbp <= th
 #elif defined(__aarch64__)
             // make room for r19~r30
             (uint64_t*&)_ptr -= 12;
@@ -147,41 +147,50 @@ namespace photon
     };
 
     struct thread_list;
-    struct thread : public intrusive_list_node<thread>
-    {
+    struct thread : public intrusive_list_node<thread> {
         volatile vcpu_t* vcpu;
-        void* arg = nullptr;                /* will be used as thread local storage after thread started */
-        states state = states::READY;
+        Stack stack;
+// offset 32B
+        int idx = -1;                       /* index in the sleep queue array */
         int error_number = 0;
-        int idx;                            /* index in the sleep queue array */
-        int flags = 0;
-        int reserved;
-        bool joinable = false;
-        bool shutting_down = false;         // the thread should cancel what is doing, and quit
-                                            // current job ASAP; not allowed to sleep or block more
-                                            // than 10ms, otherwise -1 will be returned and errno == EPERM
-
-        spinlock lock;
         thread_list* waitq = nullptr;       /* the q if WAITING in a queue */
-
-        thread_entry start;
-        void* retval;
-        void go();
-        vcpu_t* get_vcpu(){
-            return (vcpu_t*)vcpu;
-        }
+        uint16_t state = states::READY;
+        spinlock lock, _;
+        int flags = 0;
+        uint64_t ts_wakeup = 0;             /* Wakeup time when thread is sleeping */
+// offset 64B
+        union {
+            void* arg = nullptr;            /* will be reused as thread local */
+            void* tls;                      /* storage after thread started  */
+        };
+        union {
+            thread_entry start;
+            uint64_t semaphore_count;
+            uint64_t rwlock_mark;
+            void* retval;
+        };
         char* buf;
         char* stackful_alloc_top;
         size_t stack_size;
+// offset 96B
+        condition_variable cond;            /* used for join */
 
-        Stack stack;
-        uint64_t ts_wakeup = 0;             /* Wakeup time when thread is sleeping */
-        condition_variable cond;            /* used for join, or timer REUSE */
+        enum shift {
+            joinable = 0,
+            shutting_down = 1,              // the thread should cancel what is doing, and quit
+        };                                  // current job ASAP; not allowed to sleep or block more
+                                            // than 10ms, otherwise -1 will be returned and errno == EPERM
+        bool is_bit(int i) { return flags & (1<<i); }
+        void clear_bit(int i) { flags &= ~(1<<i); }
+        void set_bit(int i) { flags |= (1<<i); }
+        void set_bit(int i, bool flag) { if (likely(flag)) set_bit(i); else clear_bit(i); }
+        bool is_joinable() { return is_bit(shift::joinable); }
+        void set_joinable(bool flag = true) { set_bit(shift::joinable, flag); }
+        bool is_shutting_down() { return is_bit(shift::shutting_down); }
+        void set_shutting_down(bool flag = true) { set_bit(shift::shutting_down, flag); }
 
-        int set_error_number()
-        {
-            if (likely(error_number))
-            {
+        int set_error_number() {
+            if (likely(error_number)) {
                 errno = error_number;
                 error_number = 0;
                 return -1;
@@ -214,15 +223,15 @@ namespace photon
             stackful_alloc_top = (char*)ptr;
         }
 
+        void go();
         void dequeue_ready_atomic(states newstat = states::READY);
-
-        bool operator < (const thread &rhs)
-        {
+        vcpu_t* get_vcpu() {
+            return (vcpu_t*)vcpu;
+        }
+        bool operator < (const thread &rhs) {
             return this->ts_wakeup < rhs.ts_wakeup;
         }
-
-        void dispose()
-        {
+        void dispose() {
             auto b = buf;
 #ifndef __aarch64__
             madvise(b, stack_size, MADV_DONTNEED);
@@ -234,7 +243,7 @@ namespace photon
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
     static_assert(offsetof(thread, vcpu) == 16, "...");
-    static_assert(offsetof(thread, arg)  == 24, "...");
+    static_assert(offsetof(thread, arg)  == 64, "...");
 #pragma GCC diagnostic pop
 
     struct thread_list : public intrusive_list<thread>
@@ -684,7 +693,7 @@ namespace photon
         assert(this == sw.from);
         uint64_t func;
         void* arg;
-        if (!joinable) {
+        if (!is_joinable()) {
             func = (uint64_t)&thread_die;
             arg = this;
         } else {
@@ -716,9 +725,10 @@ namespace photon
         th->start = start;
         th->arg = arg;
         th->stack_size = stack_size;
-        th->stack.init(p, &thread_stub, th);
-        th->state = states::READY;
-       (th->vcpu = rq.current->vcpu) -> nthreads++;
+        th->stack.init(p, &thread_stub);
+        AtomicRunQ arq(rq);
+        th->vcpu = arq.vcpu;
+        arq.vcpu->nthreads++;
         AtomicRunQ(rq).insert_tail(th);
         return th;
     }
@@ -929,7 +939,7 @@ namespace photon
 
     states thread_stat(thread* th)
     {
-        return th->state;
+        return (states) th->state;
     }
 
     void thread_yield()
@@ -1035,7 +1045,7 @@ namespace photon
             thread_create((thread_entry&)defer, defer_arg);
             return thread_usleep(useconds);
         }
-        if (unlikely(rq.current->shutting_down))
+        if (unlikely(rq.current->is_shutting_down()))
             return do_shutdown_usleep_defer(useconds, defer, defer_arg, rq);
         return do_thread_usleep_defer(useconds, defer, defer_arg, rq);
     }
@@ -1061,7 +1071,7 @@ namespace photon
             LOG_ERROR_RETURN(ENOSYS, -1, "Photon not initialized in this thread");
         if (unlikely(!useconds))
             return thread_yield(), 0;
-        if (unlikely(rq.current->shutting_down))
+        if (unlikely(rq.current->is_shutting_down()))
             return do_shutdown_usleep(useconds, rq);
         return do_thread_usleep(useconds, rq);
     }
@@ -1140,14 +1150,14 @@ namespace photon
     }
     join_handle* thread_enable_join(thread* th, bool flag)
     {
-        th->joinable = flag;
+        th->set_joinable(flag);
         return (join_handle*)th;
     }
 
     void thread_join(join_handle* jh)
     {
         auto th = (thread*)jh;
-        if (!th->joinable)
+        if (!th->is_joinable())
             LOG_ERROR_RETURN(ENOSYS, , "join is not enabled for thread ", th);
 
         th->lock.lock();
@@ -1166,7 +1176,7 @@ namespace photon
         if (!th)
             LOG_ERROR_RETURN(EINVAL, -1, "invalid thread");
 
-        th->shutting_down = flag;
+        th->set_shutting_down(flag);
         if (th->state == states::SLEEPING)
             thread_interrupt(th, EPERM);
         return 0;
@@ -1430,14 +1440,14 @@ namespace photon
     {
         if (count == 0) return 0;
         splock.lock();
-        CURRENT->retval = (void*)count;
+        CURRENT->semaphore_count = count;
         Timeout tmo(timeout);
         int ret = 0;
         while (!try_substract(count)) {
             ret = waitq::wait_defer(tmo.timeout(), spinlock_unlock, &splock);
             splock.lock();
             if (ret < 0 && errno == ETIMEDOUT) {
-                CURRENT->retval = 0;
+                CURRENT->semaphore_count = 0;
                 try_resume();       // when timeout, we need to try
                 splock.unlock();    // to resume next thread(s) in q
                 return ret;
@@ -1455,7 +1465,7 @@ namespace photon
             ScopedLockHead h(this);
             if (!h) return;
             auto th = (thread*)h;
-            auto& qfcount = (uint64_t&)th->retval;
+            auto& qfcount = th->semaphore_count;
             if (qfcount > cnt) break;
             cnt -= qfcount;
             qfcount = 0;
@@ -1478,29 +1488,24 @@ namespace photon
     {
         if (mode != RLOCK && mode != WLOCK)
             LOG_ERROR_RETURN(EINVAL, -1, "mode unknow");
+
         scoped_lock lock(mtx);
-        // backup retval
-        void* bkup = CURRENT->retval;
-        DEFER(CURRENT->retval = bkup);
-        auto mark = (uint64_t)CURRENT->retval;
+        auto mark = CURRENT->rwlock_mark;
+        auto bkup = mark;   // backup mark
+        DEFER(CURRENT->rwlock_mark = bkup);
         // mask mark bits, keep RLOCK WLOCK bit clean
         mark &= ~(RLOCK | WLOCK);
-        // mark mode and set as retval
         mark |= mode;
-        CURRENT->retval = (void*)(mark);
-        int op;
-        if (mode == RLOCK) {
-            op = 1;
-        } else { // WLOCK
-            op = -1;
-        }
-        if (cvar.q.th || (op == 1 && state < 0) || (op == -1 && state != 0)) {
+        CURRENT->rwlock_mark = mark;
+        uint64_t op = (mode == RLOCK) ? (1UL << 63) : -1UL;
+        if (cvar.q.th || (op & state)) {
             do {
                 int ret = cvar.wait(lock, timeout);
                 if (ret < 0)
                     return -1; // break by timeout or interrupt
-            } while ((op == 1 && state < 0) || (op == -1 && state != 0));
+            } while (op & state);
         }
+        asm ("rol $1, %0" : "+r"(op) : "r"(op)); // rotate shift left by 1 bit
         state += op;
         return 0;
     }
@@ -1513,10 +1518,10 @@ namespace photon
         else
             state ++;
         if (state == 0 && cvar.q.th) {
-            if (cvar.q.th && (((uint64_t)cvar.q.th->retval) & WLOCK)) {
+            if (cvar.q.th && (cvar.q.th->rwlock_mark & WLOCK)) {
                 cvar.notify_one();
             } else
-                while (cvar.q.th && (((uint64_t)cvar.q.th->retval) & RLOCK)) {
+                while (cvar.q.th && (cvar.q.th->rwlock_mark & RLOCK)) {
                     cvar.notify_one();
                 }
         }
