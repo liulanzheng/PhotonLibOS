@@ -174,7 +174,8 @@ apt install libgtest-dev libgmock-dev libgflags-dev libfuse-dev libgsasl7-dev
 # macOS
 brew install gflags googletest gsasl
 
-cmake -B build -D BUILD_TESTING=1 -D ENABLE_SASL=1 -D ENABLE_FUSE=1 -D ENABLE_URING=1 -D CMAKE_BUILD_TYPE=Debug ..
+cd PhotonLibOS
+cmake -B build -D BUILD_TESTING=1 -D ENABLE_SASL=1 -D ENABLE_FUSE=1 -D ENABLE_URING=1 -D CMAKE_BUILD_TYPE=Debug
 cmake --build build -j
 
 cd build
