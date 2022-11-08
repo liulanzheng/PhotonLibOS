@@ -45,7 +45,7 @@ targets = {
             'kerberos-1.15.1:gssapi_krb5',
             'keyutils-1.5.8:keyutils',
             'gsasl-1.8.0:gsasl',
-            'liburing-2.2:uring',
+            'liburing-2.3:uring',
             ':third_party/easy_weak_lib',
         ],
         custom_flags = {
@@ -62,9 +62,9 @@ targets = {
             '--version-script=%s/io/libfuseversion.map' % ALIMAKE_TARGETS_DIR,
         ],
 	),
-    'liburing-2.2' : pre_http_archive(
-        url = 'http://test-xunyi.oss-cn-hangzhou-zmf.aliyuncs.com/release/liburing-2.2.tar.gz => liburing-2.2',
-        md5 = '52eb2a814cf962347915992d12f602ad',
+    'liburing-2.3' : pre_http_archive(
+        url = 'https://dadi-shared.oss-cn-beijing.aliyuncs.com/photon/liburing-2.3.tar.gz => liburing-2.3',
+        md5 = '68acddea1ebab5b016cbd1b29e962c87',
     ),
     'gsasl-1.8.0' : pre_http_archive(
         url = 'http://test-xunyi.oss-cn-hangzhou-zmf.aliyuncs.com/release/gsasl-1.8.0.tar.gz => gsasl-1.8.0',

@@ -105,6 +105,12 @@ public:
             LOG_ERROR_RETURN(0, -1, "iouring: some opcodes are not supported");
         }
 
+        // An additional feature only available since 5.18. Doesn't have to succeed
+        ret = io_uring_register_ring_fd(m_ring);
+        if (ret < 0 && ret != -EINVAL) {
+            LOG_ERROR_RETURN(EINVAL, -1, "iouring: unable to register ring fd", ret);
+        }
+
         if (m_master) {
             // Setup a cancel poller to watch on master engine
             m_cancel_fd = eventfd(0, EFD_CLOEXEC);
@@ -235,7 +241,7 @@ public:
             LOG_ERROR_RETURN(0, -1, "iouring: event is either non-existent or one-shot finished");
         }
 
-        io_uring_prep_poll_remove(sqe, &iter->second.io_ctx);
+        io_uring_prep_poll_remove(sqe, (__u64) &iter->second.io_ctx);
         io_uring_sqe_set_data(sqe, nullptr);
         return 0;
     }
