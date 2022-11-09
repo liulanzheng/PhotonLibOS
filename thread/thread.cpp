@@ -242,8 +242,8 @@ namespace photon
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
-    static_assert(offsetof(thread, vcpu) == 16, "...");
-    static_assert(offsetof(thread, arg)  == 64, "...");
+    static_assert(offsetof(thread, vcpu) == offsetof(partial_thread, vcpu), "...");
+    static_assert(offsetof(thread,  tls) == offsetof(partial_thread,  tls), "...");
 #pragma GCC diagnostic pop
 
     struct thread_list : public intrusive_list<thread>
@@ -365,6 +365,7 @@ namespace photon
     // Generic spinlock uses atomic exchange to obtain the lock, which
     // depends on bus lock and costs much CPU cycles than this design.
     class asymmetric_spinLock {
+        // TODO: better place the two atomics in separate cache line?
         std::atomic_bool foreground_locked {false},
                          background_locked {false};
 
@@ -410,15 +411,12 @@ namespace photon
         }
     };
 
-    struct vcpu_t : public vcpu_base
-    {
-        states state = states::READY;
-
+    struct vcpu_t : public vcpu_base {
+        SleepQueue sleepq;  // sizeof(sleepq) should be 24: ptr, size and capcity
         asymmetric_spinLock runq_lock;
-
-        // standby queue stores the threads that are running, but not
-        // yet added to the run queue, until the run queue becomes empty
-        thread_list standbyq;
+        uint16_t state = states::RUNNING;
+        std::atomic<uint32_t> nthreads{1};
+// offset 48B
         template<typename T>
         void move_to_standbyq_atomic(T x)
         {
@@ -445,8 +443,6 @@ namespace photon
             standbyq.push_back(th);
         }
 
-        SleepQueue sleepq;
-
         thread* idle_worker;
 
         NullEventEngine _default_event_engine;
@@ -465,7 +461,11 @@ namespace photon
             delete mee;
             mee = &_default_event_engine;
         }
-    };
+
+        // standby queue stores the threads that are running, but not
+        // yet added to the run queue, until the run queue becomes empty
+        thread_list standbyq;   // make it NOT in the first cache line (64B)
+    };                          // where private fields reside
 
     #define SCOPED_FOREGROUND_LOCK(x) \
         auto __px = &(x); __px->foreground_lock(); DEFER(__px->foreground_unlock());
@@ -611,22 +611,22 @@ namespace photon
 .type	_photon_switch_context, @function
 _photon_switch_context:
 // (void** rdi_to, void** rsi_from)
-        push    %rbp             
-        mov     %rsp, (%rsi)     
-        mov     (%rdi), %rsp     
-        pop     %rbp             
-        ret                      
+        push    %rbp
+        mov     %rsp, (%rsi)
+        mov     (%rdi), %rsp
+        pop     %rbp
+        ret
 .type	_photon_switch_context_defer, @function
 _photon_switch_context_defer:
 // (void* rdi_arg, void (*rsi_defer)(void*), void** rdx_to, void** rcx_from)
-        push    %rbp          
-        mov     %rsp, (%rcx)  
+        push    %rbp
+        mov     %rsp, (%rcx)
 .type	_photon_switch_context_defer_die, @function
 _photon_switch_context_defer_die:
 // (void* rdi_arg, void (*rsi_defer)(void*), void** rdx_to_th)
-        mov     (%rdx), %rsp 
-        pop     %rbp         
-        jmp     *%rsi        
+        mov     (%rdx), %rsp
+        pop     %rbp
+        jmp     *%rsi
     )");
 
     inline void switch_context(thread *from, thread *to) {
@@ -1648,11 +1648,10 @@ _photon_switch_context_defer_die:
      * Waiting for all current vcpu photon threads finish
      * @return 0 for all done, -1 for failure
      */
-    int wait_all() {
-        auto vcpu = CURRENT->get_vcpu();
+    static int wait_all(RunQ rq, vcpu_t* vcpu) {
         auto &sleepq = vcpu->sleepq;
         auto &standbyq = vcpu->standbyq;
-        while (!AtomicRunQ().size_1or2() || !sleepq.empty() || !standbyq.empty()) {
+        while (!AtomicRunQ(rq).size_1or2() || !sleepq.empty() || !standbyq.empty()) {
             if (!sleepq.empty()) {
                 // sleep till all sleeping threads ends
                 thread_usleep(1000UL);
@@ -1661,6 +1660,11 @@ _photon_switch_context_defer_die:
             }
         }
         return 0;
+    }
+
+    int wait_all() {
+        RunQ rq;
+        return wait_all(rq, rq.current->get_vcpu());
     }
 
     struct migrate_args {thread* th; vcpu_base* v;};
@@ -1713,43 +1717,47 @@ _photon_switch_context_defer_die:
     uint32_t get_vcpu_num() {
         return _n_vcpu.load(std::memory_order_relaxed);
     }
-    int vcpu_init()
-    {
-        if (CURRENT) return -1;      // re-init has no side-effect
-        auto n = ++_n_vcpu;
-        CURRENT = new thread;
-        auto vcpu = new vcpu_t;
-        CURRENT->vcpu = vcpu;
-        CURRENT->idx = -1;
-        CURRENT->state = states::RUNNING;
-        pthread_attr_t gattr;
-        pthread_getattr_np(pthread_self(), &gattr);
-        pthread_attr_getstack(&gattr, (void**)&CURRENT->stackful_alloc_top,
-                                         &CURRENT->stack_size);
-        vcpu->state = states::RUNNING;
-        vcpu->nthreads = 1;
-        vcpu->switch_count = 0;
+
+    int vcpu_init() {
+        RunQ rq;
+        if (rq.current) return -1;      // re-init has no side-effect
+        char* ptr = nullptr;
+        int err = posix_memalign((void**)&ptr, 64, sizeof(vcpu_t));
+        if (unlikely(err))
+            LOG_ERROR_RETURN(err, -1, "Failed to allocate vcpu ", ERRNO(err));
+
+        auto th = *rq.pc = new thread;
+        th->vcpu = (vcpu_t*)ptr;
+        th->state = states::RUNNING;
+        auto vcpu = new (ptr) vcpu_t;
         vcpu->idle_worker = thread_create(&idle_stub, nullptr);
         thread_enable_join(vcpu->idle_worker);
-        // to update timestamp
         if_update_now(true);
-        return n;
+        pthread_attr_t gattr;
+        pthread_getattr_np(pthread_self(), &gattr);
+        pthread_attr_getstack(&gattr,
+            (void**)&rq.current->stackful_alloc_top,
+                    &rq.current->stack_size);
+        return ++_n_vcpu;
     }
-    int vcpu_fini()
-    {
-        if (!CURRENT) return -1;
+
+    int vcpu_fini() {
+        RunQ rq;
+        if (!rq.current)
+            LOG_ERROR_RETURN(ENOSYS, -1, "vcpu not initialized");
+
         deallocate_tls();
-        wait_all();
-        auto vcpu = CURRENT->vcpu;
-        assert(!AtomicRunQ().single());
+        auto vcpu = rq.current->get_vcpu();
+        wait_all(rq, vcpu);
+        assert(!AtomicRunQ(rq).single());
         assert(vcpu->nthreads == 2); // idle_stub & current alive
         vcpu->state = states::DONE;  // instruct idle_worker to exit
         thread_join(vcpu->idle_worker);
-        _n_vcpu--;
-        CURRENT->state = states::DONE;
-        safe_delete(CURRENT);
-        safe_delete(vcpu);
-        return 0;
+        rq.current->state = states::DONE;
+        delete rq.current;
+        *rq.pc = nullptr;
+        delete vcpu;
+        return --_n_vcpu;
     }
 
     void* stackful_malloc(size_t size) {

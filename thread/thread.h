@@ -109,8 +109,7 @@ namespace photon
     class MasterEventEngine;
     struct vcpu_base {
         MasterEventEngine* master_event_engine;
-        std::atomic<uint32_t> nthreads;
-        volatile uint64_t switch_count;
+        volatile uint64_t switch_count = 0;
     };
 
     // A helper struct in order to make some function calls inline.
