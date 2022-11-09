@@ -1563,9 +1563,9 @@ _photon_switch_context_defer_die:
             } while (op & state);
         }
 #if defined(__x86_64__)
-        asm volatile ("rol $1, %0" : "+r"(op) : "r"(op)); // rotate shift left by 1 bit
+        asm ("rol $1, %0" : "+r"(op) : "r"(op)); // rotate shift left by 1 bit
 #elif defined(__aarch64__) || defined(__arm64__)
-        asm volatile("ror %0, %0, #63" : "+r"(op) : "r"(op));
+        asm ("ror %0, %0, #63" : "+r"(op) : "r"(op));
 #endif
         state += op;
         return 0;
