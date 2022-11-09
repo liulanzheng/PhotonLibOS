@@ -17,6 +17,7 @@ option(ENABLE_URING "enable io_uring function" OFF)
 option(ENABLE_FUSE "enable fuse function" OFF)
 option(ENABLE_SASL "enable sasl" OFF)
 option(ENABLE_MIMIC_VDSO "enable mimic vdso" OFF)
+option(BUILD_TESTING "if build testing" OFF)
 
 # Get CPU arch
 execute_process(COMMAND uname -m OUTPUT_VARIABLE ARCH OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -40,7 +41,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE on)
 if (${ARCH} STREQUAL x86_64)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.2")
 elseif (${ARCH} STREQUAL aarch64)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mcpu=generic+crc -fsigned-char")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mcpu=generic+crc -fsigned-char -fno-stack-protector")
 endif ()
 
 check_cxx_compiler_flag(-mcrc32 COMPILER_HAS_MCRC32_FLAG)

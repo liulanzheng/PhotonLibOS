@@ -116,8 +116,8 @@ namespace photon
             push(ret2func);
             push(ptr);   // rbp <= th
 #elif defined(__aarch64__)
-            // make room for r19~r30
-            (uint64_t*&)_ptr -= 12;
+            push(0);
+            push(0);
             push(ret2func);
             push(0);
 #endif
@@ -607,38 +607,108 @@ namespace photon
     }
 
 #ifdef __x86_64__
-    asm (
-    ".type	_photon_switch_context, @function   \n\t"
-    "_photon_switch_context:                    \n\t"
-    // (void** rdi_to, void** rsi_from)
-    "       push    %rbp                        \n\t"
-    "       mov     %rsp, (%rsi)                \n\t"
-    "       mov     (%rdi), %rsp                \n\t"
-    "       pop     %rbp                        \n\t"
-    "       ret                                 \n\t"
-    ".type	_photon_switch_context_defer, @function         \n\t"
-    "_photon_switch_context_defer:              \n\t"
-    // (void* rdi_arg, void (*rsi_defer)(void*), void** rdx_to, void** rcx_from)
-    "       push    %rbp                        \n\t"
-    "       mov     %rsp, (%rcx)                \n\t"
-    ".type	_photon_switch_context_defer_die, @function     \n\t"
-    "_photon_switch_context_defer_die:          \n\t"
-    // (void* rdi_arg, void (*rsi_defer)(void*), void** rdx_to_th)
-    "       mov     (%rdx), %rsp                \n\t"
-    "       pop     %rbp                        \n\t"
-    "       jmp     *%rsi                       \n\t"
-    );
+    asm(R"(
+.type	_photon_switch_context, @function
+_photon_switch_context:
+// (void** rdi_to, void** rsi_from)
+        push    %rbp             
+        mov     %rsp, (%rsi)     
+        mov     (%rdi), %rsp     
+        pop     %rbp             
+        ret                      
+.type	_photon_switch_context_defer, @function
+_photon_switch_context_defer:
+// (void* rdi_arg, void (*rsi_defer)(void*), void** rdx_to, void** rcx_from)
+        push    %rbp          
+        mov     %rsp, (%rcx)  
+.type	_photon_switch_context_defer_die, @function
+_photon_switch_context_defer_die:
+// (void* rdi_arg, void (*rsi_defer)(void*), void** rdx_to_th)
+        mov     (%rdx), %rsp 
+        pop     %rbp         
+        jmp     *%rsi        
+    )");
+
+    inline void switch_context(thread *from, thread *to) {
+      prepare_switch(from, to);
+      auto _t_ = to->stack.pointer_ref();
+      register auto f asm("rsi") = from->stack.pointer_ref();
+      register auto t asm("rdi") = _t_;
+      asm volatile("call _photon_switch_context" // (to, from)
+                   : "+r"(t), "+r"(f)
+                   :
+                   : "rax", "rbx", "rcx", "rdx", "r8", "r9", "r10", "r11",
+                     "r12", "r13", "r14", "r15");
+    }
+
+    inline void switch_context_defer(thread *from, thread *to,
+                                     void (*defer)(void *), void *arg) {
+      prepare_switch(from, to);
+      auto _t_ = to->stack.pointer_ref();
+      register auto f asm("rcx") = from->stack.pointer_ref();
+      register auto t asm("rdx") = _t_;
+      register auto a asm("rdi") = arg;
+      register auto d asm("rsi") = defer;
+      asm volatile("call _photon_switch_context_defer" // (arg, defer, to, from)
+                   : "+r"(t), "+r"(f), "+r"(a), "+r"(d)
+                   :
+                   : "rax", "rbx", "r8", "r9", "r10", "r11", "r12", "r13",
+                     "r14", "r15");
+    }
+
+    static void thread_stub() {
+      // this function is invoked by a return instruction,
+      // so we need to fix SP alignment problem by rsp -= 8
+      thread *th;
+      asm("sub $8, %%rsp; \n"
+          "mov %%rbp, %0; \n"
+          : "=r"(th));
+      th->go();
+    }
+#elif defined(__aarch64__)
+    asm(R"(
+        .type  _photon_switch_context, @function
+        _photon_switch_context: // ; (void** from, void** to)
+        stp x29, x30, [sp], #-32
+        // mov x29, sp
+        mov x4, sp
+        stp x4, x30, [x0]
+        ldp x4, x30, [x1]
+        mov sp, x4
+        ldp x29, x30, [sp], #32
+        ret
+
+        .type  _photon_switch_context_defer, @function
+        _photon_switch_context_defer:
+
+        stp x29, x30, [sp], #-32
+        // mov x29, sp
+        mov x4, sp
+        stp x4, x30, [x3]
+
+        .type  _photon_switch_context_defer_die, @function
+        _photon_switch_context_defer_die:
+        ldp x4, x30, [x2]
+        mov sp, x4
+        blr x1
+        ldp x29, x30, [sp], #32
+        ret
+    )");
 
     inline void switch_context(thread* from, thread* to) {
         prepare_switch(from, to);
         auto _t_ = to->stack.pointer_ref();
-        register auto f asm("rsi") = from->stack.pointer_ref();
-        register auto t asm("rdi") = _t_;
-        asm volatile ("call _photon_switch_context" // (to, from)
+        register auto f asm("x0") = from->stack.pointer_ref();
+        register auto t asm("x1") = _t_;
+        asm volatile ("bl _photon_switch_context"
                         : "+r"(t), "+r"(f)
-                        :  "0"(t),  "1"(f)
-                        : "rax", "rbx", "rcx", "rdx", "r8", "r9",
-                          "r10", "r11", "r12", "r13", "r14", "r15"
+                        :
+                        : "x19", "x20", "x21", "x22", "x23", "x24",
+                          "x25", "x26", "x27", "x28", "x29", "x30",
+                          "d8", "d9", "d10", "d11", "d12", "d13",
+                          "d14", "d15", "d16", "d17", "d18", "d19",
+                          "d20", "d21", "d22", "d23", "d24", "d25",
+                          "d26", "d27", "d28", "d29", "d30", "d31"
         );
     }
 
@@ -646,29 +716,36 @@ namespace photon
                                void (*defer)(void*), void* arg) {
         prepare_switch(from, to);
         auto _t_ = to->stack.pointer_ref();
-        register auto f asm("rcx") = from->stack.pointer_ref();
-        register auto t asm("rdx") = _t_;
-        register auto a asm("rdi") = arg;
-        register auto d asm("rsi") = defer;
-        asm volatile ("call _photon_switch_context_defer" // (arg, defer, to, from)
+        register auto f asm("x3") = from->stack.pointer_ref();
+        register auto t asm("x2") = _t_;
+        register auto d asm("x1") = defer;
+        register auto a asm("x0") = arg;
+        asm volatile ("bl _photon_switch_context_defer"
                         : "+r"(t), "+r"(f), "+r"(a), "+r"(d)
-                        :  "0"(t),  "1"(f),  "2"(a),  "3"(d)
-                        : "rax", "rbx", "r8", "r9", "r10",
-                          "r11", "r12", "r13", "r14", "r15"
+                        :
+                        : "x19", "x20", "x21", "x22", "x23", "x24",
+                          "x25", "x26", "x27", "x28", "x29", "x30",
+                          "d8", "d9", "d10", "d11", "d12", "d13",
+                          "d14", "d15", "d16", "d17", "d18", "d19",
+                          "d20", "d21", "d22", "d23", "d24", "d25",
+                          "d26", "d27", "d28", "d29", "d30", "d31"
         );
     }
-
+#endif
 
     static void thread_stub() {
         // this function is invoked by a return instruction,
         // so we need to fix SP alignment problem by rsp -= 8
+#if defined(__x86_64__)
         thread* th;
         asm ("sub $8, %%rsp; \n"
              "mov %%rbp, %0; \n"
              : "=r"(th) );
         th->go();
-    }
+#elif defined(__aarch64__)
+        CURRENT->go();
 #endif
+    }
 
     extern "C" void _photon_switch_context_defer_die(void* arg,
                             uint64_t defer_func_addr, void** to);
@@ -700,8 +777,11 @@ namespace photon
             func = (uint64_t)&spinlock_unlock;
             arg = &lock;
         }
+        LOG_TEMP(VALUE(arg), VALUE(this));
+        LOG_TEMP(VALUE((void*)&thread_die), VALUE((void*)&spinlock_unlock), VALUE((void*)func));
         _photon_switch_context_defer_die(
             arg, func, sw.to->stack.pointer_ref());
+        LOG_ERROR("Never goes here");
     }
 
 
@@ -730,6 +810,7 @@ namespace photon
         th->vcpu = arq.vcpu;
         arq.vcpu->nthreads++;
         AtomicRunQ(rq).insert_tail(th);
+        LOG_TEMP(VALUE(th), VALUE((void*)th->next()), VALUE((void*)th->prev()))
         return th;
     }
 
