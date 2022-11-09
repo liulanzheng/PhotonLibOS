@@ -754,7 +754,7 @@ _photon_switch_context_defer_die:
         arg = nullptr;
         retval = start(_arg);
 
-        deallocate_tls(&arg);
+        deallocate_tls(&tls);
         // if CURRENT is idle stub and during vcpu_fini
         // main thread waiting for idle stub joining, now idle might be only
         // thread in run-queue. To keep going, wake up waiter before remove
@@ -762,11 +762,8 @@ _photon_switch_context_defer_die:
         lock.lock();
         state = states::DONE;
         cond.notify_one();
-        auto sw = ({
-            AtomicRunQ arq;
-            arq.vcpu->nthreads--;
-            arq.remove_current(states::DONE);
-        });
+        get_vcpu()->nthreads--;
+        auto sw = AtomicRunQ().remove_current(states::DONE);
         assert(this == sw.from);
         uint64_t func;
         void* arg;
@@ -1746,7 +1743,7 @@ _photon_switch_context_defer_die:
         if (!rq.current)
             LOG_ERROR_RETURN(ENOSYS, -1, "vcpu not initialized");
 
-        deallocate_tls();
+        deallocate_tls(&rq.current->tls);
         auto vcpu = rq.current->get_vcpu();
         wait_all(rq, vcpu);
         assert(!AtomicRunQ(rq).single());
