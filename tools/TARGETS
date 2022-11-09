@@ -39,7 +39,7 @@ targets = {
             'kerberos-1.15.1',
             'keyutils-1.5.8',
             'gsasl-1.8.0',
-            'liburing-2.2:uring',
+            'liburing-2.3:uring',
             ':../third_party/easy_weak_lib',
         ],
         ccflags = [
