@@ -17,7 +17,7 @@ option(ENABLE_URING "enable io_uring function" OFF)
 option(ENABLE_FUSE "enable fuse function" OFF)
 option(ENABLE_SASL "enable sasl" OFF)
 option(ENABLE_MIMIC_VDSO "enable mimic vdso" OFF)
-option(BUILD_TESTING "if build testing" OFF)
+option(BUILD_TESTING "enable build testing" OFF)
 
 # Get CPU arch
 execute_process(COMMAND uname -m OUTPUT_VARIABLE ARCH OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -57,6 +57,12 @@ set(CMAKE_C_FLAGS_RELEASE ${CMAKE_CXX_FLAGS_RELEASE})
 if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif ()
+
+# If ccache exists, use it to speed up compiling
+find_program(CCACHE_FOUND ccache)
+if(CCACHE_FOUND)
+    set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
+endif(CCACHE_FOUND)
 
 # CMake dirs
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMake)
@@ -139,7 +145,6 @@ file(GLOB PHOTON_SRC
         net/security-context/tls-stream.cpp
         rpc/*.cpp
         thread/*.cpp
-        thread/switch_context_${ARCH}.s
         )
 if (APPLE)
     list(APPEND PHOTON_SRC io/kqueue.cpp)

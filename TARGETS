@@ -26,8 +26,7 @@ targets = {
                 glob('net/http/*.cpp') +
                 glob('net/security-context/*.cpp') +
                 glob('rpc/*.cpp') +
-                glob('thread/*.cpp') +
-                glob('thread/switch_context_%s.s' % arch),
+                glob('thread/*.cpp'),
         static_deps = [
             'curl-7.42.1:curl',
             'openssl-1.0.2a:ssl',

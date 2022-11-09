@@ -16,6 +16,7 @@ void* sleeper(void* rhs) {
         thread_interrupt(th);
         thread_usleep(2347812387);
     } while(errno != EEXIST);
+    return nullptr;
 }
 
 void perf_sleep() {

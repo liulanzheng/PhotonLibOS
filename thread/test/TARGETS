@@ -6,7 +6,6 @@ targets = {
         incs=['./'],
         srcs=[
             'test.cpp',
-            '../switch_context_%s.s' % arch,
             'x.cpp',
         ],
         static_deps=[

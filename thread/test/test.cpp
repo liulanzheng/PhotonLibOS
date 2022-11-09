@@ -331,7 +331,7 @@ TEST(ListTest, HandleNoneZeroInput)
     EXPECT_EQ(10, deleteCount);
 }
 
-thread_local static int running = 0;
+thread_local static int volatile running = 0;
 void* thread_pong(void* depth)
 {
 #ifdef RANDOMIZE_SP
