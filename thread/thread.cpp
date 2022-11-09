@@ -217,6 +217,13 @@ namespace photon
             stackful_alloc_top = (char*)ptr;
         }
 
+        void init_main_thread_stack() {
+            pthread_attr_t gattr;
+            pthread_getattr_np(pthread_self(), &gattr);
+            pthread_attr_getstack(&gattr,
+                (void**)&stackful_alloc_top, &stack_size);
+        }
+
         void go();
         void dequeue_ready_atomic(states newstat = states::READY);
         vcpu_t* get_vcpu() {
@@ -303,7 +310,6 @@ namespace photon
             q.pop_back();
             if (!up(id)) down(id);
             obj->idx = -1;
-
             return 0;
         }
 
@@ -603,21 +609,20 @@ namespace photon
 #ifdef __x86_64__
     asm(R"(
 .type	_photon_switch_context, @function
-_photon_switch_context:
-// (void** rdi_to, void** rsi_from)
+_photon_switch_context: // (void** rdi_to, void** rsi_from)
         push    %rbp
         mov     %rsp, (%rsi)
         mov     (%rdi), %rsp
         pop     %rbp
         ret
+
 .type	_photon_switch_context_defer, @function
-_photon_switch_context_defer:
-// (void* rdi_arg, void (*rsi_defer)(void*), void** rdx_to, void** rcx_from)
+_photon_switch_context_defer:   // (void* rdi_arg, void (*rsi_defer)(void*), void** rdx_to, void** rcx_from)
         push    %rbp
         mov     %rsp, (%rcx)
+
 .type	_photon_switch_context_defer_die, @function
-_photon_switch_context_defer_die:
-// (void* rdi_arg, void (*rsi_defer)(void*), void** rdx_to_th)
+_photon_switch_context_defer_die:  // (void* rdi_arg, void (*rsi_defer)(void*), void** rdx_to_th)
         mov     (%rdx), %rsp
         pop     %rbp
         jmp     *%rsi
@@ -655,15 +660,16 @@ _photon_switch_context_defer_die:
         // this function is invoked by a return instruction,
         // so we need to fix SP alignment problem by rsp -= 8
         thread* th;
-        asm("sub $8, %%rsp; \n"
-            "mov %%rbp, %0; \n"
-            : "=r"(th));
+        asm(R"(
+            sub $8, %%rsp
+            mov %%rbp, %0
+            )" : "=r"(th));
         th->go();
     }
 #elif defined(__aarch64__) || defined(__arm64__)
     asm(R"(
-        .type  _photon_switch_context, @function
-        _photon_switch_context: //; (void** x0_from, void** x1_to)
+.type  _photon_switch_context, @function
+_photon_switch_context: //; (void** x0_from, void** x1_to)
         stp x29, x30, [sp, #-16]!
         mov x29, sp
         str x29, [x0]
@@ -672,14 +678,14 @@ _photon_switch_context_defer_die:
         ldp x29, x30, [sp], #16
         ret
 
-        .type  _photon_switch_context_defer, @function
-        _photon_switch_context_defer: //; (void* x0_arg, void (*x1_defer)(void*), void** x2_to, void** x3_from)
+.type  _photon_switch_context_defer, @function
+_photon_switch_context_defer: //; (void* x0_arg, void (*x1_defer)(void*), void** x2_to, void** x3_from)
         stp x29, x30, [sp, #-16]!
         mov x29, sp
         str x29, [x3]
 
-        .type  _photon_switch_context_defer_die, @function
-        _photon_switch_context_defer_die: //; (void* x0_arg, void (*x1_defer)(void*), void** x2_to_th)
+.type  _photon_switch_context_defer_die, @function
+_photon_switch_context_defer_die: //; (void* x0_arg, void (*x1_defer)(void*), void** x2_to_th)
         ldr x29, [x2]
         mov sp, x29
         ldp x29, x30, [sp], #16
@@ -728,7 +734,10 @@ _photon_switch_context_defer_die:
 
     extern "C" void _photon_switch_context_defer_die(void* arg,
                             uint64_t defer_func_addr, void** to);
-    void thread::go() {
+#ifdef __x86_64__
+    __attribute__((noinline))
+#endif
+    inline void thread::go() {
         auto _arg = arg;
         arg = nullptr;
         retval = start(_arg);
@@ -757,9 +766,7 @@ _photon_switch_context_defer_die:
             arg, func, sw.to->stack.pointer_ref());
     }
 
-
-    thread* thread_create(thread_entry start, void* arg, uint64_t stack_size)
-    {
+    thread* thread_create(thread_entry start, void* arg, uint64_t stack_size) {
         RunQ rq;
         if (unlikely(!rq.current))
             LOG_ERROR_RETURN(ENOSYS, nullptr, "Photon not initialized in this vCPU (OS thread)");
@@ -774,7 +781,6 @@ _photon_switch_context_defer_die:
         auto th = new (p) thread;
         th->buf = ptr;
         th->stackful_alloc_top = ptr;
-        th->idx = -1;
         th->start = start;
         th->arg = arg;
         th->stack_size = stack_size;
@@ -782,7 +788,7 @@ _photon_switch_context_defer_die:
         AtomicRunQ arq(rq);
         th->vcpu = arq.vcpu;
         arq.vcpu->nthreads++;
-        AtomicRunQ(rq).insert_tail(th);
+        arq.insert_tail(th);
         return th;
     }
 
@@ -1681,7 +1687,6 @@ _photon_switch_context_defer_die:
         AtomicRunQ().remove_from_list(th);
         th->get_vcpu()->nthreads--;
         th->state = STANDBY;
-        th->idx = -1;
         auto vcpu = (vcpu_t*)vb;
         th->vcpu = vcpu;
         vcpu->nthreads++;
@@ -1705,15 +1710,11 @@ _photon_switch_context_defer_die:
         auto th = *rq.pc = new thread;
         th->vcpu = (vcpu_t*)ptr;
         th->state = states::RUNNING;
+        th->init_main_thread_stack();
         auto vcpu = new (ptr) vcpu_t;
         vcpu->idle_worker = thread_create(&idle_stub, nullptr);
         thread_enable_join(vcpu->idle_worker);
         if_update_now(true);
-        pthread_attr_t gattr;
-        pthread_getattr_np(pthread_self(), &gattr);
-        pthread_attr_getstack(&gattr,
-            (void**)&rq.current->stackful_alloc_top,
-                    &rq.current->stack_size);
         return ++_n_vcpu;
     }
 
