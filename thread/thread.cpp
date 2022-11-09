@@ -722,11 +722,7 @@ _photon_switch_context_defer_die:
     }
 
     static void thread_stub() {
-        // this function is invoked by a return instruction,
-        // so we need to fix SP alignment problem by rsp -= 8
-        thread* th = nullptr;
-        asm("ldr %0, [sp]": "=r"(th));
-        th->go();
+        CURRENT->go();
     }
 #endif
 
