@@ -1,0 +1,79 @@
+/*
+Copyright 2022 The Photon Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+#include <sys/fcntl.h>
+#include <netinet/tcp.h>
+#include <chrono>
+#include <gflags/gflags.h>
+#include <photon/io/signal.h>
+#include <photon/thread/thread11.h>
+#include <photon/fs/localfs.h>
+#include <photon/photon.h>
+#include <photon/common/alog-stdstring.h>
+#include <photon/net/http/server.h>
+
+using namespace photon;
+using namespace photon::net;
+using namespace photon::net::http;
+
+DEFINE_int32(port, 19876, "port");
+
+static bool stop_flag = false;
+static std::string data_str;
+static uint64_t qps = 0;
+static const char* file_name = "static-file.test";
+
+static void stop_handler(int signal) { stop_flag = true; }
+
+static void show_qps_loop() {
+    while (!stop_flag) {
+        photon::thread_sleep(1);
+        LOG_INFO("qps: `", qps);
+        qps = 0;
+    }
+}
+
+int main(int argc, char** argv) {
+    gflags::ParseCommandLineFlags(&argc, &argv, true);
+    photon::init(0, 0);
+    DEFER(photon::fini());
+    set_log_output_level(ALOG_INFO);
+
+    photon::block_all_signal();
+    photon::sync_signal(SIGINT, &stop_handler);
+    photon::sync_signal(SIGTERM, &stop_handler);
+    photon::sync_signal(SIGTSTP, &stop_handler);
+
+    auto tcpserv = new_tcp_socket_server();
+    tcpserv->bind(FLAGS_port);
+    tcpserv->listen();
+    DEFER(delete tcpserv);
+    auto http_srv = new_http_server();
+    DEFER(delete http_srv);
+    auto fs = fs::new_localfs_adaptor();
+    if (!fs) {
+        LOG_ERRNO_RETURN(0, -1, "error fs");
+    }
+    auto fs_handler = new_fs_handler(fs, "/");
+    DEFER(delete fs_handler);
+    http_srv->add_handler(fs_handler);
+    tcpserv->set_handler(http_srv->get_connection_handler());
+    tcpserv->start_loop();
+    while (!stop_flag) {
+        photon::thread_sleep(1);
+    }
+    LOG_INFO("server stopped");
+}

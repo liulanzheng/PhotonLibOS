@@ -1,3 +1,4 @@
+
 /*
 Copyright 2022 The Photon Authors
 
@@ -15,17 +16,30 @@ limitations under the License.
 */
 
 #pragma once
+
 #include <photon/common/string_view.h>
-#include <photon/common/conststr.h>
+
+class IStream;
+
 namespace photon {
+
+namespace fs {
+    class IFile;
+}
 namespace net {
+
+class ISocketStream;
+
 namespace http {
-DEFINE_ENUM_STR(Verb, verbstr, UNKNOWN, DELETE, GET, HEAD, POST, PUT, CONNECT,
-                OPTIONS, TRACE, COPY, LOCK, MKCOL, MOV, PROPFIND, PROPPATCH,
-                SEARCH, UNLOCK, BIND, REBIND, UNBIND, ACL, REPORT, MKACTIVITY,
-                CHECKOUT, MERGE, MSEARCH, NOTIFY, SUBSCRIBE, UNSUBSCRIBE, PATCH,
-                PURGE, MKCALENDAR, LINK, UNLINK);
-Verb string_to_verb(std::string_view v);
+
+IStream *new_body_read_stream(ISocketStream *stream, std::string_view body, size_t body_remain);
+
+IStream *new_chunked_body_read_stream(ISocketStream *stream, std::string_view body);
+
+IStream *new_chunked_body_write_stream(ISocketStream *stream);
+
+IStream *new_body_write_stream(ISocketStream *stream, size_t size);
+
 } // namespace http
 } // namespace net
 } // namespace photon

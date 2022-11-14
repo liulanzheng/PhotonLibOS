@@ -1,23 +1,23 @@
 # $$PHOTON_UNPUBLISHED_FILE$$
 
 targets = {
-    #'client_function_test': cpp_fast_test (
-    #   testing = [],
-    #   incs = [],
-    #   srcs = [
-    #       'client_function_test.cpp',
-    #   ],
-    #   static_deps=[
-    #       'curl-7.42.1',
-    #       'openssl-1.0.2a',
-    #       'gtest-1.7.0:gtest',
-    #       'gtest-1.7.0:gtest_main',
-    #       'gflags-2.1.2',
-    #   ],
-    #   ldflags=[
-    #       '-lphoton',
-    #   ],
-    #),
+    'client_function_test': cpp_fast_test (
+      testing = [],
+      incs = [],
+      srcs = [
+          'client_function_test.cpp',
+      ],
+      static_deps=[
+          'curl-7.42.1',
+          'openssl-1.0.2a',
+          'gtest-1.7.0:gtest',
+          'gtest-1.7.0:gtest_main',
+          'gflags-2.1.2',
+      ],
+      ldflags=[
+          '-lphoton',
+      ],
+    ),
     'server_function_test': cpp_fast_test (
         testing = [],
         incs = [
@@ -31,7 +31,6 @@ targets = {
             'gtest-1.7.0:gtest',
             'gtest-1.7.0:gtest_main',
             'gflags-2.1.2',
-            'boost-1.69.0:boost_atomic',
         ],
         ldflags=[
             '-lphoton',
@@ -81,7 +80,21 @@ targets = {
         static_deps = [
             'gtest-1.7.0:gtest',
             'gflags-2.1.2',
-            'boost-1.69.0',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+    ),
+    'fs_server' : cpp_program(
+        incs = [
+            './',
+        ],
+        srcs = [
+            'fs_server.cpp',
+        ],
+        static_deps = [
+            'gtest-1.7.0:gtest',
+            'gflags-2.1.2',
         ],
         ldflags=[
             '-lphoton',
