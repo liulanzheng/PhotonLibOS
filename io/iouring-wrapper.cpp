@@ -87,17 +87,10 @@ public:
         }
 
         // Check feature supported
-        if (!(params.features & IORING_FEAT_CUR_PERSONALITY)) {
-            LOG_ERROR_RETURN(0, -1, "iouring: feature IORING_FEAT_CUR_PERSONALITY not supported");
-        }
-        if (!(params.features & IORING_FEAT_NODROP)) {
-            LOG_ERROR_RETURN(0, -1, "iouring: feature IORING_FEAT_NODROP not supported");
-        }
-        if (!(params.features & IORING_FEAT_FAST_POLL)) {
-            LOG_ERROR_RETURN(0, -1, "iouring: feature IORING_FEAT_FAST_POLL not supported");
-        }
-        if (!(params.features & IORING_FEAT_EXT_ARG)) {
-            LOG_ERROR_RETURN(0, -1, "iouring: feature IORING_FEAT_EXT_ARG not supported");
+        for (auto i : REQUIRED_FEATURES) {
+            if (!(params.features & i)) {
+                LOG_ERROR_RETURN(0, -1, "iouring: required feature not supported");
+            }
         }
 
         // Check opcode supported
@@ -407,6 +400,10 @@ private:
         ts->tv_nsec = nsec;
     }
 
+    static constexpr const uint32_t REQUIRED_FEATURES[] = {
+            IORING_FEAT_CUR_PERSONALITY, IORING_FEAT_NODROP,
+            IORING_FEAT_FAST_POLL, IORING_FEAT_EXT_ARG,
+            IORING_FEAT_RW_CUR_POS};
     static const int QUEUE_DEPTH = 16384;
     bool m_master;
     int m_cascading_event_fd = -1;
@@ -416,6 +413,8 @@ private:
     bool m_cancel_poller_running = true;
     std::unordered_map<fdInterest, eventCtx, fdInterestHasher> m_event_contexts;
 };
+
+constexpr const uint32_t iouringEngine::REQUIRED_FEATURES[];
 
 ssize_t iouring_pread(int fd, void* buf, size_t count, off_t offset, uint64_t timeout) {
     auto ee = (iouringEngine*) get_vcpu()->master_event_engine;
