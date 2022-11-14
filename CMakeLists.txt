@@ -2,13 +2,13 @@ cmake_minimum_required(VERSION 3.14)
 
 project(
         photon
-        VERSION 0.4.0
+        VERSION 0.4
         LANGUAGES C CXX ASM
 )
 
 # Utilities
+include(FindPackageHandleStandardArgs)
 include(CheckCXXCompilerFlag)
-include(CPack)
 include(FetchContent)
 set(FETCHCONTENT_QUIET false)
 
@@ -217,7 +217,7 @@ if (BUILD_TESTING)
     find_package(gflags REQUIRED)
 
     set(testing_libs ${GTEST_BOTH_LIBRARIES} ${GMOCK_LIBRARIES} ${GFLAGS_LIBRARIES})
-    include_directories(${GTEST_INCLUDE_DIR} ${GMOCK_INCLUDE_DIR} ${GFLAGS_INCLUDE_DIR})
+    include_directories(${GTEST_INCLUDE_DIRS} ${GMOCK_INCLUDE_DIRS} ${GFLAGS_INCLUDE_DIRS})
 
     add_subdirectory(examples)
     add_subdirectory(common/checksum/test)
