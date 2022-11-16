@@ -26,6 +26,26 @@ targets = {
             '-lphoton',
         ],
     ),
+    'test': cpp_fast_test (
+        testing = ['socket'],
+        incs = [
+            '../',
+            '../../'
+        ], 
+        srcs = [
+            'test-udp.cpp',
+        ],
+        static_deps = [
+            'curl-7.42.1',
+            'gtest-1.7.0:gtest',
+            'gtest-1.7.0:gtest_main',
+            'gmock-1.7.0:gmock',
+            'openssl-1.0.2a',
+        ],
+        ldflags = [
+            '-lphoton',
+        ],
+    ),
     'test_sockpool': cpp_fast_test (
         testing = ['socket'],
         incs = [
