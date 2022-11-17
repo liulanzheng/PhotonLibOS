@@ -16,12 +16,11 @@ limitations under the License.
 
 #include <fcntl.h>
 #include <gtest/gtest.h>
-#include <sys/stat.h>
-
 #include <photon/common/alog.h>
 #include <photon/io/fd-events.h>
-#include <photon/thread/thread11.h>
 #include <photon/net/datagram_socket.h>
+#include <photon/thread/thread11.h>
+#include <sys/stat.h>
 #define protected public
 #define private public
 #include "../kernel_socket.cpp"
@@ -45,9 +44,16 @@ TEST(UDP, basic) {
     auto ep = s1->getsockname();
     LOG_INFO("Bind at ", ep);
 
+    constexpr static size_t msgsize=63 *1024; // more data returned failure
+    char hugepack[msgsize];
+    std::fill(&hugepack[0], &hugepack[sizeof(hugepack)-1], 0xEA);
+    s2->connect(ep);
+    ASSERT_EQ(msgsize, s2->send(hugepack, sizeof(hugepack)));
+    char buf[msgsize];
+    ASSERT_EQ(msgsize, s1->recv(buf, sizeof(buf)));
+
     s2->connect(ep);
     EXPECT_EQ(6, s2->send("Hello", 6));
-    char buf[4096];
     EXPECT_EQ(6, s1->recv(buf, 4096));
     EXPECT_STREQ("Hello", buf);
 
@@ -73,20 +79,46 @@ TEST(UDP, uds) {
     LOG_INFO("Bind at ", path);
 
     s2->connect(path, pathlen);
-    EXPECT_EQ(6, s2->send("Hello", 6));
+    ASSERT_EQ(6, s2->send("Hello", 6));
     char buf[4096];
-    EXPECT_EQ(6, s1->recv(buf, 4096));
+    ASSERT_EQ(6, s1->recv(buf, 4096));
     EXPECT_STREQ("Hello", buf);
 
     auto s3 = new_uds_datagram_socket();
     DEFER(delete s3);
-    EXPECT_EQ(6, s3->sendto("Hello", 6, uds_path, uds_len));
+    ASSERT_EQ(6, s3->sendto("Hello", 6, uds_path, uds_len));
     pathlen = 1024;
     memset(path, 0, sizeof(path));
-    EXPECT_EQ(6, s1->recvfrom(buf, 4096, path, sizeof(path)));
+    ASSERT_EQ(6, s1->recvfrom(buf, 4096, path, sizeof(path)));
     LOG_INFO(VALUE(path));
     EXPECT_STREQ("Hello", buf);
 }
+
+TEST(UDP, uds_huge_datag) {
+    remove(uds_path);
+    auto s1 = new_uds_datagram_socket();
+    DEFER(delete s1);
+    auto s2 = new_uds_datagram_socket();
+    DEFER(delete s2);
+
+    s1->bind(uds_path, uds_len);
+    char path[1024] = {};
+    socklen_t pathlen = s1->getsockname(path, 1024);
+    LOG_INFO("Bind at ", path);
+
+    constexpr static size_t msgsize=207 *1024; // more data returned failure
+    char hugepack[msgsize];
+    std::fill(&hugepack[0], &hugepack[sizeof(hugepack)-1], 0xEA);
+    s2->connect(path, pathlen);
+    ASSERT_EQ(msgsize, s2->send(hugepack, sizeof(hugepack)));
+    char buf[msgsize];
+    ASSERT_EQ(msgsize, s1->recv(buf, sizeof(buf)));
+    EXPECT_EQ(0, memcmp(hugepack, buf, sizeof(hugepack)));
+    ASSERT_EQ(msgsize, s2->sendto(hugepack, sizeof(hugepack), uds_path, uds_len));
+    ASSERT_EQ(msgsize, s1->recv(buf, sizeof(buf)));
+    EXPECT_EQ(0, memcmp(hugepack, buf, sizeof(hugepack)));
+}
+
 int main(int argc, char** arg) {
     photon::vcpu_init();
     DEFER(photon::vcpu_fini());
@@ -102,5 +134,4 @@ int main(int argc, char** arg) {
     ::testing::InitGoogleTest(&argc, arg);
 
     LOG_DEBUG("test result:`", RUN_ALL_TESTS());
-
 }

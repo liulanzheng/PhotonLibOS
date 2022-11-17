@@ -56,21 +56,23 @@ public:
         if (fd != -1) ::close(fd);
     }
 
-    template <typename IO, typename WAIT>
-    int doio(IO act, WAIT waitcb) {
-        int ret;
-        do {
-            ret = act();
-            ERRNO err;
-            if (err.no == EWOULDBLOCK) {
-                ret = waitcb();
-                if (ret < 0) return ret;
-            } else {
-                return ret;
+    template <typename IOCB, typename WAIT>
+    int doio(IOCB iocb, WAIT waitcb) {
+        while (true) {
+            ssize_t ret = iocb();
+            if (ret < 0) {
+                auto e = errno;  // errno is usually a macro that expands to a
+                                 // function call
+                if (e == EINTR) continue;
+                if (e == EAGAIN || e == EWOULDBLOCK) {
+                    if (waitcb())  // non-zero result means timeout or
+                                   // interrupt, need to return
+                        return ret;
+                    continue;
+                }
             }
-            ret = act();
-        } while (ret < 0);
-        return ret;
+            return ret;
+        }
     }
 
     int connect(const char* addr, size_t addrlen) override {
