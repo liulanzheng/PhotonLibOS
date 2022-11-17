@@ -224,7 +224,14 @@ namespace photon
                 (void**)&stackful_alloc_top, &stack_size);
         }
 
-        void go();
+        void go() {
+            assert(this == CURRENT);
+            auto _arg = arg;
+            arg = nullptr;
+            retval = start(_arg);
+            die();
+        }
+        void die() __attribute__((always_inline));
         void dequeue_ready_atomic(states newstat = states::READY);
         vcpu_t* get_vcpu() {
             return (vcpu_t*)vcpu;
@@ -233,11 +240,11 @@ namespace photon
             return this->ts_wakeup < rhs.ts_wakeup;
         }
         void dispose() {
-            auto b = buf;
+            assert(state == states::DONE);
 #ifndef __aarch64__
-            madvise(b, stack_size, MADV_DONTNEED);
+            madvise(buf, stack_size, MADV_DONTNEED);
 #endif
-            free(b);
+            free(buf);
         }
     };
 
@@ -591,12 +598,6 @@ namespace photon
     }
 
     __thread thread* CURRENT;
-    static void thread_die(thread* th)
-    {
-        // die with lock, so other context keeps safe
-        assert(th->state == states::DONE);
-        th->dispose();
-    }
 
     static void spinlock_unlock(void* m_);
 
@@ -606,6 +607,7 @@ namespace photon
         to->get_vcpu()->switch_count++;
     }
 
+    static void _photon_thread_die(thread* th) asm("_photon_thread_die");
 #ifdef __x86_64__
     asm(R"(
 .type	_photon_switch_context, @function
@@ -626,7 +628,21 @@ _photon_switch_context_defer_die:  // (void* rdi_arg, void (*rsi_defer)(void*), 
         mov     (%rdx), %rsp
         pop     %rbp
         jmp     *%rsi
+
+.type	_photon_thread_stub, @function
+_photon_thread_stub:
+        sub     $8, %rsp
+        mov     0x40(%rbp), %rdi
+        movq    $0, 0x40(%rbp)
+        call    *0x48(%rbp)
+        mov     %rbp, %rdi
+        jmp     _photon_thread_die
     )");
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Winvalid-offsetof"
+    static_assert(offsetof(thread, arg)   == 0x40, "...");
+    static_assert(offsetof(thread, start) == 0x48, "...");
+#pragma GCC diagnostic pop
 
     inline void switch_context(thread* from, thread* to) {
         prepare_switch(from, to);
@@ -654,17 +670,6 @@ _photon_switch_context_defer_die:  // (void* rdi_arg, void (*rsi_defer)(void*), 
             :  // "0"(t), "1"(f), "2"(a), "3"(d)
             : "rax", "rbx", "r8", "r9", "r10", "r11", "r12", "r13", "r14",
               "r15");
-    }
-
-    static void thread_stub() {
-        // this function is invoked by a return instruction,
-        // so we need to fix SP alignment problem by rsp -= 8
-        thread* th;
-        asm(R"(
-            sub $8, %%rsp
-            mov %%rbp, %0
-            )" : "=r"(th));
-        th->go();
     }
 #elif defined(__aarch64__) || defined(__arm64__)
     asm(R"(
@@ -733,15 +738,8 @@ _photon_switch_context_defer_die: //; (void* x0_arg, void (*x1_defer)(void*), vo
 #endif
 
     extern "C" void _photon_switch_context_defer_die(void* arg,
-                            uint64_t defer_func_addr, void** to);
-#ifdef __x86_64__
-    __attribute__((noinline))
-#endif
-    inline void thread::go() {
-        auto _arg = arg;
-        arg = nullptr;
-        retval = start(_arg);
-
+                           uint64_t defer_func_addr, void** to);
+    inline void thread::die() {
         deallocate_tls(&tls);
         // if CURRENT is idle stub and during vcpu_fini
         // main thread waiting for idle stub joining, now idle might be only
@@ -756,7 +754,8 @@ _photon_switch_context_defer_die: //; (void* x0_arg, void (*x1_defer)(void*), vo
         uint64_t func;
         void* arg;
         if (!is_joinable()) {
-            func = (uint64_t)&thread_die;
+            auto f = &thread::dispose;
+            func = (uint64_t&)f;
             arg = this;
         } else {
             func = (uint64_t)&spinlock_unlock;
@@ -765,7 +764,13 @@ _photon_switch_context_defer_die: //; (void* x0_arg, void (*x1_defer)(void*), vo
         _photon_switch_context_defer_die(
             arg, func, sw.to->stack.pointer_ref());
     }
+    __attribute__((used)) static
+    void _photon_thread_die(thread* th) {
+        assert(th == CURRENT);
+        th->die();
+    }
 
+    extern "C" void _photon_thread_stub();
     thread* thread_create(thread_entry start, void* arg, uint64_t stack_size) {
         RunQ rq;
         if (unlikely(!rq.current))
@@ -784,7 +789,7 @@ _photon_switch_context_defer_die: //; (void* x0_arg, void (*x1_defer)(void*), vo
         th->start = start;
         th->arg = arg;
         th->stack_size = stack_size;
-        th->stack.init(p, &thread_stub);
+        th->stack.init(p, &_photon_thread_stub);
         AtomicRunQ arq(rq);
         th->vcpu = arq.vcpu;
         arq.vcpu->nthreads++;
@@ -1223,7 +1228,7 @@ _photon_switch_context_defer_die: //; (void* x0_arg, void (*x1_defer)(void*), vo
         while (th->state != states::DONE) {
             th->cond.wait(th->lock);
         }
-        thread_die(th);
+        th->dispose();
     }
     inline void thread_join(thread* th)
     {
