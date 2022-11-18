@@ -700,7 +700,7 @@ _photon_switch_context_defer_die: //; (void* x0_arg, void (*x1_defer)(void*), vo
 _photon_thread_stub:
         ldp x0, x1, [x29, #0x40] //; load arg, start into x0, x1
         str xzr, [x29, #0x40]    //; set arg as 0
-        blr x1                   //; start(arg)
+        blr x1                   //; start(x0)
         str x0, [x29, #0x48]     //; retval = result
         mov x0, x29              //; move th to x0
         b _photon_thread_die     //; _photon_thread_die(th)
