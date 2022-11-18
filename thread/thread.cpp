@@ -695,6 +695,16 @@ _photon_switch_context_defer_die: //; (void* x0_arg, void (*x1_defer)(void*), vo
         mov sp, x29
         ldp x29, x30, [sp], #16
         br x1
+
+.type  _photon_thread_stub, @function
+_photon_thread_stub:
+        ldr x0, [x29, #0x40]
+        ldr x1, [x29, #0x48]
+        stp x29, x30, [sp, #-16]!
+        mov x29, sp
+        blr x1
+        ldr x0, [sp]
+        b _photon_thread_die
     )");
 
     inline void switch_context(thread* from, thread* to) {
@@ -732,9 +742,6 @@ _photon_switch_context_defer_die: //; (void* x0_arg, void (*x1_defer)(void*), vo
                        "x17", "x18");
     }
 
-    static void thread_stub() {
-        CURRENT->go();
-    }
 #endif
 
     extern "C" void _photon_switch_context_defer_die(void* arg,
