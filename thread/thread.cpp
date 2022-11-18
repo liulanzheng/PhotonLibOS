@@ -224,13 +224,13 @@ namespace photon
                 (void**)&stackful_alloc_top, &stack_size);
         }
 
-        // void go() {
-        //     assert(this == CURRENT);
-        //     auto _arg = arg;
-        //     arg = nullptr;
-        //     retval = start(_arg);
-        //     die();
-        // }
+        void go() {
+            assert(this == CURRENT);
+            auto _arg = arg;
+            arg = nullptr;
+            retval = start(_arg);
+            die();
+        }
         void die() __attribute__((always_inline));
         void dequeue_ready_atomic(states newstat = states::READY);
         vcpu_t* get_vcpu() {
@@ -635,6 +635,7 @@ _photon_thread_stub:
         mov     0x40(%rbp), %rdi
         movq    $0, 0x40(%rbp)
         call    *0x48(%rbp)
+        mov     %rax, 0x48(%rbp)
         mov     %rbp, %rdi
         jmp     _photon_thread_die
     )");
