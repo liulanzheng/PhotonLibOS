@@ -16,6 +16,10 @@ limitations under the License.
 
 #define protected public
 #define private public
+#include "../client.cpp"
+#include "../headers.cpp"
+#undef protected
+#undef private
 
 #include <fcntl.h>
 #include <gtest/gtest.h>
@@ -30,11 +34,9 @@ limitations under the License.
 #include "../../socket.h"
 #include "../../base_socket.h"
 #include <photon/common/alog-stdstring.h>
-#include "../client.cpp"
 #include <photon/io/fd-events.h>
 #include <photon/thread/thread11.h>
 #include <photon/common/stream.h>
-#include "../headers.cpp"
 
 using namespace std;
 using namespace photon;

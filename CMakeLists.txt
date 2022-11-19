@@ -111,15 +111,6 @@ if (ENABLE_SASL)
     find_package(gsasl REQUIRED)
 endif ()
 
-# Fetch boost
-FetchContent_Declare(
-        boost
-        URL https://boostorg.jfrog.io/artifactory/main/release/1.75.0/source/boost_1_75_0.tar.gz
-        URL_MD5 38813f6feb40387dfe90160debd71251
-)
-FetchContent_MakeAvailable(boost)
-set(boost_include_dir ${boost_SOURCE_DIR})
-
 # Compile photon objects
 file(GLOB PHOTON_SRC
         photon.cpp
@@ -162,7 +153,7 @@ if (ENABLE_SASL)
 endif ()
 
 add_library(photon_obj OBJECT ${PHOTON_SRC})
-target_include_directories(photon_obj PUBLIC include ${boost_include_dir} ${OPENSSL_INCLUDE_DIR})
+target_include_directories(photon_obj PUBLIC include ${OPENSSL_INCLUDE_DIR})
 target_compile_definitions(photon_obj PRIVATE _FILE_OFFSET_BITS=64 FUSE_USE_VERSION=29)
 if (ENABLE_URING)
     target_include_directories(photon_obj PUBLIC ${liburing_include_dir})

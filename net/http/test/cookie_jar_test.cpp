@@ -16,8 +16,10 @@ limitations under the License.
 
 #define protected public
 #define private public
-
 #include "../cookie_jar.cpp"
+#undef protected
+#undef private
+
 #include <fcntl.h>
 #include <gtest/gtest.h>
 #include <time.h>
