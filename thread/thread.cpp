@@ -673,7 +673,7 @@ _photon_thread_stub:
     }
 #elif defined(__aarch64__) || defined(__arm64__)
     asm(R"(
-.global  _photon_switch_context
+.weak _photon_switch_context
 .type  _photon_switch_context, %function
 _photon_switch_context: //; (void** x0_from, void** x1_to)
         stp x29, x30, [sp, #-16]!
@@ -684,14 +684,14 @@ _photon_switch_context: //; (void** x0_from, void** x1_to)
         ldp x29, x30, [sp], #16
         ret
 
-.global _photon_switch_context_defer
+.weak _photon_switch_context_defer
 .type  _photon_switch_context_defer, %function
 _photon_switch_context_defer: //; (void* x0_arg, void (*x1_defer)(void*), void** x2_to, void** x3_from)
         stp x29, x30, [sp, #-16]!
         mov x29, sp
         str x29, [x3]
 
-.global _photon_switch_context_defer_die
+.weak _photon_switch_context_defer_die
 .type  _photon_switch_context_defer_die, %function
 _photon_switch_context_defer_die: //; (void* x0_arg, void (*x1_defer)(void*), void** x2_to_th)
         ldr x29, [x2]
@@ -699,7 +699,7 @@ _photon_switch_context_defer_die: //; (void* x0_arg, void (*x1_defer)(void*), vo
         ldp x29, x30, [sp], #16
         br x1
 
-.global _photon_thread_stub
+.weak _photon_thread_stub
 .type  _photon_thread_stub, %function
 _photon_thread_stub:
         ldp x0, x1, [x29, #0x40] //; load arg, start into x0, x1
