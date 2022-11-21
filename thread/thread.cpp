@@ -631,7 +631,6 @@ _photon_switch_context_defer_die:  // (void* rdi_arg, void (*rsi_defer)(void*), 
 
 .type	_photon_thread_stub, @function
 _photon_thread_stub:
-        sub     $8, %rsp
         mov     0x40(%rbp), %rdi
         movq    $0, 0x40(%rbp)
         call    *0x48(%rbp)
