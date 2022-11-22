@@ -610,6 +610,7 @@ namespace photon
     static void _photon_thread_die(thread* th) asm("_photon_thread_die");
 #ifdef __x86_64__
     asm(R"(
+.section	.text._photon_switch_context,"axG",@progbits,_photon_switch_context,comdat
 .type	_photon_switch_context, @function
 _photon_switch_context: // (void** rdi_to, void** rsi_from)
         push    %rbp
@@ -618,17 +619,20 @@ _photon_switch_context: // (void** rdi_to, void** rsi_from)
         pop     %rbp
         ret
 
+.section	.text._photon_switch_context_defer,"axG",@progbits,_photon_switch_context_defer,comdat
 .type	_photon_switch_context_defer, @function
 _photon_switch_context_defer:   // (void* rdi_arg, void (*rsi_defer)(void*), void** rdx_to, void** rcx_from)
         push    %rbp
         mov     %rsp, (%rcx)
 
+.section	.text._photon_switch_context_defer_die,"axG",@progbits,_photon_switch_context_defer_die,comdat
 .type	_photon_switch_context_defer_die, @function
 _photon_switch_context_defer_die:  // (void* rdi_arg, void (*rsi_defer)(void*), void** rdx_to_th)
         mov     (%rdx), %rsp
         pop     %rbp
         jmp     *%rsi
 
+.section	.text._photon_thread_stub,"axG",@progbits,_photon_thread_stub,comdat
 .type	_photon_thread_stub, @function
 _photon_thread_stub:
         mov     0x40(%rbp), %rdi
@@ -640,7 +644,7 @@ _photon_thread_stub:
     )");
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
-    static_assert(offsetof(thread, arg)   == 0x40, "...");
+    static_assert(offsetof(thread, arg) == 0x40, "...");
     static_assert(offsetof(thread, start) == 0x48, "...");
 #pragma GCC diagnostic pop
 
@@ -673,7 +677,7 @@ _photon_thread_stub:
     }
 #elif defined(__aarch64__) || defined(__arm64__)
     asm(R"(
-.weak _photon_switch_context
+.section	.text._photon_switch_context,"axG",@progbits,_photon_switch_context,comdat
 .type  _photon_switch_context, %function
 _photon_switch_context: //; (void** x0_from, void** x1_to)
         stp x29, x30, [sp, #-16]!
@@ -684,14 +688,14 @@ _photon_switch_context: //; (void** x0_from, void** x1_to)
         ldp x29, x30, [sp], #16
         ret
 
-.weak _photon_switch_context_defer
+.section	.text._photon_switch_context_defer,"axG",@progbits,_photon_switch_context_defer,comdat
 .type  _photon_switch_context_defer, %function
 _photon_switch_context_defer: //; (void* x0_arg, void (*x1_defer)(void*), void** x2_to, void** x3_from)
         stp x29, x30, [sp, #-16]!
         mov x29, sp
         str x29, [x3]
 
-.weak _photon_switch_context_defer_die
+.section	.text._photon_switch_context_defer_die,"axG",@progbits,_photon_switch_context_defer_die,comdat
 .type  _photon_switch_context_defer_die, %function
 _photon_switch_context_defer_die: //; (void* x0_arg, void (*x1_defer)(void*), void** x2_to_th)
         ldr x29, [x2]
@@ -699,7 +703,7 @@ _photon_switch_context_defer_die: //; (void* x0_arg, void (*x1_defer)(void*), vo
         ldp x29, x30, [sp], #16
         br x1
 
-.weak _photon_thread_stub
+.section	.text._photon_thread_stub,"axG",@progbits,_photon_thread_stub,comdat
 .type  _photon_thread_stub, %function
 _photon_thread_stub:
         ldp x0, x1, [x29, #0x40] //; load arg, start into x0, x1
@@ -781,6 +785,9 @@ _photon_thread_stub:
     }
 
     extern "C" void _photon_thread_stub();
+    
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
     thread* thread_create(thread_entry start, void* arg, uint64_t stack_size) {
         RunQ rq;
         if (unlikely(!rq.current))
@@ -806,6 +813,7 @@ _photon_thread_stub:
         arq.insert_tail(th);
         return th;
     }
+#pragma GCC diagnostic pop
 
 #if defined(__x86_64__) && defined(__linux__) && defined(ENABLE_MIMIC_VDSO)
 #include <sys/auxv.h>
@@ -1111,6 +1119,8 @@ _photon_thread_stub:
             errno = EPERM;
         return -1;
     }
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
     int thread_usleep_defer(uint64_t useconds, defer_func defer, void* defer_arg) {
         RunQ rq;
         if (unlikely(!rq.current))
@@ -1123,6 +1133,7 @@ _photon_thread_stub:
             return do_shutdown_usleep_defer(useconds, defer, defer_arg, rq);
         return do_thread_usleep_defer(useconds, defer, defer_arg, rq);
     }
+#pragma GCC diagnostic pop
 
     __attribute__((noinline))
     static int do_thread_usleep(uint64_t useconds, RunQ rq) {
