@@ -644,7 +644,7 @@ _photon_thread_stub:
     )");
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
-    static_assert(offsetof(thread, arg) == 0x40, "...");
+    static_assert(offsetof(thread, arg)   == 0x40, "...");
     static_assert(offsetof(thread, start) == 0x48, "...");
 #pragma GCC diagnostic pop
 
