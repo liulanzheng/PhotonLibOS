@@ -24,6 +24,7 @@ limitations under the License.
 #include <sys/uio.h>
 #include <photon/common/iovector.h>
 #include <photon/common/utility.h>
+#include <photon/common/checksum/crc32c.h>
 
 namespace photon {
 namespace rpc
@@ -146,14 +147,20 @@ namespace rpc
     };
 
     // structs of concrete messages MUST derive from `Message`,
-    // and implement serialize_fields(), possbile with SERIALIZE_FIELDS()
+    // and implement serialize_fields(), possible with SERIALIZE_FIELDS()
     struct Message
     {
     public:
         template<typename AR>
-        void serialize_fields(AR& ar)
-        {
-        }
+        void serialize_fields(AR& ar) {}
+
+        uint32_t get_checksum() const { return 0; }
+
+        void set_checksum(uint32_t crc) {}
+
+        void add_checksum(iovector* iov) {}
+
+        bool validate_checksum(iovector* iov, void* body, size_t body_length) { return true; }
 
     protected:
         template<typename AR>
@@ -168,13 +175,48 @@ namespace rpc
         }
     };
 
+    struct CheckedMessage : public Message {
+    public:
+        uint32_t get_checksum() const { return m_crc; }
+
+        void set_checksum(uint32_t crc) { m_crc = crc; }
+
+        void add_checksum(iovector* iov) {
+            assert(get_checksum() == 0);
+            uint32_t crc = 0;
+            for (const iovec* iter = iov->begin(); iter != iov->end(); ++iter) {
+                crc = crc32c_extend(iter->iov_base, iter->iov_len, crc);
+            }
+            set_checksum(crc);
+        }
+
+        bool validate_checksum(iovector* iov, void* body, size_t body_length) {
+            assert(iov->sum() != 0);
+            uint32_t extended_crc = 0;
+            uint32_t dst_crc = get_checksum();
+            set_checksum(0);
+            for (const iovec* iter = iov->begin(); iter != iov->end(); ++iter) {
+                extended_crc = crc32c_extend(iter->iov_base, iter->iov_len, extended_crc);
+            }
+            if (body != nullptr && body_length != 0) {
+                extended_crc = crc32c_extend(body, body_length, extended_crc);
+            }
+            if (dst_crc != extended_crc) {
+                puts("checksum error");
+                return false;
+            }
+            set_checksum(dst_crc);
+            return true;
+        }
+    protected:
+        uint32_t m_crc = 0;
+    };
+
 #define PROCESS_FIELDS(...)                     \
         template<typename AR>                   \
         void process_fields(AR& ar) {           \
             return reduce(ar, __VA_ARGS__);     \
         }
-
-
 
     template<typename Derived>  // The Curiously Recurring Template Pattern (CRTP)
     class ArchiveBase
@@ -308,6 +350,7 @@ namespace rpc
             x.process_fields(non_aligned);
             buffer msg(&x, sizeof(x));
             d()->process_field(msg);
+            x.add_checksum(&iov);
         }
     };
 
@@ -350,6 +393,10 @@ namespace rpc
             _iov=iov;
             auto t = iov -> extract_back<T>();
             if (t) {
+                if (!t->validate_checksum(iov, t, sizeof(*t))) {
+                    failed = true;
+                    return nullptr;
+                }
                 // deserialize aligned fields, and non-aligned fields, from front
                 auto aligned = FilterAlignedFields(this, true);
                 t->process_fields(aligned);

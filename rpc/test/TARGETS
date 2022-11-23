@@ -24,4 +24,13 @@ targets = {
             '-lphoton',
         ],
     ),
+    'test-rpc-message': cpp_fast_test(
+        srcs=['test-rpc-message.cpp'],
+        static_deps=[
+            'gtest-1.7.0:gtest',
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
+    ),
 }
