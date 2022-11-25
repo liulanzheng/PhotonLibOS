@@ -25,8 +25,6 @@ limitations under the License.
 #include "parser.h"
 #include "body.h"
 
-
-
 namespace photon {
 namespace net {
 namespace http {
@@ -133,10 +131,14 @@ int Message::send_header(net::ISocketStream* stream) {
 }
 
 ssize_t Message::read(void *buf, size_t count) {
+    if (!m_body_stream)
+        LOG_ERROR_RETURN(EIO, -1, "body not readable");
     return m_body_stream->read(buf, count);
 }
 
 ssize_t Message::readv(const struct iovec *iov, int iovcnt) {
+    if (!m_body_stream)
+        LOG_ERROR_RETURN(EIO, -1, "body not readable");
     return m_body_stream->readv(iov, iovcnt);
 }
 
@@ -144,6 +146,8 @@ ssize_t Message::write(const void *buf, size_t count) {
     if (message_status < HEADER_SENT && send_header() < 0)
         return -1;
     message_status = BODY_SENT;
+    if (!m_body_stream)
+        LOG_ERROR_RETURN(EIO, -1, "body not writable");
     return m_body_stream->write(buf, count);
 }
 
@@ -151,6 +155,8 @@ ssize_t Message::writev(const struct iovec *iov, int iovcnt) {
     if (message_status < HEADER_SENT && send_header() < 0)
         return -1;
     message_status = BODY_SENT;
+    if (!m_body_stream)
+        LOG_ERROR_RETURN(EIO, -1, "body not writable");
     return m_body_stream->writev(iov, iovcnt);
 }
 
@@ -190,7 +196,7 @@ int Message::skip_remain() {
     return -1;
 }
 
-int Message::ensure_send() {
+int Message::send() {
     if (message_status < HEADER_SENT && send_header() < 0) {
         LOG_ERROR_RETURN(0, -1, "send response header failed");
     }
@@ -304,7 +310,6 @@ int Request::reset(Verb v, std::string_view url, bool enable_proxy) {
     headers.reset(m_buf + m_buf_size, m_buf_capacity - m_buf_size);
 
     // Host is always the first header
-    m_host = {uint16_t(m_buf_size + 6), u.host().size()};
     headers.insert("Host", u.host_port());
     return 0;
 }
@@ -330,7 +335,6 @@ int Request::redirect(Verb v, estring_view location, bool enable_proxy) {
 
     m_buf_size = new_request_line_size;
     make_request_line(v, u, enable_proxy);
-    m_host = {uint16_t(m_buf_size + 6), u.host().size()};
     return 0;
 }
 
@@ -382,10 +386,6 @@ int Response::set_result(int code, std::string_view reason) {
     return 0;
 }
 
-int Response::prepare_body_read_stream() {
-    if (status_code() < 400 && status_code() >= 300) return 0;
-    return Message::prepare_body_read_stream();
-}
 
 } // namespace http
 } // namespace net

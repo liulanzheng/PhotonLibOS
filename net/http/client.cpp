@@ -179,7 +179,7 @@ public:
             }
         }
 
-        if (req.ensure_send() < 0) {
+        if (req.send() < 0) {
             sock->close();
             req.reset_status();
             LOG_ERROR_RETURN(0, ROUNDTRIP_NEED_RETRY, "failed to ensure send");
@@ -248,6 +248,10 @@ public:
         }
         if (ret != ROUNDTRIP_SUCCESS) LOG_ERROR_RETURN(0, -1,"too many retry, roundtrip failed");
         return 0;
+    }
+
+    ISocketStream* native_connect(std::string_view host, uint16_t port, bool secure, uint64_t timeout) override {
+        return m_dialer.dial(host, port, secure, timeout);
     }
 
     CommonHeaders<>* common_headers() override {

@@ -87,7 +87,7 @@ public:
         return 0;
     }
     std::string_view version() const {
-        return m_buf | m_version;
+        return std::string_view{m_buf, m_buf_size} | m_version;
     }
 
     ssize_t read(void *buf, size_t count) override;
@@ -96,8 +96,14 @@ public:
     ssize_t writev(const struct iovec *iov, int iovcnt) override;
     ssize_t write_stream(IStream *stream, size_t size_limit = -1);
 
+    // size of body
     size_t body_size() const;
+    // size of origin resource
     ssize_t resource_size() const;
+
+    // in general, it is called automatically
+    // in some cases, users can call it manually
+    int send();
 
     int message_status = 0;
     Headers headers;
@@ -119,11 +125,10 @@ protected:
     int append_bytes(uint16_t size);
 
     int skip_remain();
-    int ensure_send();
     int close() { return 0; }
 
     std::string_view partial_body() const {
-        return m_buf | m_body;
+        return std::string_view{m_buf, m_buf_size} | m_body;
     }
 
     char* m_buf;
@@ -158,7 +163,7 @@ public:
 
     Verb verb() const { return (Verb)m_verb;}
     std::string_view target() const {
-        return m_buf | m_target;
+        return std::string_view{m_buf, m_buf_size} | m_target;
     }
     bool secure() const {
         return m_secure;
@@ -167,13 +172,13 @@ public:
         return m_port;
     }
     std::string_view host() const {
-        return m_buf | m_host;
+        return headers["Host"];
     }
     std::string_view abs_path() const {
-        return m_buf | m_path;
+        return std::string_view{m_buf, m_buf_size} | m_path;
     }
     std::string_view query() const {
-        return m_buf | m_query;
+        return std::string_view{m_buf, m_buf_size} | m_query;
     }
 
     using RemainSpace = std::pair<char*, size_t>;
@@ -182,7 +187,9 @@ public:
     }
     int redirect(Verb v, estring_view location, bool enable_proxy = false);
 
-
+    net::ISocketStream* get_socket_stream() {
+        return m_stream;
+    }
 protected:
     int parse_request_line(Parser &p);
     int parse_start_line(Parser &p) override {
@@ -190,7 +197,7 @@ protected:
     }
 
     void make_request_line(Verb v, const URL& u, bool enable_proxy);
-    rstring_view16 m_target, m_host, m_path, m_query;
+    rstring_view16 m_target, m_path, m_query;
     uint16_t m_port = 80;
     bool m_secure = false;
     char m_verb = (char)Verb::UNKNOWN;
@@ -229,7 +236,6 @@ protected:
     int parse_start_line(Parser &p) override {
         return parse_status_line(p);
     }
-    int prepare_body_read_stream() override;
     rstring_view16 m_status_message;
     uint16_t m_status_code = 0;
 };

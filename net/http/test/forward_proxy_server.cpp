@@ -24,6 +24,8 @@ limitations under the License.
 #include <photon/photon.h>
 #include <photon/common/alog-stdstring.h>
 #include <photon/net/http/server.h>
+#include <sys/prctl.h>
+#include <malloc.h>
 
 using namespace photon;
 using namespace photon::net;
@@ -36,6 +38,9 @@ static bool stop_flag = false;
 static void stop_handler(int signal) { stop_flag = true; }
 
 int main(int argc, char** argv) {
+    mallopt(M_TRIM_THRESHOLD, 128 * 1024);
+    prctl(PR_SET_THP_DISABLE, 1);
+
     gflags::ParseCommandLineFlags(&argc, &argv, true);
     photon::init(INIT_EVENT_DEFAULT, INIT_IO_DEFAULT);
     DEFER(photon::fini());
@@ -52,16 +57,9 @@ int main(int argc, char** argv) {
     tcpserv->listen();
     DEFER(delete tcpserv);
 
-
     auto http_srv = new_http_server();
     DEFER(delete http_srv);
-    auto fs = fs::new_localfs_adaptor();
-    if (!fs) {
-        LOG_ERRNO_RETURN(0, -1, "error fs");
-    }
-    auto fs_handler = new_fs_handler(fs);
-    DEFER(delete fs_handler);
-    http_srv->add_handler(fs_handler);
+    http_srv->add_handler(new_default_forward_proxy_handler(30 * 1000 * 1000), true);
     tcpserv->set_handler(http_srv->get_connection_handler());
     tcpserv->start_loop();
     while (!stop_flag) {

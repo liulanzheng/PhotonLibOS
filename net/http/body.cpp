@@ -146,10 +146,10 @@ public:
         return true;
     }
     ssize_t read_from_line_buf(void* &buf, size_t &count) {
-        //从line_buf读数据
+        //read from line_buf
         ssize_t ret = 0;
         while (m_cursor < m_line_size && !m_finish) {
-            //读chunk
+            //read chunk
             auto read_from_line = std::min(count,
                                     std::min(m_chunked_remain,
                                     m_line_size - m_cursor));
@@ -159,7 +159,7 @@ public:
             ret += read_from_line;
             count -= read_from_line;
             m_chunked_remain -= read_from_line;
-            // 获取chunk大小
+            // get chunk size
             if (m_chunked_remain == 0 && !pos_next_chunk(m_cursor)) {
                 memmove(m_get_line_buf,
                         m_get_line_buf + m_cursor, m_line_size - m_cursor);
@@ -181,7 +181,7 @@ public:
         count -= r;
         return r;
     }
-    int get_new_chunk()  {
+    int get_new_chunk() {
         bool get_line_finish = false;
         while (!get_line_finish && !m_finish) {
             assert(m_line_size != LINE_BUFFER_SIZE);
@@ -189,6 +189,7 @@ public:
                                             LINE_BUFFER_SIZE - m_line_size);
             if (r < 0) return r;
             m_line_size += r;
+            if (m_line_size <= 2) continue; // too small
             get_line_finish = pos_next_chunk(0);
         }
         return 0;
@@ -197,13 +198,13 @@ public:
         ssize_t ret = 0;
         while (count > 0 && !m_finish) {
             ret += read_from_line_buf(buf, count);
-            //从stream中读取chunk剩余部分
+            //read remain from stream
             if (m_chunked_remain > 0 && count > 0) {
                 auto r = read_from_stream(buf, count);
                 if (r < 0) return r;
                 ret += r;
             }
-            //获取新的chunk头(get_line)
+            // get new chunk header
             if (m_chunked_remain == 0) {
                 auto r = get_new_chunk();
                 if (r < 0) return r;

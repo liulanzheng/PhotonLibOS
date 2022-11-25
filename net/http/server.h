@@ -36,11 +36,11 @@ enum class Protocol {
     HTTPS
 };
 
-using DelegateHTTPHandler = Delegate<int, Request&, Response&>;
+using DelegateHTTPHandler = Delegate<int, Request&, Response&, std::string_view>;
 
 class HTTPHandler : public Object {
 public:
-    virtual int handle_request(Request&, Response&) = 0;
+    virtual int handle_request(Request&, Response&, std::string_view) = 0;
 };
 
 class HTTPServer : public Object {
@@ -50,23 +50,26 @@ public:
         return {this, &HTTPServer::handle_connection};
     }
 
-    // should matching prefix in add_handler calling order
-    // empty prefix for default handler, which is used when matching prefix failed
-    // if handler was set, return 404
-    virtual void add_handler(DelegateHTTPHandler handler, std::string_view prefix = "") = 0;
-    virtual void add_handler(HTTPHandler *handler, bool ownership = false, std::string_view prefix = "") = 0;
+    // should matching pattern in add_handler calling order, currently only prefix matching is supported
+    // empty pattern for default handler, which is used when matching patterns failed
+    // if no handler was set, return 404
+    virtual void add_handler(DelegateHTTPHandler handler, std::string_view pattern = "") = 0;
+    virtual void add_handler(HTTPHandler *handler, bool ownership = false, std::string_view pattern = "") = 0;
 };
 
 class Client;
-//modify body is not allowed
+
+// modify body is not allowed
 using Director = Delegate<int, Request&, Request&>;
-//modify body is not allowed
 using Modifier = Delegate<int, Response&, Response&>;
 
-//handler will ignore @ignore_prefix in target prefix
-HTTPHandler* new_fs_handler(fs::IFileSystem* fs, std::string_view ignore_prefix = "");
+// handler will ignore @ignore_prefix in target prefix
+HTTPHandler* new_fs_handler(fs::IFileSystem* fs);
 
-HTTPHandler* new_proxy_handler(Director cb_Director, Modifier cb_Modifier, Client* client);
+HTTPHandler* new_proxy_handler(Director cb_Director, Modifier cb_Modifier,
+                               Client* client = nullptr, bool client_ownership = false);
+
+HTTPHandler* new_default_forward_proxy_handler(uint64_t timeout = -1);
 
 HTTPServer* new_http_server();
 

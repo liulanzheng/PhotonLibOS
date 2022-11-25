@@ -123,6 +123,9 @@ public:
     void timeout(uint64_t timeout) { m_timeout = timeout; }
     void timeout_ms(uint64_t tmo) { timeout(tmo * 1000UL); }
     void timeout_s(uint64_t tmo) { timeout(tmo * 1000UL * 1000UL); }
+
+    virtual ISocketStream* native_connect(std::string_view host, uint16_t port,
+                                    bool secure = false, uint64_t timeout = -1UL) = 0;
 protected:
     StoredURL m_proxy_url;
     uint64_t m_timeout = -1UL;

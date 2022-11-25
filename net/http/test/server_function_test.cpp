@@ -32,7 +32,7 @@ using namespace photon;
 using namespace photon::net;
 using namespace photon::net::http;
 
-int idiot_handle(void*, Request &req, Response &resp) {
+int idiot_handle(void*, Request &req, Response &resp, std::string_view) {
     std::string str;
     auto r = req.headers.range();
     auto cl = r.second - r.first + 1;
@@ -76,7 +76,7 @@ TEST(http_server, headers) {
 }
 
 
-int body_check_handler(void*, Request &req, Response &resp) {
+int body_check_handler(void*, Request &req, Response &resp, std::string_view) {
     char buf[4096];
     auto ret = req.read(buf, 4096);
     EXPECT_EQ(ret, 10);
@@ -464,7 +464,7 @@ TEST(http_server, mux_handler) {
     auto proxy_handler = new_proxy_handler({nullptr, &test_director}, {nullptr, &test_modifier}, client);
     auto fs = fs::new_localfs_adaptor("/tmp/ease_ut/http_server/");
     DEFER(delete fs);
-    auto fs_handler = new_fs_handler(fs, "static_service/");
+    auto fs_handler = new_fs_handler(fs);
     auto server = new_http_server();
     DEFER(delete server);
     server->add_handler(fs_handler, true, "/static_service/");

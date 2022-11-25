@@ -48,7 +48,7 @@ static void show_qps_loop() {
 
 class SimpleHandler : public net::http::HTTPHandler {
 public:
-    int handle_request(net::http::Request& req, net::http::Response& resp) {
+    int handle_request(net::http::Request& req, net::http::Response& resp, std::string_view) {
         auto target = req.target();
         resp.set_result(200);
         resp.headers.content_length((size_t) FLAGS_body_size);
@@ -105,7 +105,7 @@ int main(int argc, char** argv) {
     for (int i = 0; i < FLAGS_body_size; ++i) {
         file->write("1", 1);
     }
-    auto fs_handler = net::http::new_fs_handler(fs, "/");
+    auto fs_handler = net::http::new_fs_handler(fs);
     DEFER(delete fs_handler);
     if (FLAGS_serve_file) {
         http_srv->add_handler(fs_handler);

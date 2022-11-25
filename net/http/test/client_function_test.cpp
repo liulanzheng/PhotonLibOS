@@ -122,7 +122,7 @@ TEST(http_client, get) {
     EXPECT_EQ(0, strcmp("http_clien", resp_body_buf));
 }
 
-int body_check_handler(void*, Request &req, Response &resp) {
+int body_check_handler(void*, Request &req, Response &resp, std::string_view) {
     auto fs = photon::fs::new_localfs_adaptor("/tmp/ease_ut/http_test/");
     DEFER(delete fs);
 

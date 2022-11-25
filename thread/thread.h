@@ -102,7 +102,7 @@ namespace photon
     // if true, the thread `th` should cancel what is doing, and quit
     // current job ASAP (not allowed `th` to sleep or block more than
     // 10ms, otherwise -1 will be returned to `th` and errno == EPERM;
-    // if it is currently sleeping or blocking, it is thread_interupt()ed
+    // if it is currently sleeping or blocking, it is thread_interrupt()ed
     // with EPERM)
     int thread_shutdown(thread* th, bool flag = true);
 

@@ -80,7 +80,7 @@ public:
         return get_value(key);
     }
     std::string_view operator[](size_t i) const {
-        auto ret = m_buf | kv(i).second;
+        auto ret = std::string_view{m_buf, m_buf_size} | kv(i).second;
         assert(ret.data() < m_buf + m_buf_size);
         assert(ret.end() <= m_buf + m_buf_size);
         return ret;
