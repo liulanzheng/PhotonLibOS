@@ -184,9 +184,8 @@ namespace rpc
         void add_checksum(iovector* iov) {
             assert(get_checksum() == 0);
             uint32_t crc = 0;
-            for (const iovec* iter = iov->begin(); iter != iov->end(); ++iter) {
-                crc = crc32c_extend(iter->iov_base, iter->iov_len, crc);
-            }
+            for (const auto iter : *iov)
+                crc = crc32c_extend(iter.iov_base, iter.iov_len, crc);
             set_checksum(crc);
         }
 
@@ -195,15 +194,12 @@ namespace rpc
             uint32_t extended_crc = 0;
             uint32_t dst_crc = get_checksum();
             set_checksum(0);
-            for (const iovec* iter = iov->begin(); iter != iov->end(); ++iter) {
-                extended_crc = crc32c_extend(iter->iov_base, iter->iov_len, extended_crc);
-            }
-            if (body != nullptr && body_length != 0) {
+            for (const auto iter : *iov)
+                extended_crc = crc32c_extend(iter.iov_base, iter.iov_len, extended_crc);
+            if (body != nullptr && body_length != 0)
                 extended_crc = crc32c_extend(body, body_length, extended_crc);
-            }
-            if (dst_crc != extended_crc) {
+            if (dst_crc != extended_crc)
                 return false;
-            }
             set_checksum(dst_crc);
             return true;
         }
