@@ -174,7 +174,7 @@ namespace rpc
     struct Crc32Hasher {
         using ValueType = uint32_t;
 
-        static ValueType init_value() { return 0; };
+        static constexpr ValueType init_value() { return 0; };
 
         static void extend_hash(ValueType& value, const iovector* iov) {
             for (const auto iter : *iov)
