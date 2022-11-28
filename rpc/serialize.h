@@ -202,7 +202,6 @@ namespace rpc
                 extended_crc = crc32c_extend(body, body_length, extended_crc);
             }
             if (dst_crc != extended_crc) {
-                puts("checksum error");
                 return false;
             }
             set_checksum(dst_crc);
