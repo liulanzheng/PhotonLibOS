@@ -154,10 +154,6 @@ namespace rpc
         template<typename AR>
         void serialize_fields(AR& ar) {}
 
-        uint32_t get_checksum() const { return 0; }
-
-        void set_checksum(uint32_t crc) {}
-
         void add_checksum(iovector* iov) {}
 
         bool validate_checksum(iovector* iov, void* body, size_t body_length) { return true; }
@@ -175,36 +171,47 @@ namespace rpc
         }
     };
 
+    struct Crc32Hasher {
+        using ValueType = uint32_t;
+
+        static ValueType init_value() { return 0; };
+
+        static void extend_hash(ValueType& value, const iovector* iov) {
+            for (const auto iter : *iov)
+                value = crc32c_extend(iter.iov_base, iter.iov_len, value);
+        }
+
+        static void extend_hash(ValueType& value, void* buf, size_t length) {
+            value = crc32c_extend(buf, length, value);
+        }
+    };
+
+    template<typename Hasher = Crc32Hasher>
     struct CheckedMessage : public Message {
     public:
-        uint32_t get_checksum() const { return m_crc; }
+        using ValueType = typename Hasher::ValueType;
 
-        void set_checksum(uint32_t crc) { m_crc = crc; }
+        CheckedMessage() : m_checksum(Hasher::init_value()) {}
 
         void add_checksum(iovector* iov) {
-            assert(get_checksum() == 0);
-            uint32_t crc = 0;
-            for (const auto iter : *iov)
-                crc = crc32c_extend(iter.iov_base, iter.iov_len, crc);
-            set_checksum(crc);
+            assert(m_checksum == Hasher::init_value());
+            Hasher::extend_hash(m_checksum, iov);
         }
 
         bool validate_checksum(iovector* iov, void* body, size_t body_length) {
             assert(iov->sum() != 0);
-            uint32_t extended_crc = 0;
-            uint32_t dst_crc = get_checksum();
-            set_checksum(0);
-            for (const auto iter : *iov)
-                extended_crc = crc32c_extend(iter.iov_base, iter.iov_len, extended_crc);
+            auto dst = m_checksum;
+            m_checksum = Hasher::init_value();
+            Hasher::extend_hash(m_checksum, iov);
             if (body != nullptr && body_length != 0)
-                extended_crc = crc32c_extend(body, body_length, extended_crc);
-            if (dst_crc != extended_crc)
+                Hasher::extend_hash(m_checksum, body, body_length);
+            if (dst != m_checksum)
                 return false;
-            set_checksum(dst_crc);
             return true;
         }
-    protected:
-        uint32_t m_crc = 0;
+
+    private:
+        ValueType m_checksum;
     };
 
 #define PROCESS_FIELDS(...)                     \

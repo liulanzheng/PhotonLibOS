@@ -25,14 +25,14 @@ struct TestOperation {
     const static uint32_t IID = 0x1;
     const static uint32_t FID = 0x2;
 
-    struct Request : public photon::rpc::CheckedMessage {
+    struct Request : public photon::rpc::CheckedMessage<> {
         int32_t code;
         photon::rpc::buffer buf;
 
         PROCESS_FIELDS(code, buf);
     };
 
-    struct Response : public photon::rpc::CheckedMessage {
+    struct Response : public photon::rpc::CheckedMessage<> {
         int32_t code;
         photon::rpc::buffer buf;
 
