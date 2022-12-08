@@ -32,18 +32,17 @@ class HeaderAssistant {
 public:
     const HeadersBase* _h;
     HeaderAssistant(const HeadersBase* h) : _h(h) {}
-    //TODO: Case-insensitive string comparison
     bool equal_to(rstring_view16 _k, std::string_view key) const {
-        return (_k | _h->m_buf) == key;
+        return (_k | _h->m_buf).icmp(key) == 0;
     }
     bool less(rstring_view16 _k1, rstring_view16 _k2) const {
-        return (_k1 | _h->m_buf) < (_k2 | _h->m_buf);
+        return (_k1 | _h->m_buf).icmp(_k2 | _h->m_buf) < 0;
     }
     bool less(rstring_view16 _k, std::string_view key) const {
-        return (_k | _h->m_buf) < key;
+        return (_k | _h->m_buf).icmp(key) < 0;
     }
     bool less(std::string_view key, rstring_view16 _k) const {
-        return key < (_k | _h->m_buf);
+        return estring_view(key).icmp(_k | _h->m_buf) < 0;
     }
 };
 
