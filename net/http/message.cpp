@@ -164,7 +164,7 @@ ssize_t Message::write_stream(IStream *input, size_t size_limit) {
     if (message_status < HEADER_SENT && send_header() < 0)
         return -1;
     message_status = BODY_SENT;
-    if (input == nullptr)
+    if (input == nullptr || m_verb == Verb::HEAD)
         return 0;
 
     size_t buf_size = 65536;
@@ -242,6 +242,7 @@ ssize_t Message::resource_size() const {
 }
 
 uint64_t Message::body_size() const {
+    if (m_verb == Verb::HEAD) return 0;
     auto it = headers.find("Content-Length");
     if (it != headers.end()) return estring_view(it.second()).to_uint64();
     // or calc from Content-Range
@@ -272,7 +273,7 @@ inline size_t full_url_size(const URL& u) {
 void Request::make_request_line(Verb v, const URL& u, bool enable_proxy) {
     m_secure = u.secure();
     m_port = u.port();
-    m_verb = (char)v;
+    m_verb = v;
     char* buf = m_buf;
     buf_append(buf, verbstr[v]);
     buf_append(buf, " ");
@@ -340,7 +341,7 @@ int Request::redirect(Verb v, estring_view location, bool enable_proxy) {
 
 int Request::parse_request_line(Parser &p) {
     auto verb_str = p.extract_until_char(' ');
-    m_verb = (char) string_to_verb(m_buf | verb_str);
+    m_verb = string_to_verb(m_buf | verb_str);
     if (verb() == Verb::UNKNOWN)
         LOG_ERROR_RETURN(0, -1, "invalid http method");
     p.skip_chars(' ');

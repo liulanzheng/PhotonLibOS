@@ -240,8 +240,6 @@ public:
         }
 
         resp.headers.content_length(req_size);
-        if (req.verb() == Verb::HEAD)
-            return 0;
         file->lseek(range.first, SEEK_SET);
         return resp.write_stream(&*file, req_size);
     }
