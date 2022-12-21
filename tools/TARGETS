@@ -35,7 +35,6 @@ targets = {
             'libaio-0.3.110.1',
             'fuse-2.9.4',
             'gflags-2.1.2',
-            'fuse-devel-2.9.2',
             'kerberos-1.15.1',
             'keyutils-1.5.8',
             'gsasl-1.8.0',

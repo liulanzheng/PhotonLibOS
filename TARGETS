@@ -36,7 +36,6 @@ targets = {
             'libaio-0.3.110.1:aio',
             'fuse-2.9.4:fuse',
             'gflags-2.1.2:gflags',
-            'fuse-devel-2.9.2',
             'kerberos-1.15.1:krb5',
             'kerberos-1.15.1:k5crypto',
             'kerberos-1.15.1:com_err',
