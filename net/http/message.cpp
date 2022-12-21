@@ -164,7 +164,7 @@ ssize_t Message::write_stream(IStream *input, size_t size_limit) {
     if (message_status < HEADER_SENT && send_header() < 0)
         return -1;
     message_status = BODY_SENT;
-    if (input == nullptr || m_verb == Verb::HEAD)
+    if (input == nullptr)
         return 0;
 
     size_t buf_size = 65536;
