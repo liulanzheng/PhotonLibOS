@@ -63,11 +63,9 @@ targets = {
         srcs = [
             'simplefuse.cpp',
         ],
-        shared_deps = [
-            'fuse-devel-2.9.2',
-        ],
         deps = [
             'boost-1.69.0:boost_atomic',
+            'fuse-2.9.4',
         ],
         ldflags=[
             '-lphoton',
