@@ -51,9 +51,9 @@ namespace photon
                 ((partial_thread*) CURRENT)->tls = nullptr;
             }
             ctrl.start(ctrl.arg);
+            deallocate_tls();
             {
                 SCOPED_LOCK(ctrl.m_mtx);
-                deallocate_tls();
                 if (ctrl.joining) {
                     assert(ctrl.joinable);
                     ctrl.cvar.notify_all();
