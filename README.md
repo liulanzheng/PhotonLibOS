@@ -28,8 +28,8 @@ Here is the article, [en](https://www.reddit.com/r/cpp/comments/zd2hx1/200_lines
   1. Support coroutine local variables. Similar to the C++11 `thread_local` keyword. See [doc](doc/thread-local.md).
   2. Support running on macOS platform, both Intel x86_64 and Apple M1 included.
   3. Support LLVM Clang/Apple Clang/GCC compilers.
-* Photon 0.3 was released on 2 Sep 2022. Except for bug fixes and improvements, a new `photon::std` namespace is added.
-  Developers can search for `std::thread`, `std::mutex` in their own projects, and replace them all into the equivalents of `photon::std::<xxx>`.
+* Photon 0.3 was released on 2 Sep 2022. Except for bug fixes and improvements, a new `photon_std` namespace is added.
+  Developers can search for `std::thread`, `std::mutex` in their own projects, and replace them all into the equivalents of `photon_std::<xxx>`.
   It's a quick way to transform thread-based programs to coroutine-based ones.
 * Photon 0.2 was released on 28 Jul 2022. This release was mainly focused on network socket, security context and multi-vcpu support.
   We re-worked the `WorkPool` so it's more friendly now to write multi-vcpu programs.
