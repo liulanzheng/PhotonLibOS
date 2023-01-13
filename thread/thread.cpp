@@ -806,8 +806,14 @@ _photon_thread_stub:
         th->buf = ptr;
         th->stackful_alloc_top = ptr;
         th->start = start;
-        th->arg = arg;
         th->stack_size = stack_size;
+        auto reserved_size = (uint64_t)arg;
+        if (reserved_size < 1024) {
+            reserved_size = align_up(reserved_size, 64);
+            (uint64_t&)p -= reserved_size;
+            arg = p;
+        }
+        th->arg = arg;
         th->stack.init(p, &_photon_thread_stub);
         AtomicRunQ arq(rq);
         th->vcpu = arq.vcpu;

@@ -74,17 +74,18 @@ struct callable<F&> : public callable<F> {};
 template <class F>
 struct callable<F&&> : public callable<F> {};
 
-#if cplusplus__ < 201700
+#if __cplusplus < 201700
 template <typename F, typename Tuple, std::size_t... I>
-constexpr static decltype(auto) apply_impl(F&& f, Tuple&& t,
+constexpr inline decltype(auto) apply_impl(F&& f, Tuple&& t,
                                            std::index_sequence<I...>) {
-    return f(std::forward<typename std::tuple_element<
-                 I, typename callable<F>::arguments>::type>(std::get<I>(t))...);
+    using Args = typename callable<F>::arguments;
+    return f(std::forward<typename std::tuple_element<I, Args>::type>(
+             std::get<I>(t))...);
 }
 
 // Implementation of a simplified std::apply from C++17
 template <typename F, typename Tuple>
-constexpr static decltype(auto) apply(F&& f, Tuple&& t) {
+constexpr inline decltype(auto) apply(F&& f, Tuple&& t) {
     return apply_impl(
         std::forward<F>(f), std::forward<Tuple>(t),
         std::make_index_sequence<
