@@ -1718,9 +1718,11 @@ struct invoke_overloaded_functor {
     photon::semaphore &sem;
     void operator()(char) {
         sem.signal(1);
+        LOG_DEBUG("functor overloading: ", "void(char)");
     }
     void operator()(int) {
         sem.signal(2);
+        LOG_DEBUG("functor overloading: ", "void(int)");
     }
 };
 
@@ -1748,12 +1750,10 @@ TEST(thread11, functor_invoke) {
     EXPECT_EQ(0, sem.wait(1, 1UL*1000*1000));
     thread_create11(ivf2, 'x');
     EXPECT_EQ(0, sem.wait(1, 1UL*1000*1000));
-/*
     thread_create11(ivf3, 'x');
     EXPECT_EQ(0, sem.wait(1, 1UL*1000*1000));
     thread_create11(ivf3, 123);
     EXPECT_EQ(0, sem.wait(2, 1UL*1000*1000));
-*/
     thread_create11(lambda);
     EXPECT_EQ(0, sem.wait(1, 1UL*1000*1000));
     thread_create11(lambda2, std::ref(sem));
