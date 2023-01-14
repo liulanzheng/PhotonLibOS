@@ -26,8 +26,8 @@ limitations under the License.
 
 namespace photon {
     template<typename Pair>
-    static void* __stub11(void* arg) {
-        auto p = (Pair*)arg;
+    static void* __stub11(void*) {
+        auto p = thread_reserved_space<Pair>(CURRENT);
         tuple_assistance::apply(p->first, p->second);
         return nullptr;
     }
@@ -38,9 +38,9 @@ namespace photon {
     template<typename F, typename SavedArgs, typename...ARGUMENTS> inline
     thread* __thread_create11(uint64_t stack_size, F&& f, ARGUMENTS&&...args) {
         using Pair = std::pair<F, SavedArgs>;
-        static_assert(sizeof(Pair) < MAX_RESERVE_SIZE, "...");
-        auto th = thread_create(&__stub11<Pair>, sizeof(Pair), stack_size);
-        auto p  = thread_reserved_space<Pair>(th); assert(p);
+        static_assert(sizeof(Pair) < UINT16_MAX, "...");
+        auto th = thread_create(&__stub11<Pair>, nullptr, stack_size, sizeof(Pair));
+        auto p  = thread_reserved_space<Pair>(th);
         new (p) Pair{std::forward<F>(f), SavedArgs{std::forward<ARGUMENTS>(args)...}};
         return th;
     }

@@ -50,22 +50,11 @@ namespace photon
     };
 
     // Create a new thread with the entry point `start(arg)` and `stack_size`.
+    // Reserved space can be used to passed large arguments to the new thread.
     typedef void* (*thread_entry)(void*);
     const uint64_t DEFAULT_STACK_SIZE = 8 * 1024 * 1024;
     thread* thread_create(thread_entry start, void* arg,
-                          uint64_t stack_size = DEFAULT_STACK_SIZE);
-
-    // Create a new thread with reserved space of `reserved_size` bytes (< 1024),
-    // whose address will be passed to `start` as argument, and can be obtained
-    // by `thread_reserved_space`, so that it can be used to passed argument
-    // larger than void* to the new thread.
-    const uint64_t MAX_RESERVE_SIZE = 1024;
-    inline thread* thread_create(thread_entry start, uint64_t reserved_size,
-                                 uint64_t stack_size = DEFAULT_STACK_SIZE) {
-        assert(reserved_size < MAX_RESERVE_SIZE);
-        auto arg = (void*)reserved_size;
-        return thread_create(start, arg, stack_size);
-    }
+        uint64_t stack_size = DEFAULT_STACK_SIZE, uint16_t reserved_space = 0);
 
     // get the address of reserved space, which is right below the thread struct.
     template<typename T = void> inline

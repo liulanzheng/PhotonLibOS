@@ -788,7 +788,8 @@ _photon_thread_stub:
 
     extern "C" void _photon_thread_stub();
 
-    thread* thread_create(thread_entry start, void* arg, uint64_t stack_size) {
+    thread* thread_create(thread_entry start, void* arg,
+                uint64_t stack_size, uint16_t reserved_space) {
         RunQ rq;
         if (unlikely(!rq.current))
             LOG_ERROR_RETURN(ENOSYS, nullptr, "Photon not initialized in this vCPU (OS thread)");
@@ -805,14 +806,9 @@ _photon_thread_stub:
         th->stackful_alloc_top = ptr;
         th->start = start;
         th->stack_size = stack_size;
-        auto reserved_size = (uint64_t)arg;
-        if (likely(reserved_size <= MAX_RESERVE_SIZE)) {
-            (uint64_t&)p -= reserved_size;
-            arg = p;
-            (uint64_t&)p &= ~63;
-        }
         th->arg = arg;
-        th->stack.init(p, &_photon_thread_stub, th);
+        auto sp = align_down((uint64_t)p - reserved_space, 64);
+        th->stack.init((void*)sp, &_photon_thread_stub, th);
         AtomicRunQ arq(rq);
         th->vcpu = arq.vcpu;
         arq.vcpu->nthreads++;
