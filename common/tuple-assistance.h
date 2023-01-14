@@ -58,10 +58,8 @@ struct __remove_first_type_in_tuple<std::tuple<T, Ts...>> {
 // functor
 template <class F>
 struct callable {
-private:
     using call_type = callable<decltype(&F::operator())>;
 
-public:
     using return_type = typename call_type::return_type;
 
     using arguments = typename __remove_first_type_in_tuple<

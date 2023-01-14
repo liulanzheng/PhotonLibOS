@@ -35,38 +35,51 @@ namespace photon {
     // The arguments are forwarded to the new thread by value.
     // If an argument does need to be passed by reference,
     // it has to be wrapped by std::ref or std::cref.
-    template<typename F, typename...ARGUMENTS> inline
+    template<typename F, typename SavedArgs, typename...ARGUMENTS> inline
     thread* __thread_create11(uint64_t stack_size, F&& f, ARGUMENTS&&...args) {
-        #define MAKE_TUPLE std::make_tuple(std::forward<ARGUMENTS>(args)...)
-        using Pair = std::pair<F, decltype(MAKE_TUPLE)>;
+        using Pair = std::pair<F, SavedArgs>;
         static_assert(sizeof(Pair) < MAX_RESERVE_SIZE, "...");
         auto th = thread_create(&__stub11<Pair>, sizeof(Pair), stack_size);
         auto p  = thread_reserved_space<Pair>(th); assert(p);
-        new (p) Pair(std::forward<F>(f), MAKE_TUPLE);
-        #undef MAKE_TUPLE
+        new (p) Pair{std::forward<F>(f), SavedArgs{std::forward<ARGUMENTS>(args)...}};
         return th;
     }
+
+    template<typename FUNCTOR, typename...ARGUMENTS>
+    struct FunctorWrapper {
+        typename std::decay<FUNCTOR>::type _obj;
+        __attribute__((always_inline))
+        void operator()(ARGUMENTS&&...args) {
+            _obj(std::forward<ARGUMENTS>(args)...);
+        }
+    };
 
     #define _ENABLE_IF(cond) typename std::enable_if<cond, thread*>::type
 
     template<typename F, typename...ARGUMENTS>
     inline _ENABLE_IF(is_function_pointer<F>::value)
     thread_create11(uint64_t stack_size, F f, ARGUMENTS&&...args) {
-        return __thread_create11(stack_size, f, std::forward<ARGUMENTS>(args)...);
+        using SavedArgs = typename tuple_assistance::callable<F>::arguments;
+        return __thread_create11<F, SavedArgs, ARGUMENTS...>(stack_size,
+            std::forward<F>(f), std::forward<ARGUMENTS>(args)...);
     }
 
     template<typename F, typename...ARGUMENTS>
     inline _ENABLE_IF(is_function_pointer<F>::value)
     thread_create11(F f, ARGUMENTS&&...args) {
-        return __thread_create11(DEFAULT_STACK_SIZE, f, std::forward<ARGUMENTS>(args)...);
+        return thread_create11<F, ARGUMENTS...>(DEFAULT_STACK_SIZE,
+            std::forward<F>(f), std::forward<ARGUMENTS>(args)...);
     }
 
     template<typename CLASS, typename F, typename...ARGUMENTS>
     inline _ENABLE_IF(std::is_member_function_pointer<F>::value)
     thread_create11(uint64_t stack_size, F f, CLASS* obj, ARGUMENTS&&...args) {
         auto pmf = ::get_member_function_address(obj, f);
-        return thread_create11(stack_size, pmf.f, pmf.obj,
-                               std::forward<ARGUMENTS>(args)...);
+        using FF = decltype(pmf.f);
+        using Obj = decltype(pmf.obj);
+        return thread_create11<FF, Obj, ARGUMENTS...>(stack_size,
+            std::forward<FF>(pmf.f), std::forward<Obj>(pmf.obj),
+            std::forward<ARGUMENTS>(args)...);
     }
 
     template<typename CLASS, typename F, typename...ARGUMENTS>
@@ -89,8 +102,11 @@ namespace photon {
     template<typename FUNCTOR, typename...ARGUMENTS>
     inline _ENABLE_IF((is_functor<FUNCTOR, ARGUMENTS...>::value))
     thread_create11(uint64_t stack_size, FUNCTOR&& f, ARGUMENTS&&...args) {
-        return __thread_create11(stack_size, std::forward<FUNCTOR>(f),
-                                             std::forward<ARGUMENTS>(args)...);
+        using Wrapper = FunctorWrapper<FUNCTOR, ARGUMENTS...>;
+        using SavedArgs = std::tuple<typename std::decay<ARGUMENTS>::type ...>;
+        return __thread_create11<Wrapper, SavedArgs, ARGUMENTS...>(
+            stack_size, Wrapper{std::forward<FUNCTOR>(f)},
+            std::forward<ARGUMENTS>(args)...);
     }
 
     template<typename FUNCTOR, typename...ARGUMENTS>
