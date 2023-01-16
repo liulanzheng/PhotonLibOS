@@ -105,7 +105,7 @@ namespace rpc
         string(const std::string& s) { assign(s); }
         string() : base(nullptr, 0) { }
         const char* c_str() const { return cbegin(); }
-        std::string_view sv() const { return {c_str(), size()}; }
+        std::string_view sv() const { return {c_str(), size() - 1}; }
         bool operator==(const string& rhs) const { return sv() == rhs.sv(); }
         bool operator!=(const string& rhs) const { return !(*this == rhs); }
         bool operator<(const string& rhs) const { return sv() < rhs.sv(); }
@@ -301,8 +301,9 @@ namespace rpc
             return static_cast<Derived*>(this);
         }
 
+        // process built-in types
         template<typename T>
-        void process_field(T& x)
+        typename std::enable_if<!std::is_base_of<Message, T>::value>::type process_field(T& x)
         {
         }
 
@@ -350,11 +351,11 @@ namespace rpc
             d()->process_field(x.base_buffer);
         }
 
-        // overload for embedded Message
+        // process embedded Message
         template<typename T, ENABLE_IF_BASE_OF(Message, T)>
         void process_field(T& x)
         {
-            x.serialize_fields(*d());
+            x.process_fields(*d());
         }
     };
 
@@ -555,6 +556,7 @@ namespace rpc
         void append(const K& k, const V& v) {
             static_assert(std::is_base_of<photon::rpc::string, K>::value, "Only support rpc::string as key for now");
             static_assert(std::is_base_of<Message, V>::value, "The value must be a RPC message");
+            static_assert(!std::is_base_of<CheckedMessage<>, V>::value, "The value must not be a RPC CheckedMessage");
 
             off_t offset = m_iov.sum();
             m_iov.push_back(k.addr(), k.size() + 1);
