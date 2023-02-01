@@ -106,6 +106,7 @@ namespace rpc
         string() : base(nullptr, 0) { }
         const char* c_str() const { return cbegin(); }
         std::string_view sv() const { return {c_str(), size() - 1}; }
+        std::string to_std() { return std::string(sv()); };
         bool operator==(const string& rhs) const { return sv() == rhs.sv(); }
         bool operator!=(const string& rhs) const { return !(*this == rhs); }
         bool operator<(const string& rhs) const { return sv() < rhs.sv(); }
@@ -547,49 +548,48 @@ namespace rpc
     public:
         using SortedMap = sorted_map<K, V>;
 
-        ~sorted_map_factory() {
-            if (m_flat_buffer)
-                free(m_flat_buffer);
-        }
-
-        // Append key and value into a temp iov, and append the index
+        // Serialize k/v data into iov, and append the index
         void append(const K& k, const V& v) {
             static_assert(std::is_base_of<photon::rpc::string, K>::value, "Only support rpc::string as key for now");
             static_assert(std::is_base_of<Message, V>::value, "The value must be a RPC message");
             static_assert(!std::is_base_of<CheckedMessage<>, V>::value, "The value must not be a RPC CheckedMessage");
 
-            off_t offset = m_iov.sum();
-            m_iov.push_back(k.addr(), k.size() + 1);
-            typename SortedMap::KeyType key_slice(offset, k.size());
+            m_iov.push_back({k.addr(), k.size()});
+            typename SortedMap::KeyType key_slice(m_offset, k.size());
+            m_offset += k.size();
 
-            offset = m_iov.sum();
             SerializerIOV serializer;
             serializer.serialize((V&) v);
             size_t value_size = serializer.iov.sum();
-            for (auto each : serializer.iov) {
-                m_iov.push_back(each.iov_base, each.iov_len);
+            for (auto& each : serializer.iov) {
+                m_iov.push_back({each.iov_base, each.iov_len});
             }
-            typename SortedMap::MappedType val_slice(offset, value_size);
+            typename SortedMap::MappedType val_slice(m_offset, value_size);
+            m_offset += value_size;
 
             m_index.emplace_back(key_slice, val_slice);
         }
 
-        // Flatten the iov to a buffer, and bind the external sorted_map with this buffer.
+        // Copy iov into a flat_buffer. Assign the external sorted_map to this flat_buffer and the index.
         // Should be used in send side.
         void assign_to(SortedMap* sm) {
             if (m_index.empty())
                 return;
-            m_flat_buffer = malloc(m_iov.sum());
-            m_iov.memcpy_to(m_flat_buffer, m_iov.sum());
-            sm->base_buffer.assign(m_flat_buffer, m_iov.sum());
+
+            m_flat_buffer.reset(new uint8_t[m_offset]);
+            iovector_view view(&m_iov[0], m_iov.size());
+            view.memcpy_to(&m_flat_buffer[0], view.sum());
+
+            sm->base_buffer.assign(&m_flat_buffer[0], m_offset);
             std::sort(m_index.begin(), m_index.end(), typename SortedMap::KeyCompare(&sm->base_buffer));
             sm->index.assign(m_index);
         }
 
     protected:
         std::vector<typename SortedMap::ValueType> m_index;
-        IOVector m_iov;
-        void* m_flat_buffer = nullptr;
+        std::vector<iovec> m_iov;
+        size_t m_offset = 0;
+        std::unique_ptr<uint8_t[]> m_flat_buffer;
     };
 
 }

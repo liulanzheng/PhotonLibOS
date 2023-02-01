@@ -23,6 +23,32 @@ limitations under the License.
 #include <photon/net/socket.h>
 
 
+struct map_value : photon::rpc::Message {
+    map_value() = default;
+    map_value(int a_, const char* b_, char c_) : a(a_), b(b_), c(c_) {}
+
+    int a = 0;
+    photon::rpc::string b;
+    char c = 0;
+
+    PROCESS_FIELDS(a, b, c);
+};
+
+static bool check_map_order(photon::rpc::sorted_map<photon::rpc::string, map_value>& map) {
+    int max = 0;
+    for (auto iter = map.begin(); iter != map.end(); ++iter) {
+        auto& each_val = iter->second;
+        if (each_val.a > max) {
+            max = each_val.a;
+            LOG_DEBUG(each_val.b.c_str());
+        } else {
+            LOG_ERROR("corrupted order");
+            return false;
+        }
+    }
+    return true;
+}
+
 struct user_defined_type : public photon::rpc::CheckedMessage<> {
     static const int f1;
     int f2;
@@ -35,22 +61,12 @@ struct user_defined_type : public photon::rpc::CheckedMessage<> {
         PROCESS_FIELDS(f4_1, f4_2);
     };
     nested_type f4;
+    photon::rpc::sorted_map<photon::rpc::string, map_value> f5;
 
-    PROCESS_FIELDS(f1, f2, f3, f4);
+    PROCESS_FIELDS(f1, f2, f3, f4, f5);
 };
 
 const int user_defined_type::f1 = 1;
-
-struct map_value : photon::rpc::Message {
-    map_value() = default;
-    map_value(int a_, const char* b_, char c_) : a(a_), b(b_), c(c_) {}
-
-    int a;
-    photon::rpc::string b;
-    char c;
-
-    PROCESS_FIELDS(a, b, c);
-};
 
 struct TestOperation {
     const static uint32_t IID = 0x1;
@@ -69,12 +85,17 @@ struct TestOperation {
 
 class TestRPCServer {
 public:
+    struct ServiceReturnValue {
+        photon::rpc::sorted_map_factory<photon::rpc::string, map_value> factory;
+    };
+
     TestRPCServer() : skeleton(photon::rpc::new_skeleton()),
                       server(photon::net::new_tcp_socket_server()) {
         skeleton->register_service<TestOperation>(this);
     }
 
-    int do_rpc_service(TestOperation::Request* req, TestOperation::Response* resp, IOVector* iov, IStream* stream) {
+    ServiceReturnValue do_rpc_service(TestOperation::Request* req, TestOperation::Response* resp,
+                                      IOVector* iov, IStream* stream) {
         assert(req->code == 999);
         for (size_t i = 0; i < req->buf.size(); ++i) {
             char* c = (char*) req->buf.addr() + i;
@@ -96,23 +117,26 @@ public:
             abort();
         }
 
-        int max = 0;
-        for (iter = req->map.begin(); iter != req->map.end(); ++iter) {
-            auto& each_val = iter->second;
-            if (each_val.a > max) {
-                max = each_val.a;
-                LOG_DEBUG(each_val.b.c_str());
-            } else {
-                LOG_ERROR("corrupted order");
-                abort();
-            }
-        }
+        if (!check_map_order(req->map))
+            abort();
 
         resp->f2 = 2;
         resp->f3 = "resp-3";
         resp->f4.f4_1 = 41;
         resp->f4.f4_2 = "resp-4-2";
-        return 0;
+
+        ServiceReturnValue ret;
+
+        map_value v51(51, "val-5-1", '5');
+        map_value v52(52, "val-5-2", '5');
+        map_value v53(53, "val-5-3", '5');
+
+        ret.factory.append("5-1", v51);
+        ret.factory.append("5-3", v53);
+        ret.factory.append("5-2", v52);
+        ret.factory.assign_to(&resp->f5);
+
+        return ret;
     }
 
     int serve(photon::net::ISocketStream* stream) {
@@ -168,6 +192,7 @@ TEST(rpc, message) {
     ASSERT_EQ(0, strcmp(resp->f3.c_str(), "resp-3"));
     ASSERT_EQ(41, resp->f4.f4_1);
     ASSERT_TRUE(resp->f4.f4_2 == "resp-4-2");
+    ASSERT_TRUE(check_map_order(resp->f5));
 
     LOG_INFO("Test finished, shutdown server...");
     ASSERT_EQ(0, server.skeleton->shutdown());
