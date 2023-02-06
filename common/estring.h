@@ -445,20 +445,35 @@ public:
             n);
     }
 
-    using std::string::operator+=;
-    std::string& operator += (const std::string_view &rhs)
+    // using std::string::operator+=;
+    // if a operator+= call is able to forward to std::string append
+    // help to forward it
+    template <typename T, typename = decltype(std::declval<std::string>() +=
+                                              (std::declval<T>()))>
+    estring& operator+=(T&& t) {
+        return (estring&)std::string::operator+=(std::forward<T>(t));
+    }
+    estring& operator += (const std::string_view &rhs)
     {
         return append(rhs);
     }
-    using std::string::append;
-    std::string& append(uint64_t x);
-    std::string& append(const std::string_view& sv)
+    // using std::string::append;
+    // if a append call is able to forward to std::string append
+    // help to forward it
+    template <typename... Args,
+              typename = decltype(std::declval<std::string>().append(
+                  std::declval<Args>()...))>
+    estring& append(Args&&... t) {
+        return (estring&)std::string::append(std::forward<Args>(t)...);
+    }
+    estring& append(uint64_t x);
+    estring& append(const std::string_view& sv)
     {
         return append(sv.data(), sv.size());
     }
 
     template<typename...Ts>
-    std::string& appends(const Ts&...xs)
+    estring& appends(const Ts&...xs)
     {
         return append(make_cat_list(xs...));
     }
@@ -495,7 +510,7 @@ public:
 
     template<typename...Ts>
     __attribute__((always_inline))
-    std::string& append(const CatList<Ts...>& cl)
+    estring& append(const CatList<Ts...>& cl)
     {
         UpperBoundEstimator estimator;
         this->enumerate(cl, estimator);
@@ -506,13 +521,13 @@ public:
     }
 
     template<typename...Ts>
-    std::string& append(const ConditionalCatList<Ts...>& ccl)
+    estring& append(const ConditionalCatList<Ts...>& ccl)
     {
         return ccl._cond ? append(ccl._cl) : *this;
     }
 
     template<typename A, typename B>
-    std::string& append(const ConditionalCatList2<A, B>& x)
+    estring& append(const ConditionalCatList2<A, B>& x)
     {
         return x._cond ? append(x._cl1) : append(x._cl2);
     }
