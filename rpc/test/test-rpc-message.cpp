@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+#include <cmath>
 #include <gtest/gtest.h>
 #include <photon/photon.h>
 #include <photon/rpc/rpc.h>
@@ -61,9 +62,18 @@ struct user_defined_type : public photon::rpc::CheckedMessage<> {
         PROCESS_FIELDS(f4_1, f4_2);
     };
     nested_type f4;
+
     photon::rpc::sorted_map<photon::rpc::string, map_value> f5;
 
-    PROCESS_FIELDS(f1, f2, f3, f4, f5);
+    struct nested_type2 : public photon::rpc::Message {
+        int f6_1 = 61;
+        float f6_2 = 6.2;
+
+        PROCESS_FIELDS(f6_1, f6_2)
+    };
+    photon::rpc::array<nested_type2> f6;
+
+    PROCESS_FIELDS(f1, f2, f3, f4, f5, f6);
 };
 
 const int user_defined_type::f1 = 1;
@@ -87,6 +97,7 @@ class TestRPCServer {
 public:
     struct ServiceReturnValue {
         photon::rpc::sorted_map_factory<photon::rpc::string, map_value> factory;
+        std::vector<TestOperation::Response::nested_type2> f6_list;
     };
 
     TestRPCServer() : skeleton(photon::rpc::new_skeleton()),
@@ -135,6 +146,11 @@ public:
         ret.factory.append("5-3", v53);
         ret.factory.append("5-2", v52);
         ret.factory.assign_to(&resp->f5);
+
+        for (int i = 0; i < 3; ++i) {
+            ret.f6_list.emplace_back(TestOperation::Response::nested_type2());
+        }
+        resp->f6.assign(ret.f6_list);
 
         return ret;
     }
@@ -193,6 +209,9 @@ TEST(rpc, message) {
     ASSERT_EQ(41, resp->f4.f4_1);
     ASSERT_TRUE(resp->f4.f4_2 == "resp-4-2");
     ASSERT_TRUE(check_map_order(resp->f5));
+
+    ASSERT_EQ(61, resp->f6[0].f6_1);
+    ASSERT_TRUE(fabs(resp->f6[2].f6_2 - float(6.2)) < std::numeric_limits<float>::epsilon());
 
     LOG_INFO("Test finished, shutdown server...");
     ASSERT_EQ(0, server.skeleton->shutdown());
