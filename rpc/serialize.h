@@ -68,7 +68,7 @@ namespace rpc
         T* end() const { return begin() + size(); }
         const T* cbegin() const { return begin(); }
         const T* cend() const { return end(); }
-        const T& operator[](long i) const { return ((char*)_ptr)[i]; }
+        const T& operator[](long i) const { return ((T*)_ptr)[i]; }
         const T& front() const    { return (*this)[0]; }
         const T& back() const     { return (*this)[(long)size() - 1]; }
         void assign(const T* x, size_t size) { buffer::assign(x, sizeof(*x) * size); }
@@ -327,10 +327,6 @@ namespace rpc
         template<typename T>
         void process_field(array<T>& x)
         {
-            static_assert(
-                !std::is_base_of<Message, T>::value,
-                "no Messages are allowed");
-
             d()->process_field((buffer&)x);
             for (auto& i: x)
                 d()->process_field(i);
