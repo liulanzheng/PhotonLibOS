@@ -18,6 +18,7 @@ limitations under the License.
 #include <string>
 #include <fcntl.h>
 #include <vector>
+#include <sys/stat.h>
 #include <photon/net/socket.h>
 #include <photon/common/alog-stdstring.h>
 #include <photon/common/estring.h>
