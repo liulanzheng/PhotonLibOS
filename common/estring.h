@@ -471,6 +471,7 @@ public:
         return cat(make_cat_list(xs...));
     }
 
+protected:
     template<typename...Ts>
     class CatList : public std::tuple<Ts...>
     {
@@ -525,7 +526,6 @@ public:
         return x._cond ? cat(x._cl1) : cat(x._cl2);
     }
 
-protected:
     template<typename...Ts>
     static const ConditionalCatList<Ts...>&
                                  cat_item_filter(const ConditionalCatList<Ts...>& x)
