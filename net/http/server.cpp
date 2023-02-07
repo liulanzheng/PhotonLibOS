@@ -172,8 +172,6 @@ public:
 };
 
 
-constexpr static uint64_t KminFileLife = 30 * 1000UL * 1000UL;
-
 class FsHandler : public HTTPHandler {
 public:
     fs::IFileSystem* m_fs;

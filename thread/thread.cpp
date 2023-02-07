@@ -220,7 +220,6 @@ namespace photon
         void init_main_thread_stack() {
 #ifdef __APPLE__
             stack_size = pthread_get_stacksize_np(pthread_self());
-            LOG_INFO(VALUE(stack_size));
 #else
             pthread_attr_t gattr;
             pthread_getattr_np(pthread_self(), &gattr);
