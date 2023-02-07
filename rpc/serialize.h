@@ -99,10 +99,8 @@ namespace rpc
         using base::base;
 
         template<size_t LEN>
-        string(const char (&s)[LEN]) : base(s, LEN) { }
-        string(const char* s) : base(s, strlen(s)+1) { }
-        string(const char* s, size_t len) : base(s, len) { }
-        string(const std::string& s) { assign(s); }
+        string(const char (&s)[LEN]) : base(s, LEN) {}
+        string(std::string_view s) { assign(s); }
         string() : base(nullptr, 0) { }
         const char* c_str() const { return cbegin(); }
         std::string_view sv() const { return {c_str(), size() - 1}; }
@@ -111,13 +109,8 @@ namespace rpc
         bool operator!=(const string& rhs) const { return !(*this == rhs); }
         bool operator<(const string& rhs) const { return sv() < rhs.sv(); }
         bool operator>(const string& rhs) const { return !(*this < rhs); }
-        void assign(const char* s) {
-            base::assign(s, strlen(s) + 1);
-        }
-        void assign(const std::string& s)
-        {
-            array<char>::assign(s.c_str(), s.size()+1);
-        }
+        void assign(std::string_view s) { base::assign(s.data(), s.size() + 1); }
+        void assign(const void* s, size_t len) { buffer::assign(s, len); }
     };
 
     template<typename T1, typename T2>
