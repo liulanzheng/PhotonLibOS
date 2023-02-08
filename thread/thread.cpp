@@ -722,35 +722,39 @@ _photon_thread_stub:
     asm(R"(
 .text
 .globl _photon_switch_context
-_photon_switch_context: // (void** rdi_to, void** rsi_from)
-        push    %rbp
-        mov     %rsp, (%rsi)
-        mov     (%rdi), %rsp
-        pop     %rbp
+_photon_switch_context: // (void** x0_from, void** x1_to)
+        stp x29, x30, [sp, #-16]!
+        mov x29, sp
+        str x29, [x0]
+        ldr x29, [x1]
+        mov sp, x29
+        ldp x29, x30, [sp], #16
         ret
 
 .text
 .globl _photon_switch_context_defer 
-_photon_switch_context_defer:   // (void* rdi_arg, void (*rsi_defer)(void*), void** rdx_to, void** rcx_from)
-        push    %rbp
-        mov     %rsp, (%rcx)
+_photon_switch_context_defer: // (void* x0_arg, void (*x1_defer)(void*), void** x2_to, void** x3_from)
+        stp x29, x30, [sp, #-16]!
+        mov x29, sp
+        str x29, [x3]
 
 .text
 .globl __photon_switch_context_defer_die
-__photon_switch_context_defer_die:  // (void* rdi_arg, void (*rsi_defer)(void*), void** rdx_to_th)
-        mov     (%rdx), %rsp
-        pop     %rbp
-        jmp     *%rsi
+__photon_switch_context_defer_die: // (void* x0_arg, void (*x1_defer)(void*), void** x2_to_th)
+        ldr x29, [x2]
+        mov sp, x29
+        ldp x29, x30, [sp], #16
+        br x1
 
 .text
 .globl __photon_thread_stub
 __photon_thread_stub:
-        mov     0x40(%rbp), %rdi
-        movq    $0, 0x40(%rbp)
-        call    *0x48(%rbp)
-        mov     %rax, 0x48(%rbp)
-        mov     %rbp, %rdi
-        jmp     _photon_thread_die
+        ldp x0, x1, [x29, #0x40] //; load arg, start into x0, x1
+        str xzr, [x29, #0x40]    //; set arg as 0
+        blr x1                   //; start(x0)
+        str x0, [x29, #0x48]     //; retval = result
+        mov x0, x29              //; move th to x0
+        b _photon_thread_die     //; _photon_thread_die(th)
     )");
 #else
     asm(R"(
