@@ -61,6 +61,15 @@ limitations under the License.
 
 #define SCOPED_MEMBER_LOCK(x) SCOPED_LOCK(&(x)->lock, ((bool)x) * 2)
 
+// Define assembly section header for clang and gcc
+#if defined(__APPLE__)
+#define SECTION_HEAD(name) ".text\n" \
+                           ".globl "#name"\n"
+#else
+#define SECTION_HEAD(name) ".section .text."#name",\"axG\",@progbits,_photon_switch_context,comdat\n" \
+                           ".type "#name", @function\n"
+#endif
+
 static constexpr size_t PAGE_SIZE = 1 << 12;
 
 namespace photon
@@ -220,6 +229,7 @@ namespace photon
         void init_main_thread_stack() {
 #ifdef __APPLE__
             stack_size = pthread_get_stacksize_np(pthread_self());
+            stackful_alloc_top = (char*) pthread_get_stackaddr_np(pthread_self());
 #else
             pthread_attr_t gattr;
             pthread_getattr_np(pthread_self(), &gattr);
@@ -614,76 +624,43 @@ namespace photon
     }
 
     static void _photon_thread_die(thread* th) asm("_photon_thread_die");
-#ifdef __x86_64__
-#ifdef __APPLE__
-    asm(R"(
-.text
-.globl _photon_switch_context
-_photon_switch_context: // (void** rdi_to, void** rsi_from)
+
+#if defined(__x86_64__)
+
+    asm(
+SECTION_HEAD(_photon_switch_context)
+R"(_photon_switch_context: // (void** rdi_to, void** rsi_from)
         push    %rbp
         mov     %rsp, (%rsi)
         mov     (%rdi), %rsp
         pop     %rbp
         ret
+)"
 
-.text
-.globl _photon_switch_context_defer 
-_photon_switch_context_defer:   // (void* rdi_arg, void (*rsi_defer)(void*), void** rdx_to, void** rcx_from)
+SECTION_HEAD(_photon_switch_context_defer)
+R"(_photon_switch_context_defer:   // (void* rdi_arg, void (*rsi_defer)(void*), void** rdx_to, void** rcx_from)
         push    %rbp
         mov     %rsp, (%rcx)
+)"
 
-.text
-.globl __photon_switch_context_defer_die
-__photon_switch_context_defer_die:  // (void* rdi_arg, void (*rsi_defer)(void*), void** rdx_to_th)
+SECTION_HEAD(_photon_switch_context_defer_die)
+R"(_photon_switch_context_defer_die:  // (void* rdi_arg, void (*rsi_defer)(void*), void** rdx_to_th)
         mov     (%rdx), %rsp
         pop     %rbp
         jmp     *%rsi
+)"
 
-.text
-.globl __photon_thread_stub
-__photon_thread_stub:
+SECTION_HEAD(_photon_thread_stub)
+R"(_photon_thread_stub:
         mov     0x40(%rbp), %rdi
         movq    $0, 0x40(%rbp)
         call    *0x48(%rbp)
         mov     %rax, 0x48(%rbp)
         mov     %rbp, %rdi
         jmp     _photon_thread_die
-    )");
-#else
-    asm(R"(
-.section	.text._photon_switch_context,"axG",@progbits,_photon_switch_context,comdat
-.type	_photon_switch_context, @function
-_photon_switch_context: // (void** rdi_to, void** rsi_from)
-        push    %rbp
-        mov     %rsp, (%rsi)
-        mov     (%rdi), %rsp
-        pop     %rbp
-        ret
+)"
+    );
 
-.section	.text._photon_switch_context_defer,"axG",@progbits,_photon_switch_context_defer,comdat
-.type	_photon_switch_context_defer, @function
-_photon_switch_context_defer:   // (void* rdi_arg, void (*rsi_defer)(void*), void** rdx_to, void** rcx_from)
-        push    %rbp
-        mov     %rsp, (%rcx)
-
-.section	.text._photon_switch_context_defer_die,"axG",@progbits,_photon_switch_context_defer_die,comdat
-.type	_photon_switch_context_defer_die, @function
-_photon_switch_context_defer_die:  // (void* rdi_arg, void (*rsi_defer)(void*), void** rdx_to_th)
-        mov     (%rdx), %rsp
-        pop     %rbp
-        jmp     *%rsi
-
-.section	.text._photon_thread_stub,"axG",@progbits,_photon_thread_stub,comdat
-.type	_photon_thread_stub, @function
-_photon_thread_stub:
-        mov     0x40(%rbp), %rdi
-        movq    $0, 0x40(%rbp)
-        call    *0x48(%rbp)
-        mov     %rax, 0x48(%rbp)
-        mov     %rbp, %rdi
-        jmp     _photon_thread_die
-    )");
-#endif
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
     static_assert(offsetof(thread, arg)   == 0x40, "...");
@@ -717,12 +694,12 @@ _photon_thread_stub:
             : "rax", "rbx", "r8", "r9", "r10", "r11", "r12", "r13", "r14",
               "r15");
     }
+
 #elif defined(__aarch64__) || defined(__arm64__)
-#ifdef __APPLE__
-    asm(R"(
-.text
-.globl _photon_switch_context
-_photon_switch_context: // (void** x0_from, void** x1_to)
+
+    asm(
+SECTION_HEAD(_photon_switch_context)
+R"(_photon_switch_context: //; (void** x0_from, void** x1_to)
         stp x29, x30, [sp, #-16]!
         mov x29, sp
         str x29, [x0]
@@ -730,71 +707,33 @@ _photon_switch_context: // (void** x0_from, void** x1_to)
         mov sp, x29
         ldp x29, x30, [sp], #16
         ret
+)"
 
-.text
-.globl _photon_switch_context_defer 
-_photon_switch_context_defer: // (void* x0_arg, void (*x1_defer)(void*), void** x2_to, void** x3_from)
+SECTION_HEAD(_photon_switch_context_defer)
+R"(_photon_switch_context_defer: //; (void* x0_arg, void (*x1_defer)(void*), void** x2_to, void** x3_from)
         stp x29, x30, [sp, #-16]!
         mov x29, sp
         str x29, [x3]
+)"
 
-.text
-.globl __photon_switch_context_defer_die
-__photon_switch_context_defer_die: // (void* x0_arg, void (*x1_defer)(void*), void** x2_to_th)
+SECTION_HEAD(_photon_switch_context_defer_die)
+R"(_photon_switch_context_defer_die: //; (void* x0_arg, void (*x1_defer)(void*), void** x2_to_th)
         ldr x29, [x2]
         mov sp, x29
         ldp x29, x30, [sp], #16
         br x1
+)"
 
-.text
-.globl __photon_thread_stub
-__photon_thread_stub:
+SECTION_HEAD(_photon_thread_stub)
+R"(_photon_thread_stub:
         ldp x0, x1, [x29, #0x40] //; load arg, start into x0, x1
         str xzr, [x29, #0x40]    //; set arg as 0
         blr x1                   //; start(x0)
         str x0, [x29, #0x48]     //; retval = result
         mov x0, x29              //; move th to x0
         b _photon_thread_die     //; _photon_thread_die(th)
-    )");
-#else
-    asm(R"(
-.section	.text._photon_switch_context,"axG",@progbits,_photon_switch_context,comdat
-.type  _photon_switch_context, %function
-_photon_switch_context: //; (void** x0_from, void** x1_to)
-        stp x29, x30, [sp, #-16]!
-        mov x29, sp
-        str x29, [x0]
-        ldr x29, [x1]
-        mov sp, x29
-        ldp x29, x30, [sp], #16
-        ret
-
-.section	.text._photon_switch_context_defer,"axG",@progbits,_photon_switch_context_defer,comdat
-.type  _photon_switch_context_defer, %function
-_photon_switch_context_defer: //; (void* x0_arg, void (*x1_defer)(void*), void** x2_to, void** x3_from)
-        stp x29, x30, [sp, #-16]!
-        mov x29, sp
-        str x29, [x3]
-
-.section	.text._photon_switch_context_defer_die,"axG",@progbits,_photon_switch_context_defer_die,comdat
-.type  _photon_switch_context_defer_die, %function
-_photon_switch_context_defer_die: //; (void* x0_arg, void (*x1_defer)(void*), void** x2_to_th)
-        ldr x29, [x2]
-        mov sp, x29
-        ldp x29, x30, [sp], #16
-        br x1
-
-.section	.text._photon_thread_stub,"axG",@progbits,_photon_thread_stub,comdat
-.type  _photon_thread_stub, %function
-_photon_thread_stub:
-        ldp x0, x1, [x29, #0x40] //; load arg, start into x0, x1
-        str xzr, [x29, #0x40]    //; set arg as 0
-        blr x1                   //; start(x0)
-        str x0, [x29, #0x48]     //; retval = result
-        mov x0, x29              //; move th to x0
-        b _photon_thread_die     //; _photon_thread_die(th)
-    )");
-#endif
+)"
+    );
 
     inline void switch_context(thread* from, thread* to) {
         prepare_switch(from, to);
@@ -831,10 +770,11 @@ _photon_thread_stub:
                        "x17", "x18");
     }
 
-#endif
+#endif  // x86 or arm
 
-    extern "C" void _photon_switch_context_defer_die(void* arg,
-                           uint64_t defer_func_addr, void** to);
+    extern "C" void _photon_switch_context_defer_die(void* arg,uint64_t defer_func_addr, void** to)
+        asm ("_photon_switch_context_defer_die");
+
     inline void thread::die() {
         deallocate_tls(&tls);
         // if CURRENT is idle stub and during vcpu_fini
@@ -866,7 +806,7 @@ _photon_thread_stub:
         th->die();
     }
 
-    extern "C" void _photon_thread_stub();
+    extern "C" void _photon_thread_stub() asm ("_photon_thread_stub");
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"

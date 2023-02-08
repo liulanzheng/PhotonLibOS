@@ -164,10 +164,12 @@ brew install cmake openssl
 ### 2. Build from source
 ```shell
 cd PhotonLibOS
-cmake -B build    # On macOS, we need add -DOPENSSL_ROOT_DIR=/path/to/openssl/. Normally, path to openssl is /usr/local/opt/openssl for x86 and /opt/homebrew/opt/openssl for M1.
+cmake -B build
 cmake --build build -j
 ```
-All the libs and executables will be saved in `build/output`.
+
+- On macOS, we need to add `-DOPENSSL_ROOT_DIR=/path/to/openssl/`. This path is often managed by Homebrew.
+- All the libs and executables will be saved in `build/output`.
 
 ### 3. Examples / Testing
 
