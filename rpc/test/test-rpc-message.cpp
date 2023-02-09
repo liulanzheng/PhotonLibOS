@@ -268,7 +268,7 @@ TEST(rpc, variable_length_serialization) {
 }
 
 int main(int argc, char** arg) {
-    if (photon::init(photon::INIT_EVENT_EPOLL, photon::INIT_IO_NONE))
+    if (photon::init(photon::INIT_EVENT_DEFAULT, photon::INIT_IO_NONE))
         return -1;
     DEFER(photon::fini());
     ::testing::InitGoogleTest(&argc, arg);

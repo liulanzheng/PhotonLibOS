@@ -23,7 +23,8 @@ struct Value {
         printf("Construct %d\n", m_val);
     }
     ~Value() {
-        printf("Destruct %d\n", m_val);
+        // printf("Destruct %d\n", m_val);
+        puts("Destruct");
     }
     int m_val;
 };
@@ -44,7 +45,7 @@ struct GlobalEnv {
     GlobalEnv() {
         printf("Construct GlobalEnv\n");
         // WARING: No photon tls can be accessed BEFORE photon_init
-        ASSERT(photon::init() == 0);
+        ASSERT(photon::init(photon::INIT_EVENT_DEFAULT, photon::INIT_IO_NONE) == 0);
         ASSERT(photon_std::work_pool_init(4) == 0);
         get_v1().m_val = -1;
     }

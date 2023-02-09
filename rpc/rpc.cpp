@@ -161,13 +161,15 @@ namespace rpc {
             OooArgs args(this, function, request, response, tmo.timeout());
             ret = ooo_issue_operation(args);
             if (ret < 0) {
-                ERRNO err;
-                LOG_ERRNO_RETURN((err.no == ECONNRESET) ? ECONNRESET : EFAULT, -1, "failed to send request");
+                if (errno != ECONNRESET)
+                    errno = EFAULT;
+                LOG_ERRNO_RETURN(0, -1, "failed to send request");
             }
             ret = ooo_wait_completion(args);
             if (ret < 0) {
-                ERRNO err;
-                LOG_ERRNO_RETURN((err.no == ECONNRESET) ? ECONNRESET : EFAULT, -1, "failed to receive response ");
+                if (errno != ECONNRESET)
+                    errno = EFAULT;
+                LOG_ERRNO_RETURN(0, -1, "failed to receive response ");
             } else if (ret > (int) response->sum()) {
                 LOG_ERROR_RETURN(0, -1, "RPC: response iov buffer is too small");
             }
