@@ -63,11 +63,12 @@ limitations under the License.
 
 // Define assembly section header for clang and gcc
 #if defined(__APPLE__)
-#define SECTION_HEAD(name) ".text\n" \
-                           ".globl "#name"\n"
+#define DEF_ASM_FUNC(name) ".text\n" \
+                           #name": "
 #else
-#define SECTION_HEAD(name) ".section .text."#name",\"axG\",@progbits,_photon_switch_context,comdat\n" \
-                           ".type "#name", @function\n"
+#define DEF_ASM_FUNC(name) ".section .text."#name",\"axG\",@progbits,_photon_switch_context,comdat\n" \
+                           ".type "#name", @function\n" \
+                           #name": "
 #endif
 
 static constexpr size_t PAGE_SIZE = 1 << 12;
@@ -628,8 +629,8 @@ namespace photon
 #if defined(__x86_64__)
 
     asm(
-SECTION_HEAD(_photon_switch_context)
-R"(_photon_switch_context: // (void** rdi_to, void** rsi_from)
+DEF_ASM_FUNC(_photon_switch_context)
+R"(// (void** rdi_to, void** rsi_from)
         push    %rbp
         mov     %rsp, (%rsi)
         mov     (%rdi), %rsp
@@ -637,21 +638,21 @@ R"(_photon_switch_context: // (void** rdi_to, void** rsi_from)
         ret
 )"
 
-SECTION_HEAD(_photon_switch_context_defer)
-R"(_photon_switch_context_defer:   // (void* rdi_arg, void (*rsi_defer)(void*), void** rdx_to, void** rcx_from)
+DEF_ASM_FUNC(_photon_switch_context_defer)
+R"(// (void* rdi_arg, void (*rsi_defer)(void*), void** rdx_to, void** rcx_from)
         push    %rbp
         mov     %rsp, (%rcx)
 )"
 
-SECTION_HEAD(_photon_switch_context_defer_die)
-R"(_photon_switch_context_defer_die:  // (void* rdi_arg, void (*rsi_defer)(void*), void** rdx_to_th)
+DEF_ASM_FUNC(_photon_switch_context_defer_die)
+R"(// (void* rdi_arg, void (*rsi_defer)(void*), void** rdx_to_th)
         mov     (%rdx), %rsp
         pop     %rbp
         jmp     *%rsi
 )"
 
-SECTION_HEAD(_photon_thread_stub)
-R"(_photon_thread_stub:
+DEF_ASM_FUNC(_photon_thread_stub)
+R"(
         mov     0x40(%rbp), %rdi
         movq    $0, 0x40(%rbp)
         call    *0x48(%rbp)
@@ -698,8 +699,8 @@ R"(_photon_thread_stub:
 #elif defined(__aarch64__) || defined(__arm64__)
 
     asm(
-SECTION_HEAD(_photon_switch_context)
-R"(_photon_switch_context: //; (void** x0_from, void** x1_to)
+DEF_ASM_FUNC(_photon_switch_context)
+R"(//; (void** x0_from, void** x1_to)
         stp x29, x30, [sp, #-16]!
         mov x29, sp
         str x29, [x0]
@@ -709,23 +710,23 @@ R"(_photon_switch_context: //; (void** x0_from, void** x1_to)
         ret
 )"
 
-SECTION_HEAD(_photon_switch_context_defer)
-R"(_photon_switch_context_defer: //; (void* x0_arg, void (*x1_defer)(void*), void** x2_to, void** x3_from)
+DEF_ASM_FUNC(_photon_switch_context_defer)
+R"(//; (void* x0_arg, void (*x1_defer)(void*), void** x2_to, void** x3_from)
         stp x29, x30, [sp, #-16]!
         mov x29, sp
         str x29, [x3]
 )"
 
-SECTION_HEAD(_photon_switch_context_defer_die)
-R"(_photon_switch_context_defer_die: //; (void* x0_arg, void (*x1_defer)(void*), void** x2_to_th)
+DEF_ASM_FUNC(_photon_switch_context_defer_die)
+R"(//; (void* x0_arg, void (*x1_defer)(void*), void** x2_to_th)
         ldr x29, [x2]
         mov sp, x29
         ldp x29, x30, [sp], #16
         br x1
 )"
 
-SECTION_HEAD(_photon_thread_stub)
-R"(_photon_thread_stub:
+DEF_ASM_FUNC(_photon_thread_stub)
+R"(
         ldp x0, x1, [x29, #0x40] //; load arg, start into x0, x1
         str xzr, [x29, #0x40]    //; set arg as 0
         blr x1                   //; start(x0)
