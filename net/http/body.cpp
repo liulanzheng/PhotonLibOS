@@ -148,11 +148,10 @@ public:
     ssize_t read_from_line_buf(void* &buf, size_t &count) {
         //read from line_buf
         ssize_t ret = 0;
-        while (m_cursor < m_line_size && !m_finish) {
+        while (count > 0 && m_cursor < m_line_size && !m_finish) {
             //read chunk
             auto read_from_line = std::min(count,
-                                    std::min(m_chunked_remain,
-                                    m_line_size - m_cursor));
+                                           std::min(m_chunked_remain, m_line_size - m_cursor));
             memcpy(buf, m_get_line_buf + m_cursor, read_from_line);
             m_cursor += read_from_line;
             buf = (char*)buf + read_from_line;
@@ -186,7 +185,7 @@ public:
         while (!get_line_finish && !m_finish) {
             assert(m_line_size != LINE_BUFFER_SIZE);
             auto r = m_stream->recv(m_get_line_buf + m_line_size,
-                                            LINE_BUFFER_SIZE - m_line_size);
+                                    LINE_BUFFER_SIZE - m_line_size);
             if (r < 0) return r;
             m_line_size += r;
             if (m_line_size <= 2) continue; // too small
