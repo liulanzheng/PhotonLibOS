@@ -23,8 +23,7 @@ struct Value {
         printf("Construct %d\n", m_val);
     }
     ~Value() {
-        // printf("Destruct %d\n", m_val);
-        puts("Destruct");
+        printf("Destruct %d\n", m_val);
     }
     int m_val;
 };
