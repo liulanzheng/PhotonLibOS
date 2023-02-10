@@ -22,46 +22,33 @@ limitations under the License.
 namespace photon {
 namespace net {
 
-constexpr static size_t SOCKET_ADDRESS_BUFFER_SIZE = 128;
-
 class IDatagramSocket : public IMessage,
                         public ISocketBase,
                         public ISocketName {
 protected:
-    struct Addr {
-        size_t len = sizeof(buf);
-        char buf[SOCKET_ADDRESS_BUFFER_SIZE];
+    virtual int connect(const Addr* addr, size_t addr_len) = 0;
+    virtual int bind(const Addr* addr, size_t addr_len) = 0;
 
-        Addr() = default;
-        Addr(EndPoint);
-        Addr(const char*);
-        // maybe supports IPV6 later...
-
-        void to_endpoint(EndPoint*);
-        void to_path(char*, size_t);
-    };
+    IMessage* cast() { return (IMessage*)this; }
 
     template <typename B, typename S>
-    ssize_t sendto(B* buf, S count, const Addr* addr, int flags = 0) {
-        return ((IMessage*)this)->send(buf, count, addr->buf, addr->len, flags);
+    ssize_t sendto(B* buf, S count, const Addr* to_addr,
+                   size_t addr_len, int flags = 0) {
+        return cast()->send(buf, count, to_addr, addr_len, flags);
     }
     template <typename B, typename S>
-    ssize_t recvfrom(B* buf, S count, Addr* from, int flags = 0) {
-        return ((IMessage*)this)
-            ->recv(buf, count, from->buf, &from->len, flags);
+    ssize_t recvfrom(B* buf, S count, Addr* from_addr,
+                     size_t* addr_len, int flags = 0) {
+        return cast()->recv(buf, count, from_addr, addr_len, flags);
     }
-
-public:
-    virtual int connect(Addr* addr) = 0;
-    virtual int bind(Addr* addr) = 0;
 
     template <typename B, typename S>
     ssize_t send(B* buf, S count, int flags = 0) {
-        return ((IMessage*)this)->send(buf, count, nullptr, 0, flags);
+        return cast()->send(buf, count, nullptr, 0, flags);
     }
     template <typename B, typename S>
     ssize_t recv(B* buf, S count, int flags = 0) {
-        return ((IMessage*)this)->recv(buf, count, nullptr, nullptr, flags);
+        return cast()->recv(buf, count, nullptr, nullptr, flags);
     }
 };
 
@@ -73,24 +60,19 @@ protected:
 
 public:
     int connect(const EndPoint ep) {
-        Addr a(ep);
-        return connect(&a);
+        return connect((Addr*)&ep, sizeof(ep));
     }
     int bind(const EndPoint ep) {
-        Addr a(ep);
-        return bind(&a);
+        return bind((Addr*)&ep, sizeof(ep));
     }
     template <typename B, typename S>
     ssize_t sendto(B* buf, S count, const EndPoint ep, int flags = 0) {
-        Addr a(ep);
-        return base::sendto(buf, count, &a, flags);
+        return base::sendto(buf, count, (Addr*)&ep, sizeof(ep), flags);
     }
     template <typename B, typename S>
     ssize_t recvfrom(B* buf, S count, EndPoint* from, int flags = 0) {
-        Addr a;
-        auto ret = base::recvfrom(buf, count, &a, flags);
-        a.to_endpoint(from);
-        return ret;
+        size_t addr_len = sizeof(*from);
+        return base::recvfrom(buf, count, (Addr*)from, &addr_len, flags);
     }
 };
 
@@ -101,18 +83,18 @@ protected:
     using base::connect;
 
 public:
-    int connect(const char* ep) {
-        Addr a(ep);
-        return connect(&a);
+    int connect(const char* path) {
+        return base::connect((Addr*)path);
     }
-    int bind(const char* ep) {
-        Addr a(ep);
-        return bind(&a);
+    int bind(const char* path) {
+        return base::bind((Addr*)path);
     }
+    void sendto() = delete;
+    void recvfrom() = delete;
+/*
     template <typename B, typename S>
-    ssize_t sendto(B* buf, S count, const char* ep, int flags = 0) {
-        Addr a(ep);
-        return base::sendto(buf, count, &a, flags);
+    ssize_t sendto(B* buf, S count, const char* path, int flags = 0) {
+        return base::sendto(buf, count, path, 0, flags);
     }
     // Unix Domain Socket can not detect recvfrom address
     // just ignore it, and forward to `recv` method
@@ -120,6 +102,7 @@ public:
     ssize_t recvfrom(B* buf, S count, char* from, size_t len, int flags = 0) {
         return base::recv(buf, count, flags);
     }
+*/
 };
 
 UDPSocket* new_udp_socket();

@@ -17,6 +17,7 @@ limitations under the License.
 #include "datagram_socket.h"
 
 #include <photon/common/alog.h>
+#include <photon/common/utility.h>
 #include <photon/io/fd-events.h>
 #include <photon/net/basic_socket.h>
 #include <photon/net/socket.h>
@@ -29,19 +30,23 @@ namespace net {
 constexpr static size_t MAX_UDP_MESSAGE_SIZE = 65507UL;
 constexpr static size_t MAX_UDS_MESSAGE_SIZE = 207UL * 1024;
 
-class UDPSocketImpl : public IDatagramSocket {
+class DatagramSocketBase : public IDatagramSocket {
 protected:
-    int fd;
-    uint64_t m_timeout;
+    uint64_t m_timeout = -1;
     const size_t m_max_msg_size;
+    int fd;
 
 public:
-    UDPSocketImpl(int AF, size_t maxsize)
-        : fd(::socket(AF, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0)),
-          m_timeout(-1),
-          m_max_msg_size(maxsize) {}
+    DatagramSocketBase(int AF, size_t maxsize) :
+        fd(AF), m_max_msg_size(maxsize) {}
 
-    ~UDPSocketImpl() override {
+    int init() {
+        auto AF = fd;
+        fd = ::socket(AF, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
+        return fd < 0;
+    }
+
+    ~DatagramSocketBase() override {
         if (fd != -1) ::close(fd);
     }
 
@@ -51,44 +56,39 @@ public:
 
     virtual uint64_t max_message_size() override { return m_max_msg_size; }
 
-    virtual int connect(Addr* addr) override {
+    int do_connect(struct sockaddr* addr, size_t addr_len) {
         return doio(
-            [&] {
-                return ::connect(fd, (struct sockaddr*)addr->buf, addr->len);
-            },
-            [&] { return photon::wait_for_fd_writable(fd); });
-    }
-    virtual int bind(Addr* addr) override {
-        return doio(
-            [&] { return ::bind(fd, (struct sockaddr*)addr->buf, addr->len); },
+            [&] { return ::connect(fd, addr, addr_len); },
             [&] { return photon::wait_for_fd_writable(fd); });
     }
 
-    virtual ssize_t send(const struct iovec* iov, int iovcnt, const void* addr,
-                         size_t addrlen, int flags = 0) override {
+    int do_bind(struct sockaddr* addr, size_t addr_len) {
+        return ::bind(fd, addr, addr_len);
+    }
+    ssize_t do_send(const iovec* iov, int iovcnt, sockaddr* addr,
+                    size_t addrlen, int flags = 0) {
+        flags |= MSG_NOSIGNAL;
         struct msghdr hdr {
             .msg_name = (void*)addr, .msg_namelen = (socklen_t)addrlen,
-            .msg_iov = (struct iovec*)iov, .msg_iovlen = (size_t)iovcnt,
-            .msg_control = nullptr, .msg_controllen = 0,
-            .msg_flags = MSG_NOSIGNAL | flags,
+            .msg_iov = (iovec*)iov,  .msg_iovlen = (size_t)iovcnt,
+            .msg_control = nullptr,  .msg_controllen = 0,
+            .msg_flags = flags,
         };
         return doio(
-            [&] {
-                return ::sendmsg(fd, &hdr, MSG_NOSIGNAL | MSG_DONTWAIT | flags);
-            },
+            [&] { return ::sendmsg(fd, &hdr, MSG_DONTWAIT | flags); },
             [&] { return photon::wait_for_fd_writable(fd); });
     }
-    virtual ssize_t recv(const struct iovec* iov, int iovcnt, void* addr,
-                         size_t* addrlen, int flags) override {
+    ssize_t do_recv(const iovec* iov, int iovcnt, sockaddr* addr,
+                    size_t* addrlen, int flags) {
         struct msghdr hdr {
-            .msg_name = addr, .msg_namelen = addrlen ? (socklen_t)*addrlen : 0,
-            .msg_iov = (struct iovec*)iov, .msg_iovlen = (size_t)iovcnt,
-            .msg_control = nullptr, .msg_controllen = 0,
+            .msg_name = (void*)addr, .msg_namelen = (socklen_t)*addrlen,
+            .msg_iov = (iovec*)iov,  .msg_iovlen = (size_t)iovcnt,
+            .msg_control = nullptr,  .msg_controllen = 0,
             .msg_flags = MSG_NOSIGNAL | flags,
         };
-        auto ret =
-            doio([&] { return ::recvmsg(fd, &hdr, MSG_DONTWAIT | flags); },
-                 [&] { return photon::wait_for_fd_readable(fd); });
+        auto ret = doio(
+            [&] { return ::recvmsg(fd, &hdr, MSG_DONTWAIT | flags); },
+            [&] { return photon::wait_for_fd_readable(fd); });
         if (addrlen) *addrlen = hdr.msg_namelen;
         return ret;
     }
@@ -106,79 +106,118 @@ public:
     // get/set timeout, in us, (default +∞)
     virtual uint64_t timeout() const override { return m_timeout; }
     virtual void timeout(uint64_t tm) override { m_timeout = tm; }
-
     virtual int getsockname(EndPoint& addr) override {
-        struct sockaddr_in buf;
-        socklen_t len = sizeof(buf);
-        auto ret = ::getsockname(fd, (struct sockaddr*)&buf, &len);
-        if (ret >= 0 && buf.sin_family == AF_INET) addr.from_sockaddr_in(buf);
-        return ret;
+        return get_socket_name(fd, addr);
     }
     virtual int getpeername(EndPoint& addr) override {
-        struct sockaddr_in buf;
-        socklen_t len = sizeof(buf);
-        auto ret = ::getpeername(fd, (struct sockaddr*)&buf, &len);
-        if (ret >= 0 && buf.sin_family == AF_INET) addr.from_sockaddr_in(buf);
-        return ret;
+        return get_peer_name(fd, addr);
     }
     virtual int getsockname(char* path, size_t count) override {
-        struct sockaddr_un buf;
-        socklen_t len = sizeof(buf);
-        auto ret = ::getsockname(fd, (struct sockaddr*)&buf, &len);
-        if (ret >= 0 && buf.sun_family == AF_UNIX)
-            strncpy(path, buf.sun_path, count);
-        return ret;
+        return get_socket_name(fd, path, count);
     }
     virtual int getpeername(char* path, size_t count) override {
-        struct sockaddr_un buf;
-        socklen_t len = sizeof(buf);
-        auto ret = ::getpeername(fd, (struct sockaddr*)&buf, &len);
-        if (ret >= 0 && buf.sun_family == AF_UNIX)
-            strncpy(path, buf.sun_path, count);
+        return get_peer_name(fd, path, count);
+    }
+};
+
+class UDP : public DatagramSocketBase {
+public:
+    virtual int connect(const Addr* addr, size_t addr_len) override {
+        auto ep = (EndPoint*)addr;
+        assert(ep && addr_len == sizeof(*ep));
+        auto in = ep->to_sockaddr_in();
+        return do_connect((sockaddr*)&in, sizeof(in));
+    }
+    virtual int bind(const Addr* addr, size_t addr_len) override {
+        auto ep = (EndPoint*)addr;
+        assert(ep && addr_len == sizeof(*ep));
+        auto in = ep->to_sockaddr_in();
+        return do_bind((sockaddr*)&in, sizeof(in));
+    }
+    virtual ssize_t send(const struct iovec* iov, int iovcnt, const Addr* addr,
+                         size_t addr_len, int flags = 0) override {
+        auto ep = (EndPoint*)addr;
+        assert(addr_len == sizeof(*ep));
+        if (likely(!ep) || unlikely(addr_len != sizeof(*ep)))
+            return do_send(iov, iovcnt, nullptr, 0, flags);
+
+        auto in = ep->to_sockaddr_in();
+        return do_send(iov, iovcnt, (sockaddr*)&in, sizeof(in), flags);
+    }
+    virtual ssize_t recv(const struct iovec* iov, int iovcnt, Addr* addr,
+                         size_t* addr_len, int flags) override {
+        auto ep = (EndPoint*)addr;
+        if (likely(!ep || !addr_len) || unlikely(*addr_len != sizeof(*ep))) {
+            return do_recv(iov, iovcnt, nullptr, 0, flags);
+        }
+
+        sockaddr_in in;
+        size_t alen = sizeof(in);
+        auto ret = do_recv(iov, iovcnt, (sockaddr*)&in, &alen, flags);
+        if (ret >= 0) {
+            ep->from(in);
+            *addr_len = sizeof(*ep);
+        }
         return ret;
     }
 };
 
-static_assert(SOCKET_ADDRESS_BUFFER_SIZE >= _SS_SIZE,
-              "address buffer less than system socket storage buffer size");
-
-IDatagramSocket::Addr::Addr(EndPoint ep) {
-    *(struct sockaddr_in*)buf = ep.to_sockaddr_in();
-    len = sizeof(struct sockaddr_in);
-}
-IDatagramSocket::Addr::Addr(const char* path) {
-    auto un = (struct sockaddr_un*)buf;
-    fill_uds_path(*un, path, 0);
-    len = sizeof(struct sockaddr_un);
-}
-
-void IDatagramSocket::Addr::to_endpoint(EndPoint* ep) {
-    if (!ep) return;
-    auto in = (struct sockaddr_in*)buf;
-    if (in->sin_family != AF_INET) return;
-    ep->from_sockaddr_in(*in);
-}
-void IDatagramSocket::Addr::to_path(char* path, size_t len) {
-    if (!path || !len) return;
-    auto un = (struct sockaddr_un*)buf;
-    if (un->sun_family != AF_UNIX) return;
-    strncpy(path, un->sun_path, std::min(sizeof(un->sun_path) - 1, len - 1));
-}
-
-inline IDatagramSocket* _new_udp_socket(int af) {
-    auto ret = new UDPSocketImpl(
-        af, af == AF_UNIX ? MAX_UDS_MESSAGE_SIZE : MAX_UDP_MESSAGE_SIZE);
-    if (ret->get_underlay_fd() < 0) {
-        delete ret;
-        ret = nullptr;
+// UNIX-domain socket for datagram
+class UDS : public DatagramSocketBase {
+public:
+    struct sockaddr_un to_addr_un(const void* addr, size_t addr_len) {
+        struct sockaddr_un un;
+        fill_uds_path(un, (char*)addr, addr_len);
+        return un;
     }
-    return ret;
-}
+    virtual int connect(const Addr* addr, size_t addr_len) override {
+        auto un = to_addr_un(addr, addr_len);
+        return do_connect((sockaddr*)&un, sizeof(un));
+    }
+    virtual int bind(const Addr* addr, size_t addr_len) override {
+        auto un = to_addr_un(addr, addr_len);
+        return do_bind((sockaddr*)&un, sizeof(un));
+    }
+    virtual ssize_t send(const struct iovec* iov, int iovcnt, const Addr* addr,
+                         size_t addr_len, int flags = 0) override {
+        if (likely(!addr || !addr_len))
+            return do_send(iov, iovcnt, nullptr, 0, flags);
 
-UDPSocket* new_udp_socket() { return (UDPSocket*)_new_udp_socket(AF_INET); }
+        auto un = to_addr_un(addr, addr_len);
+        return do_send(iov, iovcnt, (sockaddr*)&un, sizeof(un), flags);
+    }
+    virtual ssize_t recv(const struct iovec* iov, int iovcnt, Addr* addr,
+                         size_t* addr_len, int flags) override {
+        if (likely(!addr || !addr_len || !*addr_len))
+            return do_recv(iov, iovcnt, nullptr, 0, flags);
+
+        sockaddr_un un;
+        size_t alen = sizeof(un);
+        auto ret = do_recv(iov, iovcnt, (sockaddr*)&un, &alen, flags);
+        if (ret >= 0) {
+            if (un.sun_family != AF_UNIX) return;
+            size_t len = strlen(un.sun_path) + 1;
+            if (len <= *addr_len) {
+                *addr_len = len;
+            } else {
+                auto t = len;
+                len = *addr_len;
+                *addr_len = t;
+            }
+            memcpy(addr, un.sun_path, len);
+        }
+        return ret;
+    }
+};
+
+UDPSocket* new_udp_socket() {
+    auto sock = NewObj<UDP>(AF_INET, MAX_UDP_MESSAGE_SIZE)->init();
+    return (UDPSocket*)sock;
+}
 
 UDS_DatagramSocket* new_uds_datagram_socket() {
-    return (UDS_DatagramSocket*)_new_udp_socket(AF_UNIX);
+    auto sock = NewObj<UDS>(AF_UNIX, MAX_UDS_MESSAGE_SIZE)->init();
+    return (UDS_DatagramSocket*)sock;
 }
 
 }  // namespace net

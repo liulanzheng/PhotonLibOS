@@ -130,5 +130,27 @@ __FORCE_INLINE__ ssize_t doiov_n(iovector_view &v, IOCB iocb) {
 
 int fill_uds_path(struct sockaddr_un& name, const char* path, size_t count);
 
+
+using Getter = int (*)(int sockfd, struct sockaddr* addr, socklen_t* addrlen);
+int do_get_name(int fd, Getter getter, char* path, size_t count);
+int do_get_name(int fd, Getter getter, EndPoint& addr);
+
+inline int get_socket_name(int fd, EndPoint& addr) {
+    return do_get_name(fd, &::getsockname, addr);
+}
+
+inline int get_peer_name(int fd, EndPoint& addr) {
+    return do_get_name(fd, &::getpeername, addr);
+}
+
+inline int get_socket_name(int fd, char* path, size_t count) {
+    return do_get_name(fd, &::getsockname, path, count);
+}
+
+inline int get_peer_name(int fd, char* path, size_t count) {
+    return do_get_name(fd, &::getpeername, path, count);
+}
+
+
 }  // namespace net
 }

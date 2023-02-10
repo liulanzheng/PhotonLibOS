@@ -227,6 +227,26 @@ bool ISocketStream::skip_read(size_t count) {
     return true;
 }
 
+int do_get_name(int fd, Getter getter, EndPoint& addr) {
+    struct sockaddr_in addr_in;
+    socklen_t len = sizeof(addr_in);
+    int ret = getter(fd, (struct sockaddr*) &addr_in, &len);
+    if (ret < 0 || len != sizeof(addr_in)) return -1;
+    addr.from_sockaddr_in(addr_in);
+    return 0;
+}
+
+int do_get_name(int fd, Getter getter, char* path, size_t count) {
+    struct sockaddr_un addr_un;
+    socklen_t len = sizeof(addr_un);
+    int ret = getter(fd, (struct sockaddr*) &addr_un, &len);
+    // if len larger than size of addr_un, or less than prefix in addr_un
+    if (ret < 0 || len > sizeof(addr_un) || len <= sizeof(addr_un.sun_family))
+        return -1;
+    strncpy(path, addr_un.sun_path, count);
+    return 0;
+}
+
 int fill_uds_path(struct sockaddr_un& name, const char* path, size_t count) {
     const int LEN = sizeof(name.sun_path) - 1;
     if (count == 0) count = strlen(path);

@@ -30,21 +30,23 @@ public:
 
     virtual uint64_t max_message_size() = 0;
 
+    struct Addr;    // type-erased representation of address
+
     virtual ssize_t send(const struct iovec* iov, int iovcnt,
-                         const void* to_addr = nullptr, size_t addr_len = 0,
+                         const Addr* to_addr = nullptr, size_t addr_len = 0,
                          int flags = 0) = 0;
 
-    ssize_t send(const void* buf, size_t count, const void* to_addr = nullptr,
+    ssize_t send(const void* buf, size_t count, const Addr* to_addr = nullptr,
                  size_t addr_len = 0, int flags = 0) {
         iovec v{(void*)buf, count};
         return send(&v, 1, to_addr, addr_len, flags);
     }
 
     virtual ssize_t recv(const struct iovec* iov, int iovcnt,
-                         void* from_addr = nullptr, size_t* addr_len = nullptr,
+                         Addr* from_addr = nullptr, size_t* addr_len = nullptr,
                          int flags = 0) = 0;
 
-    ssize_t recv(void* buf, size_t count, void* from_addr = nullptr,
+    ssize_t recv(void* buf, size_t count, Addr* from_addr = nullptr,
                  size_t* addr_len = nullptr, int flags = 0) {
         iovec v{buf, count};
         return recv(&v, 1, from_addr, addr_len, flags);
