@@ -81,6 +81,25 @@ int set_fd_nonblocking(int fd);
         return expr;                      \
     }
 
+template <typename IOCB, typename WAIT>
+__FORCE_INLINE__ int doio(IOCB iocb, WAIT waitcb) {
+    while (true) {
+        ssize_t ret = iocb();
+        if (ret < 0) {
+            auto e = errno;  // errno is usually a macro that expands to a
+                             // function call
+            if (e == EINTR) continue;
+            if (e == EAGAIN || e == EWOULDBLOCK) {
+                if (waitcb())  // non-zero result means timeout or
+                               // interrupt, need to return
+                    return ret;
+                continue;
+            }
+        }
+        return ret;
+    }
+}
+
 template <typename IOCB>
 __FORCE_INLINE__ ssize_t doio_n(void *&buf, size_t &count, IOCB iocb) {
     auto count0 = count;

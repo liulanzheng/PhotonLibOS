@@ -19,52 +19,34 @@ limitations under the License.
 #include <inttypes.h>
 #include <sys/types.h>
 #include <sys/uio.h>
+
 #include "object.h"
 
 class IMessage : public Object {
 public:
-    const static int Reliable       = (1 << 0);
-    const static int PreserveOrder  = (1 << 1);
+    const static int Reliable = (1 << 0);
+    const static int PreserveOrder = (1 << 1);
     virtual uint64_t flags() = 0;
 
     virtual uint64_t max_message_size() = 0;
 
     virtual ssize_t send(const struct iovec* iov, int iovcnt,
-                         const void* to_addr = nullptr, int flags = 0) = 0;
+                         const void* to_addr = nullptr, size_t addr_len = 0,
+                         int flags = 0) = 0;
 
-    ssize_t send(const void* buf, size_t count,
-                 const void* to_addr = nullptr, int flags = 0) {
-        iovec v {(void*)buf, count};
-        return send(&v, 1, to_addr, flags);
+    ssize_t send(const void* buf, size_t count, const void* to_addr = nullptr,
+                 size_t addr_len = 0, int flags = 0) {
+        iovec v{(void*)buf, count};
+        return send(&v, 1, to_addr, addr_len, flags);
     }
 
-    ssize_t sendto(const struct iovec* iov, int iovcnt,
-                   const void* to_addr, int flags = 0) {
-        return send(iov, iovcnt, to_addr, flags);
-    }
-
-    ssize_t sendto(const void* buf, size_t count,
-                   const void* to_addr, int flags = 0) {
-        return send(buf, count, to_addr, flags);
-    }
-
-    // if from_addr != nullptr, *(int*)from_addr MUST be sizeof(*from_addr)
     virtual ssize_t recv(const struct iovec* iov, int iovcnt,
-                       void* from_addr = nullptr, int flags = 0) = 0;
+                         void* from_addr = nullptr, size_t* addr_len = nullptr,
+                         int flags = 0) = 0;
 
-    ssize_t recv(void* buf, size_t count,
-                 void* from_addr = nullptr, int flags = 0) {
-        iovec v {buf, count};
-        return recv(&v, 1, from_addr, flags);
-    }
-
-    ssize_t recvfrom(const struct iovec* iov, int iovcnt,
-                              void* from_addr, int flags = 0) {
-        return recv(iov, iovcnt, from_addr, flags);
-    }
-
-    ssize_t recvfrom(void* buf, size_t count,
-                     void* from_addr, int flags = 0) {
-        return recv(buf, count, from_addr, flags);
+    ssize_t recv(void* buf, size_t count, void* from_addr = nullptr,
+                 size_t* addr_len = nullptr, int flags = 0) {
+        iovec v{buf, count};
+        return recv(&v, 1, from_addr, addr_len, flags);
     }
 };

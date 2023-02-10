@@ -107,24 +107,6 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen,
         return ret;
     }
 }
-template <typename IOCB, typename WAITCB>
-static __FORCE_INLINE__ ssize_t doio(IOCB iocb, WAITCB waitcb) {
-    while (true) {
-        ssize_t ret = iocb();
-        if (ret < 0) {
-            auto e = errno;  // errno is usually a macro that expands to a
-                             // function call
-            if (e == EINTR) continue;
-            if (e == EAGAIN || e == EWOULDBLOCK) {
-                if (waitcb())  // non-zero result means timeout or interrupt,
-                               // need to return
-                    return ret;
-                continue;
-            }
-        }
-        return ret;
-    }
-}
 
 int accept(int fd, struct sockaddr *addr, socklen_t *addrlen,
            uint64_t timeout) {
