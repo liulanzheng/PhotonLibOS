@@ -17,7 +17,7 @@ limitations under the License.
 #pragma once
 #include <cinttypes>
 #include <sys/socket.h>
-
+#include <sys/un.h>
 #include <photon/common/iovector.h>
 #include <photon/thread/thread.h>
 #include <photon/common/timeout.h>
@@ -127,5 +127,8 @@ __FORCE_INLINE__ ssize_t doiov_n(iovector_view &v, IOCB iocb) {
     }
     return count;
 }
+
+int fill_uds_path(struct sockaddr_un& name, const char* path, size_t count);
+
 }  // namespace net
 }

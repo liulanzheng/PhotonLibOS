@@ -110,22 +110,6 @@ static int get_peer_name(int fd, char* path, size_t count) {
     return do_get_name(fd, &::getpeername, path, count);
 }
 
-static int fill_path(struct sockaddr_un& name, const char* path, size_t count) {
-    const int LEN = sizeof(name.sun_path) - 1;
-    if (count == 0) count = strlen(path);
-    if (count > LEN)
-        LOG_ERROR_RETURN(ENAMETOOLONG, -1, "pathname is too long (`>`)", count,
-                         LEN);
-
-    memset(&name, 0, sizeof(name));
-    memcpy(name.sun_path, path, count + 1);
-#ifndef __linux__
-    name.sun_len = 0;
-#endif
-    name.sun_family = AF_UNIX;
-    return 0;
-}
-
 class KernelSocketStream : public SocketStreamBase {
 public:
     int fd = -1;
@@ -228,7 +212,7 @@ public:
 
     ISocketStream* connect(const char* path, size_t count) override {
         struct sockaddr_un addr_un;
-        if (fill_path(addr_un, path, count) != 0) return nullptr;
+        if (fill_uds_path(addr_un, path, count) != 0) return nullptr;
         return do_connect((const sockaddr*) &addr_un, nullptr, sizeof(addr_un));
     }
 
@@ -357,7 +341,7 @@ public:
             unlink(path);
         }
         struct sockaddr_un addr_un;
-        int ret = fill_path(addr_un, path, count);
+        int ret = fill_uds_path(addr_un, path, count);
         if (ret < 0) return -1;
         return ::bind(m_listen_fd, (struct sockaddr*) &addr_un, sizeof(addr_un));
     }

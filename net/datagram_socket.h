@@ -18,6 +18,7 @@ limitations under the License.
 
 #include <netinet/in.h>
 #include <photon/common/message.h>
+#include <photon/net/basic_socket.h>
 #include <photon/net/socket.h>
 #include <sys/un.h>
 
@@ -35,110 +36,137 @@ class IDatagramSocket : public IMessage,
                         public ISocketName {
 public:
     struct Addr {
-        struct sockaddr* paddr;
-        size_t size;
-
-        static Addr from_endpoint(EndPoint ep);
-        static Addr from_path(const char* ep);
+        struct sockaddr* addr;
+        size_t len;
     };
     virtual int connect(Addr addr) = 0;
     virtual int bind(Addr addr) = 0;
 
     ssize_t send(const struct iovec* iov, int iovcnt, int flags = 0) {
-        return IMessage::send(iov, iovcnt, nullptr, 0, flags);
+        return ((IMessage*)this)->send(iov, iovcnt, nullptr, 0, flags);
     }
     ssize_t send(const void* buf, size_t count, int flags = 0) {
-        return IMessage::send(buf, count, nullptr, 0, flags);
+        return ((IMessage*)this)->send(buf, count, nullptr, 0, flags);
     }
     ssize_t recv(const struct iovec* iov, int iovcnt, int flags = 0) {
-        return IMessage::recv(iov, iovcnt, nullptr, nullptr, flags);
+        return ((IMessage*)this)->recv(iov, iovcnt, nullptr, nullptr, flags);
     }
     ssize_t recv(void* buf, size_t count, int flags = 0) {
         iovec v{buf, count};
-        return IMessage::recv(&v, 1, nullptr, nullptr, flags);
+        return ((IMessage*)this)->recv(&v, 1, nullptr, nullptr, flags);
     }
     template <typename B, typename S>
-    ssize_t sendto(B* buf, S count, const Addr* to, int flags = 0) {
-        return IMessage::send(buf, count, to->paddr, to->size, flags);
+    ssize_t sendto(B* buf, S count, const Addr to, int flags = 0) {
+        return ((IMessage*)this)->send(buf, count, to.addr, to.len, flags);
     }
     template <typename B, typename S>
-    ssize_t recvfrom(B* buf, S count, Addr* from, int flags = 0) {
-        return IMessage::recv(buf, count, from->paddr, &from->size, flags);
+    ssize_t recvfrom(B* buf, S count, Addr from, int flags = 0) {
+        return ((IMessage*)this)->recv(buf, count, from.addr, &from.len, flags);
     }
 };
 
 class UDPSocket : public IDatagramSocket {
-public:
+protected:
     using base = IDatagramSocket;
+    using base::bind;
+    using base::connect;
 
+public:
     int connect(const EndPoint ep) {
-        return base::connect(Addr::from_endpoint(ep));
+        auto addrin = ep.to_sockaddr_in();
+        Addr addr{(struct sockaddr*)&addrin, sizeof(addrin)};
+        return connect(addr);
     }
-    int bind(const EndPoint ep) { return base::bind(Addr::from_endpoint(ep)); }
+    int bind(const EndPoint ep) {
+        auto addrin = ep.to_sockaddr_in();
+        Addr addr{(struct sockaddr*)&addrin, sizeof(addrin)};
+        return bind(addr);
+    }
     ssize_t sendto(const struct iovec* iov, int iovcnt, const EndPoint to,
                    int flags = 0) {
-        auto addr = Addr::from_endpoint(to);
-        return base::sendto(iov, iovcnt, &addr, flags);
+        auto addrin = to.to_sockaddr_in();
+        Addr addr{(struct sockaddr*)&addrin, sizeof(addrin)};
+        return base::sendto(iov, iovcnt, addr, flags);
     }
     ssize_t sendto(const void* buf, size_t count, const EndPoint to,
                    int flags = 0) {
-        auto addr = Addr::from_endpoint(to);
-        return base::sendto(buf, count, &addr, flags);
+        auto addrin = to.to_sockaddr_in();
+        Addr addr{(struct sockaddr*)&addrin, sizeof(addrin)};
+        return base::sendto(buf, count, addr, flags);
     }
     ssize_t recvfrom(const struct iovec* iov, int iovcnt, EndPoint* from,
                      int flags = 0) {
-        auto addr = Addr::from_endpoint({});
-        auto ret = base::recvfrom(iov, iovcnt, &addr, flags);
+        struct sockaddr_in addrin;
+        Addr addr{(struct sockaddr*)&addrin, sizeof(addrin)};
+        auto ret = base::recvfrom(iov, iovcnt, addr, flags);
         if (from) {
-            from->from_sockaddr_in(*(struct sockaddr_in*)addr.paddr);
+            from->from_sockaddr_in(addrin);
         }
         return ret;
     }
     ssize_t recvfrom(void* buf, size_t count, EndPoint* from, int flags = 0) {
-        auto addr = Addr::from_endpoint({});
-        auto ret = base::recvfrom(buf, count, &addr, flags);
+        struct sockaddr_in addrin;
+        Addr addr{(struct sockaddr*)&addrin, sizeof(addrin)};
+        auto ret = base::recvfrom(buf, count, addr, flags);
         if (from) {
-            from->from_sockaddr_in(*(struct sockaddr_in*)addr.paddr);
+            from->from_sockaddr_in(addrin);
         }
         return ret;
     }
 };
 
 class UDS_DatagramSocket : public IDatagramSocket {
-public:
+protected:
     using base = IDatagramSocket;
+    using base::bind;
+    using base::connect;
 
-    int connect(const char* ep) { return base::connect(Addr::from_path(ep)); }
-    int bind(const char* ep) { return base::bind(Addr::from_path(ep)); }
+public:
+    int connect(const char* ep) {
+        struct sockaddr_un addrun;
+        if (!ep || fill_uds_path(addrun, ep, 0) < 0) return -1;
+        Addr addr{(struct sockaddr*)&addrun, sizeof(addrun)};
+        return connect(addr);
+    }
+    int bind(const char* ep) {
+        struct sockaddr_un addrun;
+        if (!ep || fill_uds_path(addrun, ep, 0) < 0) return -1;
+        Addr addr{(struct sockaddr*)&addrun, sizeof(addrun)};
+        return bind(addr);
+    }
     ssize_t sendto(const struct iovec* iov, int iovcnt, const char* to,
                    int flags = 0) {
-        auto addr = Addr::from_path(to);
-        return base::sendto(iov, iovcnt, &addr, flags);
+        struct sockaddr_un addrun;
+        if (to) fill_uds_path(addrun, to, 0);
+        Addr addr{(struct sockaddr*)&addrun, sizeof(addrun)};
+        return base::sendto(iov, iovcnt, addr, flags);
     }
     ssize_t sendto(const void* buf, size_t count, const char* to,
                    int flags = 0) {
-        auto addr = Addr::from_path(to);
-        return base::sendto(buf, count, &addr, flags);
+        struct sockaddr_un addrun;
+        if (to) fill_uds_path(addrun, to, 0);
+        Addr addr{(struct sockaddr*)&addrun, sizeof(addrun)};
+        return base::sendto(buf, count, addr, flags);
     }
     ssize_t recvfrom(const struct iovec* iov, int iovcnt, char* from,
                      size_t addrlen, int flags = 0) {
-        auto addr = Addr::from_path({});
-        auto ret = base::recvfrom(iov, iovcnt, &addr, flags);
+        struct sockaddr_un addrun;
+        Addr addr{(struct sockaddr*)&addrun, sizeof(addrun)};
+        auto ret = base::recvfrom(iov, iovcnt, addr, flags);
         if (from) {
-            auto addrun = (struct sockaddr_un*)addr.paddr;
-            strncpy(from, addrun->sun_path,
-                    std::min(addrlen, sizeof(addrun->sun_path)));
+            strncpy(from, addrun.sun_path,
+                    std::min(addrlen - 1, sizeof(addrun.sun_path) - 1));
         }
         return ret;
     }
     ssize_t recvfrom(void* buf, size_t count, char* from, size_t addrlen,
                      int flags = 0) {
-        auto addr = Addr::from_path({});
-        auto ret = base::recvfrom(buf, count, &addr, flags);
+        struct sockaddr_un addrun;
+        Addr addr{(struct sockaddr*)&addrun, sizeof(addrun)};
+        auto ret = base::recvfrom(buf, count, addr, flags);
         if (from) {
-            auto addrun = (struct sockaddr_un*)addr.paddr;
-            strncpy(from, addrun->sun_path,
-                    std::min(addrlen, sizeof(addrun->sun_path)));
+            strncpy(from, addrun.sun_path,
+                    std::min(addrlen - 1, sizeof(addrun.sun_path) - 1));
         }
         return ret;
     }

@@ -18,54 +18,13 @@ limitations under the License.
 
 #include <photon/common/alog.h>
 #include <photon/io/fd-events.h>
-#include <photon/net/socket.h>
 #include <photon/net/basic_socket.h>
+#include <photon/net/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
 
 namespace photon {
 namespace net {
-
-static int fill_path(struct sockaddr_un& name, const char* path, size_t count) {
-    const int LEN = sizeof(name.sun_path) - 1;
-    if (count == 0) count = strlen(path);
-    if (count > LEN)
-        LOG_ERROR_RETURN(ENAMETOOLONG, -1, "pathname is too long (`>`)", count,
-                         LEN);
-
-    memset(&name, 0, sizeof(name));
-    memcpy(name.sun_path, path, count + 1);
-#ifndef __linux__
-    name.sun_len = 0;
-#endif
-    name.sun_family = AF_UNIX;
-    return 0;
-}
-
-struct EPAddr : public IDatagramSocket::Addr {
-    using IDatagramSocket::Addr::paddr;
-    using IDatagramSocket::Addr::size;
-    struct sockaddr_in addr;
-    EPAddr(EndPoint ep)
-        : Addr{(struct sockaddr*)&addr, sizeof(addr)},
-          addr(ep.to_sockaddr_in()) {}
-};
-
-struct PathAddr : public sockaddr_un, public IDatagramSocket::Addr {
-    struct sockaddr_un addr;
-    PathAddr(const char* path) : Addr{(struct sockaddr*)&addr, sizeof(addr)} {
-        // make size = 0 so connect/receive will failed as EINVAL
-        if (!path || fill_path(addr, path, strlen(path)) < 0) size = 0;
-    }
-};
-
-IDatagramSocket::Addr IDatagramSocket::Addr::from_endpoint(EndPoint ep) {
-    return EPAddr(ep);
-};
-
-IDatagramSocket::Addr IDatagramSocket::Addr::from_path(const char* path) {
-    return PathAddr(path);
-};
 
 class UDPSocketImpl : public IDatagramSocket {
 protected:
@@ -89,24 +48,16 @@ public:
     virtual uint64_t max_message_size() override { return MAX_MESSAGE_SIZE; }
 
     virtual int connect(Addr addr) override {
-        return doio(
-            [&] {
-                return ::connect(fd, (const struct sockaddr*)addr.paddr,
-                                 sizeof(addr));
-            },
-            [&] { return photon::wait_for_fd_writable(fd); });
+        return doio([&] { return ::connect(fd, addr.addr, addr.len); },
+                    [&] { return photon::wait_for_fd_writable(fd); });
     }
     virtual int bind(Addr addr) override {
-        return doio(
-            [&] {
-                return ::bind(fd, (const struct sockaddr*)addr.paddr,
-                              sizeof(addr));
-            },
-            [&] { return photon::wait_for_fd_writable(fd); });
+        return doio([&] { return ::bind(fd, addr.addr, addr.len); },
+                    [&] { return photon::wait_for_fd_writable(fd); });
     }
 
     virtual ssize_t send(const struct iovec* iov, int iovcnt, const void* addr,
-                 size_t addrlen, int flags = 0) override {
+                         size_t addrlen, int flags = 0) override {
         struct msghdr hdr {
             .msg_name = (void*)addr, .msg_namelen = (socklen_t)addrlen,
             .msg_iov = (struct iovec*)iov, .msg_iovlen = (size_t)iovcnt,
@@ -120,9 +71,9 @@ public:
             [&] { return photon::wait_for_fd_writable(fd); });
     }
     virtual ssize_t recv(const struct iovec* iov, int iovcnt, void* addr,
-                 size_t* addrlen, int flags) override {
+                         size_t* addrlen, int flags) override {
         struct msghdr hdr {
-            .msg_name = addr, .msg_namelen = (socklen_t)*addrlen,
+            .msg_name = addr, .msg_namelen = addrlen ? (socklen_t)*addrlen : 0,
             .msg_iov = (struct iovec*)iov, .msg_iovlen = (size_t)iovcnt,
             .msg_control = nullptr, .msg_controllen = 0,
             .msg_flags = MSG_NOSIGNAL | flags,
@@ -137,11 +88,11 @@ public:
         return (Object*)(uint64_t)fd;
     }
     virtual int setsockopt(int level, int option_name, const void* option_value,
-                   socklen_t option_len) override {
+                           socklen_t option_len) override {
         return ::setsockopt(fd, level, option_name, option_value, option_len);
     };
     virtual int getsockopt(int level, int option_name, void* option_value,
-                   socklen_t* option_len) override {
+                           socklen_t* option_len) override {
         return ::getsockopt(fd, level, option_name, option_value, option_len);
     }
     // get/set timeout, in us, (default +∞)
@@ -165,7 +116,7 @@ public:
     virtual int getsockname(char* path, size_t count) override {
         struct sockaddr_un buf;
         socklen_t len = sizeof(buf);
-        auto ret = ::getsockname(fd, (struct sockaddr*)path, &len);
+        auto ret = ::getsockname(fd, (struct sockaddr*)&buf, &len);
         if (ret >= 0 && buf.sun_family == AF_UNIX)
             strncpy(path, buf.sun_path, count);
         return ret;
@@ -173,7 +124,7 @@ public:
     virtual int getpeername(char* path, size_t count) override {
         struct sockaddr_un buf;
         socklen_t len = sizeof(buf);
-        auto ret = ::getpeername(fd, (struct sockaddr*)path, &len);
+        auto ret = ::getpeername(fd, (struct sockaddr*)&buf, &len);
         if (ret >= 0 && buf.sun_family == AF_UNIX)
             strncpy(path, buf.sun_path, count);
         return ret;

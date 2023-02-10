@@ -21,11 +21,6 @@ limitations under the License.
 #include <photon/net/datagram_socket.h>
 #include <photon/thread/thread11.h>
 #include <sys/stat.h>
-#define protected public
-#define private public
-#include "../kernel_socket.cpp"
-#undef protected
-#undef private
 #include "cert-key.cpp"
 
 using namespace photon;
@@ -40,7 +35,7 @@ TEST(UDP, basic) {
     auto s2 = new_udp_socket();
     DEFER(delete s2);
 
-    s1->bind(EndPoint(IPAddr("127.0.0.1"), 0));
+    EXPECT_EQ(0, s1->bind(EndPoint(IPAddr("127.0.0.1"), 0)));
     auto ep = s1->getsockname();
     LOG_INFO("Bind at ", ep);
 
@@ -73,12 +68,12 @@ TEST(UDP, uds) {
     auto s2 = new_uds_datagram_socket();
     DEFER(delete s2);
 
-    s1->bind(uds_path);
+    EXPECT_EQ(0, s1->bind(uds_path));
     char path[1024] = {};
     socklen_t pathlen = s1->getsockname(path, 1024);
     LOG_INFO("Bind at ", path);
 
-    s2->connect(path);
+    EXPECT_EQ(0, s2->connect(path));
     ASSERT_EQ(6, s2->send("Hello", 6));
     char buf[4096];
     ASSERT_EQ(6, s1->recv(buf, 4096));
@@ -86,7 +81,7 @@ TEST(UDP, uds) {
 
     auto s3 = new_uds_datagram_socket();
     DEFER(delete s3);
-    ASSERT_EQ(6, s3->sendto("Hello", 6, uds_path, uds_len));
+    ASSERT_EQ(6, s3->sendto("Hello", 6, uds_path));
     pathlen = 1024;
     memset(path, 0, sizeof(path));
     ASSERT_EQ(6, s1->recvfrom(buf, 4096, path, sizeof(path)));
@@ -101,7 +96,7 @@ TEST(UDP, uds_huge_datag) {
     auto s2 = new_uds_datagram_socket();
     DEFER(delete s2);
 
-    s1->bind(uds_path);
+    EXPECT_EQ(0, s1->bind(uds_path));
     char path[1024] = {};
     socklen_t pathlen = s1->getsockname(path, 1024);
     LOG_INFO("Bind at ", path);
@@ -109,13 +104,13 @@ TEST(UDP, uds_huge_datag) {
     constexpr static size_t msgsize = 207 * 1024;  // more data returned failure
     char hugepack[msgsize];
     std::fill(&hugepack[0], &hugepack[sizeof(hugepack) - 1], 0xEA);
-    s2->connect(path);
+    EXPECT_EQ(0, s2->connect(path));
     ASSERT_EQ(msgsize, s2->send(hugepack, sizeof(hugepack)));
     char buf[msgsize];
     ASSERT_EQ(msgsize, s1->recv(buf, sizeof(buf)));
     EXPECT_EQ(0, memcmp(hugepack, buf, sizeof(hugepack)));
     ASSERT_EQ(msgsize,
-              s2->sendto(hugepack, sizeof(hugepack), uds_path, uds_len));
+              s2->sendto(hugepack, sizeof(hugepack), uds_path));
     ASSERT_EQ(msgsize, s1->recv(buf, sizeof(buf)));
     EXPECT_EQ(0, memcmp(hugepack, buf, sizeof(hugepack)));
 }

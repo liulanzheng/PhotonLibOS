@@ -227,6 +227,22 @@ bool ISocketStream::skip_read(size_t count) {
     return true;
 }
 
+int fill_uds_path(struct sockaddr_un& name, const char* path, size_t count) {
+    const int LEN = sizeof(name.sun_path) - 1;
+    if (count == 0) count = strlen(path);
+    if (count > LEN)
+        LOG_ERROR_RETURN(ENAMETOOLONG, -1, "pathname is too long (`>`)", count,
+                         LEN);
+
+    memset(&name, 0, sizeof(name));
+    memcpy(name.sun_path, path, count + 1);
+#ifndef __linux__
+    name.sun_len = 0;
+#endif
+    name.sun_family = AF_UNIX;
+    return 0;
+}
+
 #ifdef __linux__
 static ssize_t recv_errqueue(int fd, uint32_t &ret_counter) {
     char control[128];
