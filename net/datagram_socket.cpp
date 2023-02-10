@@ -26,16 +26,20 @@ limitations under the License.
 namespace photon {
 namespace net {
 
+constexpr static size_t MAX_UDP_MESSAGE_SIZE = 65507UL;
+constexpr static size_t MAX_UDS_MESSAGE_SIZE = 207UL * 1024;
+
 class UDPSocketImpl : public IDatagramSocket {
 protected:
     int fd;
     uint64_t m_timeout;
-    constexpr static size_t MAX_MESSAGE_SIZE = 65507;
+    const size_t m_max_msg_size;
 
 public:
-    UDPSocketImpl(int AF)
+    UDPSocketImpl(int AF, size_t maxsize)
         : fd(::socket(AF, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0)),
-          m_timeout(-1) {}
+          m_timeout(-1),
+          m_max_msg_size(maxsize) {}
 
     ~UDPSocketImpl() override {
         if (fd != -1) ::close(fd);
@@ -45,15 +49,19 @@ public:
         return 0;  // not reliable and not preserve orders
     }
 
-    virtual uint64_t max_message_size() override { return MAX_MESSAGE_SIZE; }
+    virtual uint64_t max_message_size() override { return m_max_msg_size; }
 
-    virtual int connect(Addr addr) override {
-        return doio([&] { return ::connect(fd, addr.addr, addr.len); },
-                    [&] { return photon::wait_for_fd_writable(fd); });
+    virtual int connect(Addr* addr) override {
+        return doio(
+            [&] {
+                return ::connect(fd, (struct sockaddr*)addr->buf, addr->len);
+            },
+            [&] { return photon::wait_for_fd_writable(fd); });
     }
-    virtual int bind(Addr addr) override {
-        return doio([&] { return ::bind(fd, addr.addr, addr.len); },
-                    [&] { return photon::wait_for_fd_writable(fd); });
+    virtual int bind(Addr* addr) override {
+        return doio(
+            [&] { return ::bind(fd, (struct sockaddr*)addr->buf, addr->len); },
+            [&] { return photon::wait_for_fd_writable(fd); });
     }
 
     virtual ssize_t send(const struct iovec* iov, int iovcnt, const void* addr,
@@ -131,29 +139,35 @@ public:
     }
 };
 
-IDatagramSocket::Addr UDPSocket::set_addr(struct sockaddr_in& addr,
-                                          EndPoint ep) {
-    addr = ep.to_sockaddr_in();
-    return {(struct sockaddr*)&addr, sizeof(addr)};
+static_assert(SOCKET_ADDRESS_BUFFER_SIZE >= _SS_SIZE,
+              "address buffer less than system socket storage buffer size");
+
+IDatagramSocket::Addr::Addr(EndPoint ep) {
+    *(struct sockaddr_in*)buf = ep.to_sockaddr_in();
+    len = sizeof(struct sockaddr_in);
 }
-void UDPSocket::load_addr(struct sockaddr_in& addr, EndPoint* ep) {
-    if (ep) ep->from(addr);
+IDatagramSocket::Addr::Addr(const char* path) {
+    auto un = (struct sockaddr_un*)buf;
+    fill_uds_path(*un, path, 0);
+    len = sizeof(struct sockaddr_un);
 }
 
-IDatagramSocket::Addr UDS_DatagramSocket::set_addr(struct sockaddr_un& addr,
-                                                   const char* path) {
-    if (path) fill_uds_path(addr, path, 0);
-    return {(struct sockaddr*)&addr, sizeof(addr)};
+void IDatagramSocket::Addr::to_endpoint(EndPoint* ep) {
+    if (!ep) return;
+    auto in = (struct sockaddr_in*)buf;
+    if (in->sin_family != AF_INET) return;
+    ep->from_sockaddr_in(*in);
 }
-void UDS_DatagramSocket::load_addr(struct sockaddr_un& addr, char* path,
-                                   size_t len) {
-    if (path)
-        strncpy(path, addr.sun_path,
-                std::min(sizeof(addr.sun_path) - 1, len - 1));
+void IDatagramSocket::Addr::to_path(char* path, size_t len) {
+    if (!path || !len) return;
+    auto un = (struct sockaddr_un*)buf;
+    if (un->sun_family != AF_UNIX) return;
+    strncpy(path, un->sun_path, std::min(sizeof(un->sun_path) - 1, len - 1));
 }
 
 inline IDatagramSocket* _new_udp_socket(int af) {
-    auto ret = new UDPSocketImpl(af);
+    auto ret = new UDPSocketImpl(
+        af, af == AF_UNIX ? MAX_UDS_MESSAGE_SIZE : MAX_UDP_MESSAGE_SIZE);
     if (ret->get_underlay_fd() < 0) {
         delete ret;
         ret = nullptr;
