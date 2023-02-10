@@ -25,9 +25,6 @@ limitations under the License.
 namespace photon {
 namespace net {
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Woverloaded-virtual"
-
 // Those interfaces intensionally hide overloading virtual methods
 // supperess the warning here.
 
@@ -42,18 +39,13 @@ public:
     virtual int connect(Addr addr) = 0;
     virtual int bind(Addr addr) = 0;
 
-    ssize_t send(const struct iovec* iov, int iovcnt, int flags = 0) {
-        return ((IMessage*)this)->send(iov, iovcnt, nullptr, 0, flags);
-    }
-    ssize_t send(const void* buf, size_t count, int flags = 0) {
+    template <typename B, typename S>
+    ssize_t send(B* buf, S count, int flags = 0) {
         return ((IMessage*)this)->send(buf, count, nullptr, 0, flags);
     }
-    ssize_t recv(const struct iovec* iov, int iovcnt, int flags = 0) {
-        return ((IMessage*)this)->recv(iov, iovcnt, nullptr, nullptr, flags);
-    }
-    ssize_t recv(void* buf, size_t count, int flags = 0) {
-        iovec v{buf, count};
-        return ((IMessage*)this)->recv(&v, 1, nullptr, nullptr, flags);
+    template <typename B, typename S>
+    ssize_t recv(B* buf, S count, int flags = 0) {
+        return ((IMessage*)this)->recv(buf, count, nullptr, nullptr, flags);
     }
     template <typename B, typename S>
     ssize_t sendto(B* buf, S count, const Addr to, int flags = 0) {
@@ -71,46 +63,28 @@ protected:
     using base::bind;
     using base::connect;
 
+    Addr set_addr(struct sockaddr_in&, EndPoint = {});
+    void load_addr(struct sockaddr_in&, EndPoint*);
+
 public:
     int connect(const EndPoint ep) {
-        auto addrin = ep.to_sockaddr_in();
-        Addr addr{(struct sockaddr*)&addrin, sizeof(addrin)};
-        return connect(addr);
+        struct sockaddr_in addrin;
+        return connect(set_addr(addrin, ep));
     }
     int bind(const EndPoint ep) {
-        auto addrin = ep.to_sockaddr_in();
-        Addr addr{(struct sockaddr*)&addrin, sizeof(addrin)};
-        return bind(addr);
-    }
-    ssize_t sendto(const struct iovec* iov, int iovcnt, const EndPoint to,
-                   int flags = 0) {
-        auto addrin = to.to_sockaddr_in();
-        Addr addr{(struct sockaddr*)&addrin, sizeof(addrin)};
-        return base::sendto(iov, iovcnt, addr, flags);
-    }
-    ssize_t sendto(const void* buf, size_t count, const EndPoint to,
-                   int flags = 0) {
-        auto addrin = to.to_sockaddr_in();
-        Addr addr{(struct sockaddr*)&addrin, sizeof(addrin)};
-        return base::sendto(buf, count, addr, flags);
-    }
-    ssize_t recvfrom(const struct iovec* iov, int iovcnt, EndPoint* from,
-                     int flags = 0) {
         struct sockaddr_in addrin;
-        Addr addr{(struct sockaddr*)&addrin, sizeof(addrin)};
-        auto ret = base::recvfrom(iov, iovcnt, addr, flags);
-        if (from) {
-            from->from_sockaddr_in(addrin);
-        }
-        return ret;
+        return bind(set_addr(addrin, ep));
     }
-    ssize_t recvfrom(void* buf, size_t count, EndPoint* from, int flags = 0) {
+    template <typename B, typename S>
+    ssize_t sendto(B* buf, S count, const EndPoint to, int flags = 0) {
         struct sockaddr_in addrin;
-        Addr addr{(struct sockaddr*)&addrin, sizeof(addrin)};
-        auto ret = base::recvfrom(buf, count, addr, flags);
-        if (from) {
-            from->from_sockaddr_in(addrin);
-        }
+        return base::sendto(buf, count, set_addr(addrin, to), flags);
+    }
+    template <typename B, typename S>
+    ssize_t recvfrom(B* buf, S count, EndPoint* from, int flags = 0) {
+        struct sockaddr_in addrin;
+        auto ret = base::recvfrom(buf, count, set_addr(addrin), flags);
+        load_addr(addrin, from);
         return ret;
     }
 };
@@ -121,58 +95,32 @@ protected:
     using base::bind;
     using base::connect;
 
+    Addr set_addr(struct sockaddr_un&, const char* = nullptr);
+    void load_addr(struct sockaddr_un&, char*, size_t);
+
 public:
     int connect(const char* ep) {
         struct sockaddr_un addrun;
-        if (!ep || fill_uds_path(addrun, ep, 0) < 0) return -1;
-        Addr addr{(struct sockaddr*)&addrun, sizeof(addrun)};
-        return connect(addr);
+        return connect(set_addr(addrun, ep));
     }
     int bind(const char* ep) {
         struct sockaddr_un addrun;
-        if (!ep || fill_uds_path(addrun, ep, 0) < 0) return -1;
-        Addr addr{(struct sockaddr*)&addrun, sizeof(addrun)};
-        return bind(addr);
+        return bind(set_addr(addrun, ep));
     }
-    ssize_t sendto(const struct iovec* iov, int iovcnt, const char* to,
-                   int flags = 0) {
+    template <typename B, typename S>
+    ssize_t sendto(B* buf, S count, const char* to, int flags = 0) {
         struct sockaddr_un addrun;
-        if (to) fill_uds_path(addrun, to, 0);
-        Addr addr{(struct sockaddr*)&addrun, sizeof(addrun)};
-        return base::sendto(iov, iovcnt, addr, flags);
+        return base::sendto(buf, count, set_addr(addrun, to), flags);
     }
-    ssize_t sendto(const void* buf, size_t count, const char* to,
-                   int flags = 0) {
-        struct sockaddr_un addrun;
-        if (to) fill_uds_path(addrun, to, 0);
-        Addr addr{(struct sockaddr*)&addrun, sizeof(addrun)};
-        return base::sendto(buf, count, addr, flags);
-    }
-    ssize_t recvfrom(const struct iovec* iov, int iovcnt, char* from,
-                     size_t addrlen, int flags = 0) {
-        struct sockaddr_un addrun;
-        Addr addr{(struct sockaddr*)&addrun, sizeof(addrun)};
-        auto ret = base::recvfrom(iov, iovcnt, addr, flags);
-        if (from) {
-            strncpy(from, addrun.sun_path,
-                    std::min(addrlen - 1, sizeof(addrun.sun_path) - 1));
-        }
-        return ret;
-    }
-    ssize_t recvfrom(void* buf, size_t count, char* from, size_t addrlen,
+    template <typename B, typename S>
+    ssize_t recvfrom(B* buf, S count, char* from, size_t addrlen,
                      int flags = 0) {
         struct sockaddr_un addrun;
-        Addr addr{(struct sockaddr*)&addrun, sizeof(addrun)};
-        auto ret = base::recvfrom(buf, count, addr, flags);
-        if (from) {
-            strncpy(from, addrun.sun_path,
-                    std::min(addrlen - 1, sizeof(addrun.sun_path) - 1));
-        }
+        auto ret = base::recvfrom(buf, count, set_addr(addrun), flags);
+        load_addr(addrun, from, addrlen);
         return ret;
     }
 };
-
-#pragma GCC diagnostic pop
 
 UDPSocket* new_udp_socket();
 

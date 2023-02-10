@@ -131,6 +131,27 @@ public:
     }
 };
 
+IDatagramSocket::Addr UDPSocket::set_addr(struct sockaddr_in& addr,
+                                          EndPoint ep) {
+    addr = ep.to_sockaddr_in();
+    return {(struct sockaddr*)&addr, sizeof(addr)};
+}
+void UDPSocket::load_addr(struct sockaddr_in& addr, EndPoint* ep) {
+    if (ep) ep->from(addr);
+}
+
+IDatagramSocket::Addr UDS_DatagramSocket::set_addr(struct sockaddr_un& addr,
+                                                   const char* path) {
+    if (path) fill_uds_path(addr, path, 0);
+    return {(struct sockaddr*)&addr, sizeof(addr)};
+}
+void UDS_DatagramSocket::load_addr(struct sockaddr_un& addr, char* path,
+                                   size_t len) {
+    if (path)
+        strncpy(path, addr.sun_path,
+                std::min(sizeof(addr.sun_path) - 1, len - 1));
+}
+
 inline IDatagramSocket* _new_udp_socket(int af) {
     auto ret = new UDPSocketImpl(af);
     if (ret->get_underlay_fd() < 0) {
