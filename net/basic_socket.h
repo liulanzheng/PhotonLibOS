@@ -130,6 +130,7 @@ __FORCE_INLINE__ ssize_t doiov_n(iovector_view &v, IOCB iocb) {
 
 int fill_uds_path(struct sockaddr_un& name, const char* path, size_t count);
 
+struct EndPoint;
 
 using Getter = int (*)(int sockfd, struct sockaddr* addr, socklen_t* addrlen);
 int do_get_name(int fd, Getter getter, char* path, size_t count);

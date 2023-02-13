@@ -59,6 +59,8 @@ protected:
     using base::connect;
 
 public:
+    using base::send;
+    using base::recv;
     int connect(const EndPoint ep) {
         return connect((Addr*)&ep, sizeof(ep));
     }
@@ -83,18 +85,17 @@ protected:
     using base::connect;
 
 public:
+    using base::send;
+    using base::recv;
     int connect(const char* path) {
-        return base::connect((Addr*)path);
+        return connect((Addr*)path, 0);
     }
     int bind(const char* path) {
-        return base::bind((Addr*)path);
+        return bind((Addr*)path, 0);
     }
-    void sendto() = delete;
-    void recvfrom() = delete;
-/*
     template <typename B, typename S>
     ssize_t sendto(B* buf, S count, const char* path, int flags = 0) {
-        return base::sendto(buf, count, path, 0, flags);
+        return base::sendto(buf, count, (Addr*)path, 0, flags);
     }
     // Unix Domain Socket can not detect recvfrom address
     // just ignore it, and forward to `recv` method
@@ -102,7 +103,6 @@ public:
     ssize_t recvfrom(B* buf, S count, char* from, size_t len, int flags = 0) {
         return base::recv(buf, count, flags);
     }
-*/
 };
 
 UDPSocket* new_udp_socket();

@@ -33,8 +33,8 @@ constexpr static size_t MAX_UDS_MESSAGE_SIZE = 207UL * 1024;
 class DatagramSocketBase : public IDatagramSocket {
 protected:
     uint64_t m_timeout = -1;
-    const size_t m_max_msg_size;
     int fd;
+    const size_t m_max_msg_size;
 
 public:
     DatagramSocketBase(int AF, size_t maxsize) :
@@ -81,7 +81,7 @@ public:
     ssize_t do_recv(const iovec* iov, int iovcnt, sockaddr* addr,
                     size_t* addrlen, int flags) {
         struct msghdr hdr {
-            .msg_name = (void*)addr, .msg_namelen = (socklen_t)*addrlen,
+            .msg_name = (void*)addr, .msg_namelen = addrlen ? (socklen_t)*addrlen : 0,
             .msg_iov = (iovec*)iov,  .msg_iovlen = (size_t)iovcnt,
             .msg_control = nullptr,  .msg_controllen = 0,
             .msg_flags = MSG_NOSIGNAL | flags,
@@ -122,6 +122,7 @@ public:
 
 class UDP : public DatagramSocketBase {
 public:
+    using DatagramSocketBase::DatagramSocketBase;
     virtual int connect(const Addr* addr, size_t addr_len) override {
         auto ep = (EndPoint*)addr;
         assert(ep && addr_len == sizeof(*ep));
@@ -137,10 +138,9 @@ public:
     virtual ssize_t send(const struct iovec* iov, int iovcnt, const Addr* addr,
                          size_t addr_len, int flags = 0) override {
         auto ep = (EndPoint*)addr;
-        assert(addr_len == sizeof(*ep));
         if (likely(!ep) || unlikely(addr_len != sizeof(*ep)))
             return do_send(iov, iovcnt, nullptr, 0, flags);
-
+        assert(addr_len == sizeof(*ep));
         auto in = ep->to_sockaddr_in();
         return do_send(iov, iovcnt, (sockaddr*)&in, sizeof(in), flags);
     }
@@ -165,6 +165,7 @@ public:
 // UNIX-domain socket for datagram
 class UDS : public DatagramSocketBase {
 public:
+    using DatagramSocketBase::DatagramSocketBase;
     struct sockaddr_un to_addr_un(const void* addr, size_t addr_len) {
         struct sockaddr_un un;
         fill_uds_path(un, (char*)addr, addr_len);
@@ -180,7 +181,7 @@ public:
     }
     virtual ssize_t send(const struct iovec* iov, int iovcnt, const Addr* addr,
                          size_t addr_len, int flags = 0) override {
-        if (likely(!addr || !addr_len))
+        if (likely(!addr))
             return do_send(iov, iovcnt, nullptr, 0, flags);
 
         auto un = to_addr_un(addr, addr_len);
@@ -195,7 +196,7 @@ public:
         size_t alen = sizeof(un);
         auto ret = do_recv(iov, iovcnt, (sockaddr*)&un, &alen, flags);
         if (ret >= 0) {
-            if (un.sun_family != AF_UNIX) return;
+            if (un.sun_family != AF_UNIX) return -1;
             size_t len = strlen(un.sun_path) + 1;
             if (len <= *addr_len) {
                 *addr_len = len;
