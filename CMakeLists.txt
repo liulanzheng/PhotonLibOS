@@ -222,6 +222,7 @@ if (BUILD_TESTING)
 
     add_subdirectory(examples)
     add_subdirectory(common/checksum/test)
+    add_subdirectory(common/test)
     add_subdirectory(fs/test)
     add_subdirectory(io/test)
     add_subdirectory(net/test)

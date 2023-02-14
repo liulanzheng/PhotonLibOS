@@ -76,7 +76,8 @@ bool ExpireContainerBase::keep_alive(const Item& x, bool insert_if_not_exists) {
 }
 
 ObjectCacheBase::Item* ObjectCacheBase::ref_acquire(const Item& key_item,
-                                                    Delegate<void*> ctor) {
+                                                    Delegate<void*> ctor,
+                                                    bool once) {
     Base::iterator holder;
     Item* item = nullptr;
     expire();
@@ -101,12 +102,14 @@ ObjectCacheBase::Item* ObjectCacheBase::ref_acquire(const Item& key_item,
     } while (!item);
     {
         SCOPED_LOCK(item->_mtx);
-        if (!item->_obj) {
+        if (!item->_obj || (item->is_err() && !once)) {
             item->_obj = ctor();
+            if (unlikely(item->_obj == nullptr))
+                item->set_err();
         }
     }
-    if (!item->_obj) {
-        ref_release(item, false);
+    if (item->is_null_or_err()) {
+        ref_release(item, once);
         return nullptr;
     }
     return item;

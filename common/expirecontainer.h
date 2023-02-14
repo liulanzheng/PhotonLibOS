@@ -22,6 +22,7 @@ limitations under the License.
 #include <photon/thread/list.h>
 #include <photon/thread/thread.h>
 #include <photon/thread/timer.h>
+
 #include <algorithm>
 #include <memory>
 #include <tuple>
@@ -108,13 +109,8 @@ protected:
     struct TypedIterator : public iterator {
         TypedIterator(const iterator& rhs) : iterator(rhs) {}
         using TPtr = T*;
-        TPtr operator*() const {
-            return (TPtr)iterator::operator*();
-        }
-
-        TPtr* operator->() const {
-            return (TPtr*)iterator::operator->();
-        }
+        TPtr operator*() const { return (TPtr)iterator::operator*(); }
+        TPtr* operator->() const { return (TPtr*)iterator::operator->(); }
     };
 
     bool keep_alive(const Item& item, bool insert_if_not_exists);
@@ -136,8 +132,7 @@ template <typename KeyType, typename... Ts>
 class ExpireContainer : public ExpireContainerBase {
 public:
     using Base = ExpireContainerBase;
-    ExpireContainer(uint64_t expiration)
-        : Base(expiration, expiration / 16) {}
+    ExpireContainer(uint64_t expiration) : Base(expiration, expiration / 16) {}
     ExpireContainer(uint64_t expiration, uint64_t timer_cycle)
         : Base(expiration, timer_cycle) {}
 
@@ -229,6 +224,10 @@ protected:
         photon::mutex _mtx;
         uint32_t _refcnt;
         photon::semaphore* _recycle;
+        static constexpr uint64_t ERR_VAL = -1UL;
+        bool is_null_or_err() { return !_obj || is_err(); }
+        bool is_err() { return ((uint64_t)_obj) == ERR_VAL; }
+        void set_err() { _obj = (void*)ERR_VAL; }
     };
 
     photon::condition_variable blocker;
@@ -240,12 +239,14 @@ protected:
     //     concurrent construction of objects with the same key;
     // (2) construction of the object itself, and possibly do
     //     clean-up in case of failure
-    Item* ref_acquire(const Item& key_item, Delegate<void*> ctor);
+    Item* ref_acquire(const Item& key_item, Delegate<void*> ctor,
+                      bool once = false);
 
     int ref_release(ItemPtr item, bool recycle = false);
 
-    void* acquire(const Item& key_item, Delegate<void*> ctor) {
-        auto ret = ref_acquire(key_item, ctor);
+    void* acquire(const Item& key_item, Delegate<void*> ctor,
+                  bool once = false) {
+        auto ret = ref_acquire(key_item, ctor, once);
         return ret ? ret->_obj : nullptr;
     }
 
@@ -280,7 +281,9 @@ protected:
             item->_recycle = nullptr;
             return item;
         }
-        ~Item() override { delete (ValPtr)this->_obj; }
+        ~Item() override {
+            if (!this->is_err()) delete (ValPtr)this->_obj;
+        }
     };
 
     using ItemKey = typename Item::ItemKey;
@@ -288,16 +291,16 @@ protected:
     using ItemPtr = Item*;
 
 public:
-    ObjectCache(uint64_t expiration)
-        : Base(expiration, expiration / 16) {}
+    ObjectCache(uint64_t expiration) : Base(expiration, expiration / 16) {}
     ObjectCache(uint64_t expiration, uint64_t timer_cycle)
         : Base(expiration, timer_cycle) {}
 
     template <typename Constructor>
-    ItemPtr ref_acquire(const InterfaceKey& key, const Constructor& ctor) {
+    ItemPtr ref_acquire(const InterfaceKey& key, const Constructor& ctor,
+                        bool once = false) {
         auto _ctor = [&]() -> void* { return ctor(); };
         // _ctor can always implicit cast to `Delegate<void*>`
-        return (ItemPtr)Base::ref_acquire(Item(key), _ctor);
+        return (ItemPtr)Base::ref_acquire(Item(key), _ctor, once);
     }
 
     int ref_release(ItemPtr item, bool recycle = false) {
@@ -305,8 +308,9 @@ public:
     }
 
     template <typename Constructor>
-    ValPtr acquire(const InterfaceKey& key, const Constructor& ctor) {
-        auto item = ref_acquire(key, ctor);
+    ValPtr acquire(const InterfaceKey& key, const Constructor& ctor,
+                   bool once = false) {
+        auto item = ref_acquire(key, ctor, once);
         return (ValPtr)(item ? item->_obj : nullptr);
     }
 
@@ -343,9 +347,9 @@ public:
 
         ValPtr operator->() { return get_ptr(); }
 
-        operator bool() { return _ref; }
+        operator bool() const { return _ref; }
 
-        bool recycle() { return _recycle; }
+        bool recycle() const { return _recycle; }
 
         bool recycle(bool x) { return _recycle = x; }
 
@@ -362,8 +366,9 @@ public:
     };
 
     template <typename Constructor>
-    Borrow borrow(const InterfaceKey& key, const Constructor& ctor) {
-        return Borrow(this, ref_acquire(key, ctor), false);
+    Borrow borrow(const InterfaceKey& key, const Constructor& ctor,
+                  bool once = false) {
+        return Borrow(this, ref_acquire(key, ctor, once), false);
     }
 
     Borrow borrow(const InterfaceKey& key) {

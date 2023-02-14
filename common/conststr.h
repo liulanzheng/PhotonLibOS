@@ -87,7 +87,7 @@ struct TString : tstring_base {
     }
     template <char SP, char IGN>
     static constexpr decltype(auto) split() {
-        return TSpliter<SP, IGN, TString>::array;
+        return TSpliter<SP, IGN, TString>::array();
     }
     static constexpr decltype(auto) tsreverse(TString<>) { return TString<>(); }
     template <char ch, char... chs>

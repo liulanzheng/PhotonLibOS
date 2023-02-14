@@ -88,6 +88,15 @@ targets = {
         ldflags=[
             '-lphoton',
         ],
+    ),
+    'test_objcache' : cpp_program(
+        incs = [ './' ],
+        srcs = [ './test_objcache.cpp' ],
+        static_deps = [
+            'boost-1.69.0'
+        ],
+        ldflags=[
+            '-lphoton',
+        ],
     )
-
 }
