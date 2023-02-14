@@ -249,7 +249,7 @@ void* objcache_borrow_once(void* arg) {
         count++;
         return nullptr;
     };
-    auto ret = oc->borrow(0, ctor, 1100UL * 1000);
+    auto ret = oc->borrow(0, ctor, 1000UL * 1000);
     // every 10 objs will recycle
     return 0;
 }

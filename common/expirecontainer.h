@@ -219,13 +219,13 @@ protected:
             _obj = nullptr;
             _refcnt = 0;
             _recycle = nullptr;
-            _failure = false;
+            _failure = 0;
         }
         void* _obj;
         photon::mutex _mtx;
         uint32_t _refcnt;
         photon::semaphore* _recycle;
-        bool _failure;
+        uint64_t _failure;
     };
 
     photon::condition_variable blocker;
@@ -238,13 +238,13 @@ protected:
     // (2) construction of the object itself, and possibly do
     //     clean-up in case of failure
     Item* ref_acquire(const Item& key_item, Delegate<void*> ctor,
-                      bool once = false);
+                      uint64_t failure_cooldown = 0);
 
     int ref_release(ItemPtr item, bool recycle = false);
 
     void* acquire(const Item& key_item, Delegate<void*> ctor,
-                  bool once = false) {
-        auto ret = ref_acquire(key_item, ctor, once);
+                  uint64_t failure_cooldown = 0) {
+        auto ret = ref_acquire(key_item, ctor, failure_cooldown);
         return ret ? ret->_obj : nullptr;
     }
 
@@ -293,10 +293,10 @@ public:
 
     template <typename Constructor>
     ItemPtr ref_acquire(const InterfaceKey& key, const Constructor& ctor,
-                        bool once = false) {
+                        uint64_t failure_cooldown = 0) {
         auto _ctor = [&]() -> void* { return ctor(); };
         // _ctor can always implicit cast to `Delegate<void*>`
-        return (ItemPtr)Base::ref_acquire(Item(key), _ctor, once);
+        return (ItemPtr)Base::ref_acquire(Item(key), _ctor, failure_cooldown);
     }
 
     int ref_release(ItemPtr item, bool recycle = false) {
@@ -305,8 +305,8 @@ public:
 
     template <typename Constructor>
     ValPtr acquire(const InterfaceKey& key, const Constructor& ctor,
-                   bool once = false) {
-        auto item = ref_acquire(key, ctor, once);
+                   uint64_t failure_cooldown = 0) {
+        auto item = ref_acquire(key, ctor, failure_cooldown);
         return (ValPtr)(item ? item->_obj : nullptr);
     }
 
@@ -363,8 +363,8 @@ public:
 
     template <typename Constructor>
     Borrow borrow(const InterfaceKey& key, const Constructor& ctor,
-                  bool once = false) {
-        return Borrow(this, ref_acquire(key, ctor, once), false);
+                  uint64_t failure_cooldown = 0) {
+        return Borrow(this, ref_acquire(key, ctor, failure_cooldown), false);
     }
 
     Borrow borrow(const InterfaceKey& key) {

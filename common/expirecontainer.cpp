@@ -41,9 +41,11 @@ ExpireContainerBase::iterator ExpireContainerBase::find(const Item& key_item) {
 }
 
 void ExpireContainerBase::clear() {
-    for (auto x : ({ SCOPED_LOCK(_lock);
-                     _list.node = nullptr;
-                     Set(std::move(_set)); })) {
+    for (auto x : ({
+             SCOPED_LOCK(_lock);
+             _list.node = nullptr;
+             Set(std::move(_set));
+         })) {
         delete x;
     }
 }
@@ -77,7 +79,7 @@ bool ExpireContainerBase::keep_alive(const Item& x, bool insert_if_not_exists) {
 
 ObjectCacheBase::Item* ObjectCacheBase::ref_acquire(const Item& key_item,
                                                     Delegate<void*> ctor,
-                                                    bool once) {
+                                                    uint64_t failure_cooldown) {
     Base::iterator holder;
     Item* item = nullptr;
     expire();
@@ -102,9 +104,10 @@ ObjectCacheBase::Item* ObjectCacheBase::ref_acquire(const Item& key_item,
     } while (!item);
     {
         SCOPED_LOCK(item->_mtx);
-        if (!item->_obj && (!once || !item->_failure)) {
+        if (!item->_obj && (item->_failure <=
+                            photon::sat_sub(photon::now, failure_cooldown))) {
             item->_obj = ctor();
-            if (!item->_obj) item->_failure = true;
+            if (!item->_obj) item->_failure = photon::now;
         }
     }
     if (!item->_obj) {
