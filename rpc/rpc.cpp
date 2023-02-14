@@ -449,7 +449,7 @@ namespace rpc {
                 }
                 return rpc::new_rpc_stub(socket, true);
             };
-            return m_pool->acquire(endpoint, stub_ctor);
+            return m_pool->acquire(endpoint, stub_ctor, true);
         }
 
         int put_stub(const net::EndPoint& endpoint, bool immediately) override {
@@ -507,7 +507,7 @@ namespace rpc {
                 }
                 sock->timeout(m_rpc_timeout);
                 return new_rpc_stub(sock, true);
-            });
+            }, true);
         }
 
     protected:
