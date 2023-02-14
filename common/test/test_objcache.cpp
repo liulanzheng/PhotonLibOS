@@ -249,9 +249,7 @@ void* objcache_borrow_once(void* arg) {
         count++;
         return nullptr;
     };
-    {
-        auto ret = oc->borrow(0, ctor, true);
-    }
+    auto ret = oc->borrow(0, ctor, 1100UL * 1000);
     // every 10 objs will recycle
     return 0;
 }
@@ -277,8 +275,11 @@ TEST(ObjectCache, borrow_with_once) {
         photon::thread_join(handle);
     }
     EXPECT_EQ(1, count.load());
-    objcache_borrow_once(&args[0]);
-    LOG_INFO(VALUE(count.load()));
+    ocache.borrow(0, [&] {
+        photon::thread_usleep(1000 * 1000UL);
+        count++;
+        return new ShowOnDtor(1);
+    });
     EXPECT_EQ(2, count.load());
 }
 

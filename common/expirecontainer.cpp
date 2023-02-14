@@ -102,14 +102,13 @@ ObjectCacheBase::Item* ObjectCacheBase::ref_acquire(const Item& key_item,
     } while (!item);
     {
         SCOPED_LOCK(item->_mtx);
-        if (!item->_obj || (item->is_err() && !once)) {
+        if (!item->_obj && (!once || !item->_failure)) {
             item->_obj = ctor();
-            if (unlikely(item->_obj == nullptr))
-                item->set_err();
+            if (!item->_obj) item->_failure = true;
         }
     }
-    if (item->is_null_or_err()) {
-        ref_release(item, once);
+    if (!item->_obj) {
+        ref_release(item, false);
         return nullptr;
     }
     return item;
@@ -129,6 +128,7 @@ int ObjectCacheBase::ref_release(ItemPtr item, bool recycle) {
             if (item->_recycle) {
                 item->_recycle->signal(1);
             } else {
+                item->_failure = false;
                 enqueue(item);
             }
         }

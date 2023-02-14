@@ -219,15 +219,13 @@ protected:
             _obj = nullptr;
             _refcnt = 0;
             _recycle = nullptr;
+            _failure = false;
         }
         void* _obj;
         photon::mutex _mtx;
         uint32_t _refcnt;
         photon::semaphore* _recycle;
-        static constexpr uint64_t ERR_VAL = -1UL;
-        bool is_null_or_err() { return !_obj || is_err(); }
-        bool is_err() { return ((uint64_t)_obj) == ERR_VAL; }
-        void set_err() { _obj = (void*)ERR_VAL; }
+        bool _failure;
     };
 
     photon::condition_variable blocker;
@@ -281,9 +279,7 @@ protected:
             item->_recycle = nullptr;
             return item;
         }
-        ~Item() override {
-            if (!this->is_err()) delete (ValPtr)this->_obj;
-        }
+        ~Item() override { delete (ValPtr)this->_obj; }
     };
 
     using ItemKey = typename Item::ItemKey;
