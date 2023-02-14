@@ -32,13 +32,13 @@ protected:
     IMessage* cast() { return (IMessage*)this; }
 
     template <typename B, typename S>
-    ssize_t sendto(B* buf, S count, const Addr* to_addr,
-                   size_t addr_len, int flags = 0) {
+    ssize_t sendto(B* buf, S count, const Addr* to_addr, size_t addr_len,
+                   int flags = 0) {
         return cast()->send(buf, count, to_addr, addr_len, flags);
     }
     template <typename B, typename S>
-    ssize_t recvfrom(B* buf, S count, Addr* from_addr,
-                     size_t* addr_len, int flags = 0) {
+    ssize_t recvfrom(B* buf, S count, Addr* from_addr, size_t* addr_len,
+                     int flags = 0) {
         return cast()->recv(buf, count, from_addr, addr_len, flags);
     }
 
@@ -59,14 +59,10 @@ protected:
     using base::connect;
 
 public:
-    using base::send;
     using base::recv;
-    int connect(const EndPoint ep) {
-        return connect((Addr*)&ep, sizeof(ep));
-    }
-    int bind(const EndPoint ep) {
-        return bind((Addr*)&ep, sizeof(ep));
-    }
+    using base::send;
+    int connect(const EndPoint ep) { return connect((Addr*)&ep, sizeof(ep)); }
+    int bind(const EndPoint ep) { return bind((Addr*)&ep, sizeof(ep)); }
     template <typename B, typename S>
     ssize_t sendto(B* buf, S count, const EndPoint ep, int flags = 0) {
         return base::sendto(buf, count, (Addr*)&ep, sizeof(ep), flags);
@@ -85,14 +81,10 @@ protected:
     using base::connect;
 
 public:
-    using base::send;
     using base::recv;
-    int connect(const char* path) {
-        return connect((Addr*)path, 0);
-    }
-    int bind(const char* path) {
-        return bind((Addr*)path, 0);
-    }
+    using base::send;
+    int connect(const char* path) { return connect((Addr*)path, 0); }
+    int bind(const char* path) { return bind((Addr*)path, 0); }
     template <typename B, typename S>
     ssize_t sendto(B* buf, S count, const char* path, int flags = 0) {
         return base::sendto(buf, count, (Addr*)path, 0, flags);
@@ -105,9 +97,9 @@ public:
     }
 };
 
-UDPSocket* new_udp_socket();
+UDPSocket* new_udp_socket(int fd = -1);
 
-UDS_DatagramSocket* new_uds_datagram_socket();
+UDS_DatagramSocket* new_uds_datagram_socket(int fd = -1);
 
 }  // namespace net
 }  // namespace photon

@@ -30,7 +30,7 @@ public:
 
     virtual uint64_t max_message_size() = 0;
 
-    struct Addr;    // type-erased representation of address
+    struct Addr;  // type-erased representation of address
 
     virtual ssize_t send(const struct iovec* iov, int iovcnt,
                          const Addr* to_addr = nullptr, size_t addr_len = 0,

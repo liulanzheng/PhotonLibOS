@@ -37,12 +37,13 @@ protected:
     const size_t m_max_msg_size;
 
 public:
-    DatagramSocketBase(int AF, size_t maxsize) :
-        fd(AF), m_max_msg_size(maxsize) {}
+    DatagramSocketBase(int AF, size_t maxsize)
+        : fd(AF), m_max_msg_size(maxsize) {}
 
-    int init() {
+    int init(int nfd) {
         auto AF = fd;
-        fd = ::socket(AF, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
+        constexpr static auto FLAG = SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC;
+        fd = (nfd >= 0) ? nfd : (::socket(AF, FLAG, 0));
         return fd < 0;
     }
 
@@ -57,9 +58,8 @@ public:
     virtual uint64_t max_message_size() override { return m_max_msg_size; }
 
     int do_connect(struct sockaddr* addr, size_t addr_len) {
-        return doio(
-            [&] { return ::connect(fd, addr, addr_len); },
-            [&] { return photon::wait_for_fd_writable(fd); });
+        return doio([&] { return ::connect(fd, addr, addr_len); },
+                    [&] { return photon::wait_for_fd_writable(fd); });
     }
 
     int do_bind(struct sockaddr* addr, size_t addr_len) {
@@ -70,25 +70,23 @@ public:
         flags |= MSG_NOSIGNAL;
         struct msghdr hdr {
             .msg_name = (void*)addr, .msg_namelen = (socklen_t)addrlen,
-            .msg_iov = (iovec*)iov,  .msg_iovlen = (size_t)iovcnt,
-            .msg_control = nullptr,  .msg_controllen = 0,
-            .msg_flags = flags,
+            .msg_iov = (iovec*)iov, .msg_iovlen = (size_t)iovcnt,
+            .msg_control = nullptr, .msg_controllen = 0, .msg_flags = flags,
         };
-        return doio(
-            [&] { return ::sendmsg(fd, &hdr, MSG_DONTWAIT | flags); },
-            [&] { return photon::wait_for_fd_writable(fd); });
+        return doio([&] { return ::sendmsg(fd, &hdr, MSG_DONTWAIT | flags); },
+                    [&] { return photon::wait_for_fd_writable(fd); });
     }
     ssize_t do_recv(const iovec* iov, int iovcnt, sockaddr* addr,
                     size_t* addrlen, int flags) {
         struct msghdr hdr {
-            .msg_name = (void*)addr, .msg_namelen = addrlen ? (socklen_t)*addrlen : 0,
-            .msg_iov = (iovec*)iov,  .msg_iovlen = (size_t)iovcnt,
-            .msg_control = nullptr,  .msg_controllen = 0,
-            .msg_flags = MSG_NOSIGNAL | flags,
+            .msg_name = (void*)addr,
+            .msg_namelen = addrlen ? (socklen_t)*addrlen : 0,
+            .msg_iov = (iovec*)iov, .msg_iovlen = (size_t)iovcnt,
+            .msg_control = nullptr, .msg_controllen = 0, .msg_flags = flags,
         };
-        auto ret = doio(
-            [&] { return ::recvmsg(fd, &hdr, MSG_DONTWAIT | flags); },
-            [&] { return photon::wait_for_fd_readable(fd); });
+        auto ret =
+            doio([&] { return ::recvmsg(fd, &hdr, MSG_DONTWAIT | flags); },
+                 [&] { return photon::wait_for_fd_readable(fd); });
         if (addrlen) *addrlen = hdr.msg_namelen;
         return ret;
     }
@@ -181,8 +179,7 @@ public:
     }
     virtual ssize_t send(const struct iovec* iov, int iovcnt, const Addr* addr,
                          size_t addr_len, int flags = 0) override {
-        if (likely(!addr))
-            return do_send(iov, iovcnt, nullptr, 0, flags);
+        if (likely(!addr)) return do_send(iov, iovcnt, nullptr, 0, flags);
 
         auto un = to_addr_un(addr, addr_len);
         return do_send(iov, iovcnt, (sockaddr*)&un, sizeof(un), flags);
@@ -211,13 +208,13 @@ public:
     }
 };
 
-UDPSocket* new_udp_socket() {
-    auto sock = NewObj<UDP>(AF_INET, MAX_UDP_MESSAGE_SIZE)->init();
+UDPSocket* new_udp_socket(int fd) {
+    auto sock = NewObj<UDP>(AF_INET, MAX_UDP_MESSAGE_SIZE)->init(fd);
     return (UDPSocket*)sock;
 }
 
-UDS_DatagramSocket* new_uds_datagram_socket() {
-    auto sock = NewObj<UDS>(AF_UNIX, MAX_UDS_MESSAGE_SIZE)->init();
+UDS_DatagramSocket* new_uds_datagram_socket(int fd) {
+    auto sock = NewObj<UDS>(AF_UNIX, MAX_UDS_MESSAGE_SIZE)->init(fd);
     return (UDS_DatagramSocket*)sock;
 }
 
