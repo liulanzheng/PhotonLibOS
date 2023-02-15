@@ -155,7 +155,7 @@ protected:
     using Base::idx;
     using Base::tail;
 
-    std::atomic<uint64_t> marks[Base::capacity];
+    std::atomic<uint64_t> marks[Base::capacity]{};
     T slots[Base::capacity];
 
     uint64_t this_turn_write(const uint64_t x) const {
