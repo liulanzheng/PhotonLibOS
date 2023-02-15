@@ -12,7 +12,7 @@ targets = {
     'test' : cpp_fast_test(
         testing = [':test'],
         incs = [ './' ],
-        srcs = [ './test.cpp', './x.cpp' ],
+        srcs = [ './test.cpp' ],
         static_deps = [
             'gtest-1.7.0:gtest',
             'gmock-1.7.0:gmock',
@@ -72,7 +72,7 @@ targets = {
     ),
     'test_alog' : cpp_fast_test(
         incs = [ './' ],
-        srcs = [ './test_alog.cpp' ],
+        srcs = [ './test_alog.cpp', './x.cpp' ],
         static_deps = [
             'gtest-1.7.0:gtest',
             'gmock-1.7.0:gmock',
@@ -93,7 +93,8 @@ targets = {
         incs = [ './' ],
         srcs = [ './test_objcache.cpp' ],
         static_deps = [
-            'boost-1.69.0'
+            'boost-1.69.0',
+            'gtest-1.7.0:gtest',
         ],
         ldflags=[
             '-lphoton',
