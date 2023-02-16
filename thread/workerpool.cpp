@@ -39,6 +39,7 @@ public:
     photon::semaphore ready_vcpu;
     photon::condition_variable exit_cv;
     LockfreeMPMCRingQueue<Delegate<void>, RING_SIZE> ring;
+    std::atomic<uint64_t> idler;
 
     std::random_device rd;
     std::mt19937 gen;
@@ -58,7 +59,7 @@ public:
         stop = true;
         queue_sem.signal(vcpus.size() << 1);
         for (auto &worker : owned_std_threads)
-            worker.join();;
+            worker.join();
         photon::scoped_lock lock(worker_mtx);
         while (vcpus.size())
             exit_cv.wait(lock, 1UL * 1000);
@@ -66,7 +67,11 @@ public:
 
     void enqueue(Delegate<void> call) {
         ring.send(call);
-        queue_sem.signal(1);
+        auto x = idler.load(std::memory_order_relaxed);
+        while (!idler.compare_exchange_strong(x, 0, std::memory_order_acq_rel))
+            ThreadPause::pause();
+        if (x)
+            queue_sem.signal(x);
     }
 
     void do_call(Delegate<void> call) {
@@ -110,13 +115,22 @@ public:
         if (mode > 0) pool = photon::new_thread_pool(mode);
         DEFER(if (pool) delete_thread_pool(pool));
         ready_vcpu.signal(1);
+        Delegate<void> task{};
+        uint64_t swrate = 0;
         for (;;) {
-            Delegate<void> task;
-            {
-                queue_sem.wait(1);
-                if (this->stop && ring.empty()) return;
-                task = ring.recv();
+            if (this->stop && ring.empty()) return;
+            if (!ring.pop(task)) {
+                if (swrate) {
+                    photon::thread_yield();
+                    if (!ring.read_available())
+                        swrate = photon::sat_sub(swrate, 1);
+                } else if (swrate == 0) {
+                    idler.fetch_add(1, std::memory_order_acq_rel);
+                    queue_sem.wait(1);
+                }
+                continue;
             }
+            swrate = RING_SIZE;
             if (mode < 0) {
                 task();
             } else if (mode == 0) {
@@ -129,7 +143,6 @@ public:
                 photon::thread_yield_to(th);
             }
         }
-
     }
 
     static void *delegate_helper(void *arg) {
