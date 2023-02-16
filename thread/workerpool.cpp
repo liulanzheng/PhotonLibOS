@@ -67,11 +67,8 @@ public:
 
     void enqueue(Delegate<void> call) {
         ring.send(call);
-        auto x = idler.load(std::memory_order_relaxed);
-        while (!idler.compare_exchange_strong(x, 0, std::memory_order_acq_rel))
-            ThreadPause::pause();
-        if (x)
-            queue_sem.signal(x);
+        uint64_t x = idler.exchange(0, std::memory_order_acq_rel);
+        if (x) queue_sem.signal(x);
     }
 
     void do_call(Delegate<void> call) {
