@@ -124,7 +124,7 @@ public:
                     photon::thread_yield();
                     if (!ring.read_available())
                         swrate = photon::sat_sub(swrate, 1);
-                } else if (swrate == 0) {
+                } else {
                     idler.fetch_add(1, std::memory_order_acq_rel);
                     queue_sem.wait(1);
                 }
