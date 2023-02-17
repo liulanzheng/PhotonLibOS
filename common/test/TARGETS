@@ -89,7 +89,7 @@ targets = {
             '-lphoton',
         ],
     ),
-    'test_objcache' : cpp_program(
+    'test_objcache' : cpp_fast_test(
         incs = [ './' ],
         srcs = [ './test_objcache.cpp' ],
         static_deps = [
