@@ -520,10 +520,9 @@ TEST(http_client, partial_body) {
 // }
 
 int main(int argc, char** arg) {
-    photon::vcpu_init();
-    DEFER(photon::vcpu_fini());
-    photon::fd_events_init();
-    DEFER(photon::fd_events_fini());
+    if (photon::init(photon::INIT_EVENT_DEFAULT, photon::INIT_IO_NONE))
+        return -1;
+    DEFER(photon::fini());
     if (et_poller_init() < 0) {
         LOG_ERROR("et_poller_init failed");
         exit(EAGAIN);
