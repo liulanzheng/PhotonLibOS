@@ -27,7 +27,9 @@ limitations under the License.
 #include <immintrin.h>
 #endif
 
+#include <photon/common/timeout.h>
 #include <photon/common/utility.h>
+#include <photon/thread/thread.h>
 
 template <size_t x>
 struct Capacity_2expN {
@@ -503,3 +505,46 @@ public:
         return ret;
     }
 };
+
+namespace photon {
+namespace common {
+template <typename QueueType>
+class RingChannel : public QueueType {
+protected:
+    photon::semaphore queue_sem;
+    std::atomic<uint64_t> idler;
+    static constexpr uint64_t BUSY_YIELD_TIMEOUT = 1024;
+
+    using T = decltype(std::declval<QueueType>().recv());
+public:
+    using QueueType::full;
+    using QueueType::empty;
+    using QueueType::read_available;
+    using QueueType::write_available;
+    using QueueType::push;
+    using QueueType::pop;
+
+    void send(const T& x) {
+        while (!push(x)) {
+            if (!full()) photon::thread_yield();
+        }
+        uint64_t idle = idler.exchange(0, std::memory_order_acq_rel);
+        queue_sem.signal(idle);
+    }
+    T recv() {
+        T x;
+        Timeout yield_timeout(BUSY_YIELD_TIMEOUT);
+        while (!pop(x)) {
+            if (photon::now < yield_timeout.expire()) {
+                photon::thread_yield();
+            } else {
+                idler.fetch_add(1, std::memory_order_acq_rel);
+                queue_sem.wait(1);
+            }
+        }
+        return x;
+    }
+};
+
+}  // namespace common
+}  // namespace photon

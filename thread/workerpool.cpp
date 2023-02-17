@@ -38,7 +38,9 @@ public:
     photon::semaphore queue_sem;
     photon::semaphore ready_vcpu;
     photon::condition_variable exit_cv;
-    LockfreeMPMCRingQueue<Delegate<void>, RING_SIZE> ring;
+    photon::common::RingChannel<
+        LockfreeMPMCRingQueue<Delegate<void>, RING_SIZE>>
+        ring;
     std::atomic<uint64_t> idler;
 
     std::random_device rd;
@@ -57,18 +59,16 @@ public:
 
     ~impl() {
         stop = true;
-        queue_sem.signal(vcpus.size() << 1);
-        for (auto &worker : owned_std_threads)
-            worker.join();
+        for (size_t i = 0; i < vcpus.size(); i++) {
+            enqueue({});
+        }
+        for (auto &worker : owned_std_threads) worker.join();
         photon::scoped_lock lock(worker_mtx);
-        while (vcpus.size())
-            exit_cv.wait(lock, 1UL * 1000);
+        while (vcpus.size()) exit_cv.wait(lock, 1UL * 1000);
     }
 
     void enqueue(Delegate<void> call) {
         ring.send(call);
-        uint64_t x = idler.exchange(0, std::memory_order_acq_rel);
-        if (x) queue_sem.signal(x);
     }
 
     void do_call(Delegate<void> call) {
@@ -113,21 +113,9 @@ public:
         DEFER(if (pool) delete_thread_pool(pool));
         ready_vcpu.signal(1);
         Delegate<void> task{};
-        uint64_t swrate = 0;
-        for (;;) {
-            if (this->stop && ring.empty()) return;
-            if (!ring.pop(task)) {
-                if (swrate) {
-                    photon::thread_yield();
-                    if (!ring.read_available())
-                        swrate = photon::sat_sub(swrate, 1);
-                } else {
-                    idler.fetch_add(1, std::memory_order_acq_rel);
-                    queue_sem.wait(1);
-                }
-                continue;
-            }
-            swrate = RING_SIZE;
+        while (!stop) {
+            task = ring.recv();
+            if (!task) break;
             if (mode < 0) {
                 task();
             } else if (mode == 0) {

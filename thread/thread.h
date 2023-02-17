@@ -357,6 +357,7 @@ namespace photon
         int wait(uint64_t count, uint64_t timeout = -1);
         int signal(uint64_t count)
         {
+            if (count == 0) return 0;
             SCOPED_LOCK(splock);
             m_count.fetch_add(count);
             resume_one();
