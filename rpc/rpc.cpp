@@ -30,8 +30,6 @@ limitations under the License.
 
 using namespace std;
 
-constexpr static uint64_t kSocketConnectCooldown = 1UL * 1000 * 1000;
-
 namespace photon {
 namespace rpc {
 
@@ -451,7 +449,7 @@ namespace rpc {
                 }
                 return rpc::new_rpc_stub(socket, true);
             };
-            return m_pool->acquire(endpoint, stub_ctor, kSocketConnectCooldown);
+            return m_pool->acquire(endpoint, stub_ctor);
         }
 
         int put_stub(const net::EndPoint& endpoint, bool immediately) override {
@@ -509,7 +507,7 @@ namespace rpc {
                 }
                 sock->timeout(m_rpc_timeout);
                 return new_rpc_stub(sock, true);
-            }, kSocketConnectCooldown);
+            });
         }
 
     protected:
@@ -527,5 +525,5 @@ namespace rpc {
         return new UDSStubPoolImpl(path, expiration, connect_timeout,
                                    rpc_timeout);
     }
-}  // namespace rpc
+    }  // namespace rpc
 }
