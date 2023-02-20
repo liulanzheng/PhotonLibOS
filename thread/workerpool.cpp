@@ -112,9 +112,8 @@ public:
         if (mode > 0) pool = photon::new_thread_pool(mode);
         DEFER(if (pool) delete_thread_pool(pool));
         ready_vcpu.signal(1);
-        Delegate<void> task{};
         while (!stop) {
-            task = ring.recv();
+            auto task = ring.recv();
             if (!task) break;
             if (mode < 0) {
                 task();
