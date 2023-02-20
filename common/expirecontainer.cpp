@@ -131,7 +131,7 @@ int ObjectCacheBase::ref_release(ItemPtr item, bool recycle) {
             if (item->_recycle) {
                 item->_recycle->signal(1);
             } else {
-                item->_failure = false;
+                item->_failure = 0;
                 enqueue(item);
             }
         }
