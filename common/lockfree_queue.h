@@ -508,6 +508,19 @@ public:
 
 namespace photon {
 namespace common {
+
+/**
+ * @brief RingChannel is a photon wrapper to make LockfreeQueue send/recv
+ * efficiently wait and spin using photon style sync mechanism.
+ * In order.
+ * In considering of performance, RingChannel will use semaphore to hang-up photon
+ * thread when queue is empty, and once it got object by recv, it will trying using 
+ * `thread_yield` instead of semaphore, to get better performance and load balancing.
+ *
+ * @tparam QueueType shoulde be one of LockfreeMPMCRingQueue,
+ * LockfreeBatchMPMCRingQueue, or LockfreeSPSCRingQueue, with their own template
+ * parameters.
+ */
 template <typename QueueType>
 class RingChannel : public QueueType {
 protected:
