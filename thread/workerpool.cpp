@@ -34,7 +34,6 @@ public:
     photon::mutex worker_mtx;
     std::vector<std::thread> owned_std_threads;
     std::vector<photon::vcpu_base *> vcpus;
-    std::atomic<bool> stop;
     photon::semaphore queue_sem;
     photon::semaphore ready_vcpu;
     photon::condition_variable exit_cv;
@@ -47,7 +46,7 @@ public:
     int mode;
 
     impl(size_t vcpu_num, int ev_engine, int io_engine, int mode)
-        : stop(false), queue_sem(0), ready_vcpu(0), gen(rd()), mode(mode) {
+        : queue_sem(0), ready_vcpu(0), gen(rd()), mode(mode) {
         for (size_t i = 0; i < vcpu_num; ++i) {
             owned_std_threads.emplace_back(
                 &WorkPool::impl::worker_thread_routine, this, ev_engine,
@@ -57,8 +56,8 @@ public:
     }
 
     ~impl() {
-        stop = true;
-        for (size_t i = 0; i < vcpus.size(); i++) {
+        auto num = vcpus.size();
+        for (size_t i = 0; i < num; i++) {
             enqueue({});
         }
         for (auto &worker : owned_std_threads) worker.join();
@@ -111,7 +110,7 @@ public:
         if (mode > 0) pool = photon::new_thread_pool(mode);
         DEFER(if (pool) delete_thread_pool(pool));
         ready_vcpu.signal(1);
-        while (!stop) {
+        for (;;) {
             auto task = ring.recv();
             if (!task) break;
             if (mode < 0) {
