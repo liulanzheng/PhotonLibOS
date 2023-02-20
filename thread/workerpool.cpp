@@ -41,7 +41,6 @@ public:
     photon::common::RingChannel<
         LockfreeMPMCRingQueue<Delegate<void>, RING_SIZE>>
         ring;
-    std::atomic<uint64_t> idler;
 
     std::random_device rd;
     std::mt19937 gen;
