@@ -31,6 +31,7 @@ limitations under the License.
 #include <photon/common/io-alloc.h>
 #include <photon/thread/thread11.h>
 #include <photon/common/alog.h>
+#include <photon/photon.h>
 
 
 using namespace photon;
@@ -553,7 +554,7 @@ int main(int argc, char** arg) {
     testing::FLAGS_gtest_break_on_failure = true;
     gflags::ParseCommandLineFlags(&argc, &arg, true);
 
-    if (photon::init(photon::INIT_EVENT_DEFAULT, photon::INIT_IO_NONE))
+    if (photon::init())
         return -1;
     DEFER(photon::fini());
 
