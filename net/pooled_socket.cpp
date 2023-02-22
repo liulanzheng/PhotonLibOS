@@ -197,7 +197,8 @@ public:
 
     uint64_t evict() {
         photon::thread_yield_to(photon::CURRENT);
-        auto evict_cnt = fdmap.size() >> 1;
+        auto evict_cnt = fdmap.size();
+        if (evict_cnt > 1) evict_cnt >>= 1;  // evict half streams;
         auto cnt = 0;
         while (!lru.empty() && evict_cnt &&
                lru.front()->expire.expire() <= photon::now) {
