@@ -32,6 +32,7 @@ namespace photon
     static constexpr int SIGNAL_MAX = 64;
 
     static int sgfd = -1;
+    static vcpu_base* signal_vcpu = nullptr;
     static void* sighandlers[SIGNAL_MAX + 1];
     static sigset_t infoset = {0};
     static sigset_t sigset = {-1U};
@@ -251,6 +252,7 @@ namespace photon
         eloop = new_event_loop(
             {nullptr, &wait_for_signal},
             {nullptr, &fire_signal});
+        signal_vcpu = photon::get_vcpu();
         if (!eloop)
         {
             close(sgfd);
@@ -267,6 +269,9 @@ namespace photon
     {
         {
             photon::scoped_lock lock(init_mutex);
+            if (get_vcpu() != signal_vcpu) {
+                return 0;
+            }
             if (sgfd < 0)
                 LOG_ERROR_RETURN(EALREADY, -1, "already finished");
             eloop->stop();
