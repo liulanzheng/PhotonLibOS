@@ -38,6 +38,7 @@ limitations under the License.
 namespace photon
 {
     const uint64_t IODEPTH = 2048;
+    static photon::mutex init_mutex;
     struct libaio_ctx_t
     {
         int evfd = -1, running = 0;
@@ -341,8 +342,9 @@ namespace photon
 
     int libaio_wrapper_init()
     {
+        photon::scoped_lock lock(init_mutex);
         if (libaio_ctx)
-            LOG_ERROR_RETURN(EALREADY, -1, "already inited");
+            return 0;
 
         std::unique_ptr<libaio_ctx_t> ctx(new libaio_ctx_t);
         ctx->evfd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
@@ -366,9 +368,10 @@ namespace photon
 
     int libaio_wrapper_fini()
     {
+        photon::scoped_lock lock(init_mutex);
         if (!libaio_ctx || !libaio_ctx->running ||
             !libaio_ctx->polling_thread || libaio_ctx->evfd < 0)
-            LOG_ERROR_RETURN(ENOSYS, -1, "not inited");
+            return 0;
 
         if (libaio_ctx->running == 2) // if waiting for fd readable
             thread_interrupt(libaio_ctx->polling_thread, ECANCELED);
