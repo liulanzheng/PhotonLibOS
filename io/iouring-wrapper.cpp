@@ -73,7 +73,7 @@ public:
     int init() {
         rlimit resource_limit{.rlim_cur = RLIM_INFINITY, .rlim_max = RLIM_INFINITY};
         if (setrlimit(RLIMIT_MEMLOCK, &resource_limit) != 0) {
-            LOG_WARN("iouring: current user has no permission to set unlimited RLIMIT_MEMLOCK, change to root?");
+            LOG_ERROR_RETURN(0, -1, "iouring: failed to set resource limit. Use command `ulimit -l unlimited`, or change to root");
         }
         set_submit_wait_function();
 
