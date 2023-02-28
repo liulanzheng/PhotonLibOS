@@ -505,6 +505,18 @@ TEST(http_client, partial_body) {
     EXPECT_EQ(true, buf == "http_clien");
 }
 
+TEST(url, url_escape_unescape) {
+    EXPECT_EQ(
+        url_escape("?a=x:b&b=cd&c= feg&d=2/1[+]@alibaba.com&e='!bad';"),
+        "%3Fa%3Dx%3Ab%26b%3Dcd%26c%3D%20feg%26d%3D2%2F1%5B%2B%5D%40alibaba.com%26e%3D%27%21bad%27%3B"
+    );
+    auto x = url_unescape("%3Fa%3Dx%3Ab%26b%3Dcd%26c%3D%20feg%26d%3D2%2F1%5B%2B%5D%40alibaba.com%26e%3D%27%21bad%27%3B");
+    EXPECT_EQ(
+        url_unescape("%3Fa%3Dx%3Ab%26b%3Dcd%26c%3D%20feg%26d%3D2%2F1%5B%2B%5D%40alibaba.com%26e%3D%27%21bad%27%3B"),
+        "?a=x:b&b=cd&c= feg&d=2/1[+]@alibaba.com&e='!bad';"
+    );
+}
+
 // Only for manual test
 // TEST(http_client, proxy) {
 //     auto client = new_http_client();
