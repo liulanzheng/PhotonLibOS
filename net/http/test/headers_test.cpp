@@ -159,7 +159,7 @@ TEST(headers, resp_header) {
     do {
         auto ret = rand_header.receive_bytes(&stream);
         if (stream.done()) EXPECT_EQ(0, ret); else
-            EXPECT_EQ(1, ret);
+            EXPECT_EQ(2, ret);
     } while (!stream.done());
     EXPECT_EQ(true, rand_header.version() == "1.1");
     EXPECT_EQ(200, rand_header.status_code());
@@ -179,7 +179,7 @@ TEST(headers, resp_header) {
     do {
         auto ret = exceed_header.receive_bytes(&exceed_stream);
         if (exceed_stream.done()) EXPECT_EQ(-1, ret); else
-            EXPECT_EQ(1, ret);
+            EXPECT_EQ(2, ret);
     } while (!exceed_stream.done());
 }
 TEST(headers, url) {
