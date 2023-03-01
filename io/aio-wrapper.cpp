@@ -342,7 +342,6 @@ namespace photon
 
     int libaio_wrapper_init()
     {
-        photon::scoped_lock lock(init_mutex);
         if (libaio_ctx)
             return 0;
 
@@ -368,7 +367,6 @@ namespace photon
 
     int libaio_wrapper_fini()
     {
-        photon::scoped_lock lock(init_mutex);
         if (!libaio_ctx || !libaio_ctx->running ||
             !libaio_ctx->polling_thread || libaio_ctx->evfd < 0)
             return 0;
