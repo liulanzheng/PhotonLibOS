@@ -38,7 +38,6 @@ limitations under the License.
 namespace photon
 {
     const uint64_t IODEPTH = 2048;
-    static photon::mutex init_mutex;
     struct libaio_ctx_t
     {
         int evfd = -1, running = 0;
