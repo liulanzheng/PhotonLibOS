@@ -273,7 +273,7 @@ namespace photon
                 return 0;
             }
             if (sgfd < 0)
-                LOG_ERROR_RETURN(EALREADY, -1, "already finished");
+                return 0;
             eloop->stop();
             close(sgfd);
             sgfd = -1;
