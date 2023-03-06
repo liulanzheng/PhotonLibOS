@@ -162,7 +162,7 @@ endif()
 if (ENABLE_MIMIC_VDSO)
     target_compile_definitions(photon_obj PRIVATE ENABLE_MIMIC_VDSO=on)
 endif()
-if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 8.0)
+if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 8.0)
     # This option is enabled by default after -std=c++17
     target_compile_options(photon_obj PRIVATE -faligned-new)
 endif()
