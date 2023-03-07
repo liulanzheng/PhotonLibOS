@@ -128,6 +128,8 @@ static int fill_path(struct sockaddr_un& name, const char* path, size_t count) {
 
 class KernelSocketStream : public SocketStreamBase {
 public:
+    using ISocketStream::setsockopt;
+    using ISocketStream::getsockopt;
     int fd = -1;
     explicit KernelSocketStream(int fd) : fd(fd) {}
     KernelSocketStream(int socket_family, bool nonblocking) {
@@ -207,11 +209,11 @@ public:
         return get_peer_name(fd, path, count);
     }
     virtual int setsockopt(int level, int option_name, const void* option_value,
-                           socklen_t option_len) override {
+                           socklen_t option_len) final {
         return ::setsockopt(fd, level, option_name, option_value, option_len);
     }
     virtual int getsockopt(int level, int option_name, void* option_value,
-                           socklen_t* option_len) override {
+                           socklen_t* option_len) final {
         return ::getsockopt(fd, level, option_name, option_value, option_len);
     }
     virtual uint64_t timeout() const override { return m_timeout; }
@@ -489,17 +491,14 @@ protected:
 class ZeroCopySocketStream : public KernelSocketStream {
 protected:
     uint32_t m_num_calls = 0;
-
 public:
     explicit ZeroCopySocketStream(int fd) : KernelSocketStream(fd) {
-        int v = 1;
-        ::setsockopt(fd, SOL_SOCKET, SO_ZEROCOPY, &v, sizeof(v));
+        setsockopt(SOL_SOCKET, SO_ZEROCOPY, 1);
     }
 
     ZeroCopySocketStream(int socket_family, bool nonblocking) :
             KernelSocketStream(socket_family, nonblocking) {
-        int v = 1;
-        ::setsockopt(fd, SOL_SOCKET, SO_ZEROCOPY, &v, sizeof(v));
+        setsockopt(SOL_SOCKET, SO_ZEROCOPY, 1);
     }
 
     ssize_t write(const void* buf, size_t count) override {
