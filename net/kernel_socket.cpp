@@ -139,8 +139,7 @@ public:
             fd = ::socket(socket_family, SOCK_STREAM, 0);
         }
         if (fd > 0 && socket_family == AF_INET) {
-            int val = 1;
-            ::setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &val, sizeof(val));
+            setsockopt<int>(IPPROTO_TCP, TCP_NODELAY, 1);
         }
     }
     virtual ~KernelSocketStream() {
@@ -295,6 +294,9 @@ protected:
 
 class KernelSocketServer : public SocketServerBase {
 public:
+    using ISocketServer::setsockopt;
+    using ISocketServer::getsockopt;
+
     KernelSocketServer(int socket_family, bool autoremove, bool nonblocking) :
             m_socket_family(socket_family),
             m_autoremove(autoremove),
@@ -329,8 +331,7 @@ public:
             LOG_ERRNO_RETURN(0, -1, "fail to setup listen fd");
         }
         if (m_socket_family == AF_INET) {
-            int val = 1;
-            if (::setsockopt(m_listen_fd, IPPROTO_TCP, TCP_NODELAY, &val, sizeof(val)) != 0) {
+            if (setsockopt<int>(IPPROTO_TCP, TCP_NODELAY, 1) != 0) {
                 LOG_ERRNO_RETURN(EINVAL, -1, "failed to setsockopt of TCP_NODELAY");
             }
         }
@@ -414,14 +415,14 @@ public:
         return get_peer_name(m_listen_fd, path, count);
     }
 
-    int setsockopt(int level, int option_name, const void* option_value, socklen_t option_len) override {
+    int setsockopt(int level, int option_name, const void* option_value, socklen_t option_len) final {
         if (::setsockopt(m_listen_fd, level, option_name, option_value, option_len) != 0) {
             LOG_ERRNO_RETURN(EINVAL, -1, "failed to setsockopt");
         }
         return m_opts.put_opt(level, option_name, option_value, option_len);
     }
 
-    int getsockopt(int level, int option_name, void* option_value, socklen_t* option_len) override {
+    int getsockopt(int level, int option_name, void* option_value, socklen_t* option_len) final {
         if (::getsockopt(m_listen_fd, level, option_name, option_value, option_len) == 0) return 0;
         return m_opts.get_opt(level, option_name, option_value, option_len);
     }
@@ -493,12 +494,12 @@ protected:
     uint32_t m_num_calls = 0;
 public:
     explicit ZeroCopySocketStream(int fd) : KernelSocketStream(fd) {
-        setsockopt(SOL_SOCKET, SO_ZEROCOPY, 1);
+        setsockopt<int>(SOL_SOCKET, SO_ZEROCOPY, 1);
     }
 
     ZeroCopySocketStream(int socket_family, bool nonblocking) :
             KernelSocketStream(socket_family, nonblocking) {
-        setsockopt(SOL_SOCKET, SO_ZEROCOPY, 1);
+        setsockopt<int>(SOL_SOCKET, SO_ZEROCOPY, 1);
     }
 
     ssize_t write(const void* buf, size_t count) override {
