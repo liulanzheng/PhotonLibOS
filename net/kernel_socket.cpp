@@ -181,7 +181,7 @@ public:
     virtual ssize_t sendfile(int in_fd, off_t offset, size_t count) override {
         return net::sendfile_n(fd, in_fd, &offset, count);
     }
-    virtual int shutdown(ShutdownHow how) override {
+    virtual int shutdown(ShutdownHow how) final {
         // shutdown how defined as 0 for RD, 1 for WR and 2 for RDWR
         // in sys/socket.h, cast ShutdownHow into int just fits
         return ::shutdown(fd, static_cast<int>(how));
@@ -189,7 +189,7 @@ public:
     virtual Object* get_underlay_object(uint64_t recursion = 0) override {
         return (Object*) (uint64_t) fd;
     }
-    virtual int close() override {
+    virtual int close() final {
         auto ret = ::close(fd);
         fd = -1;
         return ret;
@@ -315,6 +315,8 @@ public:
         m_listen_fd = -1;
     }
 
+    // Comply with the NewObj interface.
+    // The derived classes may continue to add more implementations.
     int init() {
         if (m_nonblocking) {
             m_listen_fd = net::socket(m_socket_family, SOCK_STREAM, 0);
@@ -344,7 +346,7 @@ public:
         return 0;
     }
 
-    void terminate() override {
+    void terminate() final {
         if (!workth) return;
         auto th = workth;
         workth = nullptr;
@@ -489,7 +491,16 @@ protected:
     uint32_t m_num_calls = 0;
 
 public:
-    using KernelSocketStream::KernelSocketStream;
+    explicit ZeroCopySocketStream(int fd) : KernelSocketStream(fd) {
+        int v = 1;
+        ::setsockopt(fd, SOL_SOCKET, SO_ZEROCOPY, &v, sizeof(v));
+    }
+
+    ZeroCopySocketStream(int socket_family, bool nonblocking) :
+            KernelSocketStream(socket_family, nonblocking) {
+        int v = 1;
+        ::setsockopt(fd, SOL_SOCKET, SO_ZEROCOPY, &v, sizeof(v));
+    }
 
     ssize_t write(const void* buf, size_t count) override {
         struct iovec iov { const_cast<void*>(buf), count };
@@ -517,25 +528,27 @@ public:
     using KernelSocketServer::KernelSocketServer;
 
     int init() {
+        if (!net::zerocopy_available()) {
+            LOG_ERROR_RETURN(0, -1, "zerocopy not available");
+        }
         if (KernelSocketServer::init() != 0) {
             return -1;
-        }
-        if (!net::zerocopy_available()) {
-            LOG_WARN("zerocopy not available, use standard socket instead!!");
-            return isok_ = false;
-        }
-        int v = 1;
-        if (::setsockopt(m_listen_fd, SOL_SOCKET, SO_ZEROCOPY, &v, sizeof(v)) != 0) {
-            LOG_ERRNO_RETURN(0, -1, "fail to set sock opt of SO_ZEROCOPY");
         }
         return 0;
     }
 
 protected:
-    bool isok_ = true;
     KernelSocketStream* create_stream(int fd) override {
-        if (isok_) return new ZeroCopySocketStream(fd);
-        return new KernelSocketStream(fd);
+        return new ZeroCopySocketStream(fd);
+    }
+};
+
+class ZeroCopySocketClient : public KernelSocketClient {
+public:
+    using KernelSocketClient::KernelSocketClient;
+protected:
+    KernelSocketStream* create_stream() override {
+        return new ZeroCopySocketStream(m_socket_family, m_nonblocking);
     }
 };
 
@@ -939,6 +952,9 @@ extern "C" ISocketServer* new_uds_server(bool autoremove) {
 #ifdef __linux__
 extern "C" ISocketServer* new_zerocopy_tcp_server() {
     return NewObj<ZeroCopySocketServer>(AF_INET, false, true)->init();
+}
+extern "C" ISocketClient* new_zerocopy_tcp_client() {
+    return new ZeroCopySocketClient(AF_INET, true);
 }
 #ifdef PHOTON_URING
 extern "C" ISocketClient* new_iouring_tcp_client() {
