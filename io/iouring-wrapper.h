@@ -25,33 +25,42 @@ limitations under the License.
 
 namespace photon {
 
-ssize_t iouring_pread(int fd, void* buf, size_t count, off_t offset, uint64_t timeout);
+static const uint64_t IouringFixedFileFlag = 0x00010000;
 
-ssize_t iouring_pwrite(int fd, const void* buf, size_t count, off_t offset, uint64_t timeout);
+struct iouring_flags {
+    iouring_flags(uint64_t flags) : m_flags(flags) {}
+    // The lower 32 bits are for io flags
+    uint32_t io_flags() const {
+        return m_flags & 0xffffffff;
+    }
+    // The upper 32 bits are for ring flags
+    uint32_t ring_flags() const {
+        return m_flags >> 32;
+    }
+    uint64_t m_flags = 0;
+};
 
-ssize_t iouring_preadv(int fd, const iovec* iov, int iovcnt, off_t offset, uint64_t timeout);
+ssize_t iouring_pread(int fd, void* buf, size_t count, off_t offset, uint64_t timeout = -1);
 
-ssize_t iouring_pwritev(int fd, const iovec* iov, int iovcnt, off_t offset, uint64_t timeout);
+ssize_t iouring_pwrite(int fd, const void* buf, size_t count, off_t offset, uint64_t timeout = -1);
 
-ssize_t iouring_send(int fd, const void* buf, size_t len, int flags, uint64_t timeout);
+ssize_t iouring_preadv(int fd, const iovec* iov, int iovcnt, off_t offset, uint64_t timeout = -1);
 
-ssize_t iouring_send_fixed_file(int fd, const void* buf, size_t len, int flags, uint64_t timeout);
+ssize_t iouring_pwritev(int fd, const iovec* iov, int iovcnt, off_t offset, uint64_t timeout = -1);
 
-ssize_t iouring_recv(int fd, void* buf, size_t len, int flags, uint64_t timeout);
+ssize_t iouring_send(int fd, const void* buf, size_t len, iouring_flags flags = 0, uint64_t timeout = -1);
 
-ssize_t iouring_recv_fixed_file(int fd, void* buf, size_t len, int flags, uint64_t timeout);
+ssize_t iouring_recv(int fd, void* buf, size_t len, iouring_flags flags = 0, uint64_t timeout = -1);
 
-ssize_t iouring_sendmsg(int fd, const msghdr* msg, int flags, uint64_t timeout);
+ssize_t iouring_sendmsg(int fd, const msghdr* msg, iouring_flags flags = 0, uint64_t timeout = -1);
 
-ssize_t iouring_sendmsg_fixed_file(int fd, const msghdr* msg, int flags, uint64_t timeout);
+ssize_t iouring_recvmsg(int fd, msghdr* msg, iouring_flags flags = 0, uint64_t timeout = -1);
 
-ssize_t iouring_recvmsg(int fd, msghdr* msg, int flags, uint64_t timeout);
+ssize_t iouring_send_zc(int fd, const void* buf, size_t len, iouring_flags flags = 0, uint64_t timeout = -1);
 
-ssize_t iouring_recvmsg_fixed_file(int fd, msghdr* msg, int flags, uint64_t timeout);
+int iouring_connect(int fd, const sockaddr* addr, socklen_t addrlen, uint64_t timeout = -1);
 
-int iouring_connect(int fd, const sockaddr* addr, socklen_t addrlen, uint64_t timeout);
-
-int iouring_accept(int fd, sockaddr* addr, socklen_t* addrlen, uint64_t timeout);
+int iouring_accept(int fd, sockaddr* addr, socklen_t* addrlen, uint64_t timeout = -1);
 
 int iouring_fsync(int fd);
 
