@@ -1317,9 +1317,12 @@ namespace photon
     void mutex::unlock()
     {
         auto th = owner.load();
-        if (!th)
+        if (unlikely(!th)) {
+            if (unlikely(!CURRENT))
+                return;
             LOG_ERROR_RETURN(EINVAL, , "the mutex was not locked");
-        if (th != CURRENT)
+        }
+        if (unlikely(th != CURRENT))
             LOG_ERROR_RETURN(EINVAL, , "the mutex was not locked by current thread");
         do_mutex_unlock(this);
     }
