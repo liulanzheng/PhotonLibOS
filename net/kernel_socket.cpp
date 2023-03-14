@@ -52,6 +52,10 @@ limitations under the License.
 #define SO_ZEROCOPY 60
 #endif
 
+#ifndef AF_SMC
+#define AF_SMC 43
+#endif
+
 LogBuffer& operator<<(LogBuffer& log, const in_addr& iaddr) {
     return log << photon::net::IPAddr(ntohl(iaddr.s_addr));
 }
@@ -921,6 +925,12 @@ extern "C" ISocketClient* new_et_tcp_socket_client() {
 }
 extern "C" ISocketServer* new_et_tcp_socket_server() {
     return NewObj<ETKernelSocketServer>(AF_INET, false, true)->init();
+}
+extern "C" ISocketClient* new_smc_socket_client() {
+    return new KernelSocketClient(AF_SMC, true);
+}
+extern "C" ISocketServer* new_smc_socket_server() {
+    return NewObj<KernelSocketServer>(AF_SMC, false, true)->init();
 }
 #endif // __linux__
 
