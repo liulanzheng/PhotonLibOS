@@ -27,19 +27,6 @@ namespace photon {
 
 static const uint64_t IouringFixedFileFlag = 0x00010000;
 
-struct iouring_flags {
-    iouring_flags(uint64_t flags) : m_flags(flags) {}
-    // The lower 32 bits are for io flags
-    uint32_t io_flags() const {
-        return m_flags & 0xffffffff;
-    }
-    // The upper 32 bits are for ring flags
-    uint32_t ring_flags() const {
-        return m_flags >> 32;
-    }
-    uint64_t m_flags = 0;
-};
-
 ssize_t iouring_pread(int fd, void* buf, size_t count, off_t offset, uint64_t timeout = -1);
 
 ssize_t iouring_pwrite(int fd, const void* buf, size_t count, off_t offset, uint64_t timeout = -1);
@@ -48,15 +35,15 @@ ssize_t iouring_preadv(int fd, const iovec* iov, int iovcnt, off_t offset, uint6
 
 ssize_t iouring_pwritev(int fd, const iovec* iov, int iovcnt, off_t offset, uint64_t timeout = -1);
 
-ssize_t iouring_send(int fd, const void* buf, size_t len, iouring_flags flags = 0, uint64_t timeout = -1);
+ssize_t iouring_send(int fd, const void* buf, size_t len, uint64_t flags = 0, uint64_t timeout = -1);
 
-ssize_t iouring_recv(int fd, void* buf, size_t len, iouring_flags flags = 0, uint64_t timeout = -1);
+ssize_t iouring_recv(int fd, void* buf, size_t len, uint64_t flags = 0, uint64_t timeout = -1);
 
-ssize_t iouring_sendmsg(int fd, const msghdr* msg, iouring_flags flags = 0, uint64_t timeout = -1);
+ssize_t iouring_sendmsg(int fd, const msghdr* msg, uint64_t flags = 0, uint64_t timeout = -1);
 
-ssize_t iouring_recvmsg(int fd, msghdr* msg, iouring_flags flags = 0, uint64_t timeout = -1);
+ssize_t iouring_recvmsg(int fd, msghdr* msg, uint64_t flags = 0, uint64_t timeout = -1);
 
-ssize_t iouring_send_zc(int fd, const void* buf, size_t len, iouring_flags flags = 0, uint64_t timeout = -1);
+ssize_t iouring_send_zc(int fd, const void* buf, size_t len, uint64_t flags = 0, uint64_t timeout = -1);
 
 int iouring_connect(int fd, const sockaddr* addr, socklen_t addrlen, uint64_t timeout = -1);
 
