@@ -176,36 +176,15 @@ public:
     using Base::empty;
     using Base::full;
 
-    bool push(const T& x) {
-        auto h = head.load(std::memory_order_acquire);
-        for (;;) {
-            auto& slot = slots[idx(h)];
-            auto& mark = marks[idx(h)];
-            if (mark.load(std::memory_order_acquire) == last_turn_read(h)) {
-                if (head.compare_exchange_strong(h, h + 1)) {
-                    slot = x;
-                    mark.store(this_turn_write(h), std::memory_order_release);
-                    return true;
-                }
-            } else {
-                auto const prevHead = h;
-                h = head.load(std::memory_order_acquire);
-                if (h == prevHead) {
-                    return false;
-                }
-            }
-        }
-    }
-
-    bool pop(T& x) {
+    bool push_weak(const T& x) {
         auto t = tail.load(std::memory_order_acquire);
         for (;;) {
             auto& slot = slots[idx(t)];
             auto& mark = marks[idx(t)];
-            if (mark.load(std::memory_order_acquire) == this_turn_write(t)) {
+            if (mark.load(std::memory_order_acquire) == last_turn_read(t)) {
                 if (tail.compare_exchange_strong(t, t + 1)) {
-                    x = slot;
-                    mark.store(this_turn_read(t), std::memory_order_release);
+                    slot = x;
+                    mark.store(this_turn_write(t), std::memory_order_release);
                     return true;
                 }
             } else {
@@ -218,30 +197,65 @@ public:
         }
     }
 
+    bool pop_weak(T& x) {
+        auto h = head.load(std::memory_order_acquire);
+        for (;;) {
+            auto& slot = slots[idx(h)];
+            auto& mark = marks[idx(h)];
+            if (mark.load(std::memory_order_acquire) == this_turn_write(h)) {
+                if (head.compare_exchange_strong(h, h + 1)) {
+                    x = slot;
+                    mark.store(this_turn_read(h), std::memory_order_release);
+                    return true;
+                }
+            } else {
+                auto const prevHead = h;
+                h = head.load(std::memory_order_acquire);
+                if (h == prevHead) {
+                    return false;
+                }
+            }
+        }
+    }
+
+    bool push(const T& x) {
+        do {
+            if (push_weak(x)) return true;
+        } while (!full());
+        return false;
+    }
+
+    bool pop(T& x) {
+        do {
+            if (pop_weak(x)) return true;
+        } while (!empty());
+        return false;
+    }
+
     template <typename Pause = ThreadPause>
     void send(const T& x) {
         static_assert(std::is_base_of<PauseBase, Pause>::value,
                       "Pause should be derived by PauseBase");
-        auto const h = head.fetch_add(1);
-        auto& slot = slots[idx(h)];
-        auto& mark = marks[idx(h)];
-        while (mark.load(std::memory_order_acquire) != last_turn_read(h))
+        auto const t = tail.fetch_add(1);
+        auto& slot = slots[idx(t)];
+        auto& mark = marks[idx(t)];
+        while (mark.load(std::memory_order_acquire) != last_turn_read(t))
             Pause::pause();
         slot = x;
-        mark.store(this_turn_write(h), std::memory_order_release);
+        mark.store(this_turn_write(t), std::memory_order_release);
     }
 
     template <typename Pause = ThreadPause>
     T recv() {
         static_assert(std::is_base_of<PauseBase, Pause>::value,
                       "Pause should be derived by PauseBase");
-        auto const t = tail.fetch_add(1);
-        auto& slot = slots[idx(t)];
-        auto& mark = marks[idx(t)];
-        while (mark.load(std::memory_order_acquire) != this_turn_write(t))
+        auto const h = head.fetch_add(1);
+        auto& slot = slots[idx(h)];
+        auto& mark = marks[idx(h)];
+        while (mark.load(std::memory_order_acquire) != this_turn_write(h))
             Pause::pause();
         T ret = slot;
-        mark.store(this_turn_read(t), std::memory_order_release);
+        mark.store(this_turn_read(h), std::memory_order_release);
         return ret;
     }
 };
@@ -513,9 +527,10 @@ namespace common {
  * @brief RingChannel is a photon wrapper to make LockfreeQueue send/recv
  * efficiently wait and spin using photon style sync mechanism.
  * In order.
- * In considering of performance, RingChannel will use semaphore to hang-up photon
- * thread when queue is empty, and once it got object by recv, it will trying using 
- * `thread_yield` instead of semaphore, to get better performance and load balancing.
+ * In considering of performance, RingChannel will use semaphore to hang-up
+ * photon thread when queue is empty, and once it got object by recv, it will
+ * trying using `thread_yield` instead of semaphore, to get better performance
+ * and load balancing.
  *
  * @tparam QueueType shoulde be one of LockfreeMPMCRingQueue,
  * LockfreeBatchMPMCRingQueue, or LockfreeSPSCRingQueue, with their own template
@@ -529,13 +544,14 @@ protected:
     static constexpr uint64_t BUSY_YIELD_TIMEOUT = 1024;
 
     using T = decltype(std::declval<QueueType>().recv());
+
 public:
-    using QueueType::full;
     using QueueType::empty;
+    using QueueType::full;
+    using QueueType::pop;
+    using QueueType::push;
     using QueueType::read_available;
     using QueueType::write_available;
-    using QueueType::push;
-    using QueueType::pop;
 
     void send(const T& x) {
         while (!push(x)) {
