@@ -553,6 +553,10 @@ inline LogBuffer& operator << (LogBuffer& log, const NamedValue<ALogString>& v)
     return retv;                                    \
 }
 
+// output log once every T seconds.
+// example: LOG_EVERY_T(10, LOG_INFO(....))
+// this log line will only log once in 10 secs.
+// useful for logs in repeated checking
 #define LOG_EVERY_T(T, ...)                         \
     [&] {                                           \
         static uint64_t __last_log__##__LINE__ = 0; \
@@ -566,6 +570,9 @@ inline LogBuffer& operator << (LogBuffer& log, const NamedValue<ALogString>& v)
         return __logstat##__LINE__;                 \
     }()
 
+// output log once every N rounds.
+// example: LOG_EVERY_N(10, LOG_INFO(....))
+// this log line will only print 1 time every 10 rounds.
 #define LOG_EVERY_N(N, ...)                                        \
     [&] {                                                          \
         static uint64_t __last_log__##__LINE__ = 0;                \
@@ -577,6 +584,9 @@ inline LogBuffer& operator << (LogBuffer& log, const NamedValue<ALogString>& v)
         return __logstat##__LINE__;                                \
     }()
 
+// output log only first N rounds.
+// example: LOG_FIRST_N(10, LOG_INFO(....))
+// this log line will only print 10 rounds, after that, nothing will logged
 #define LOG_FIRST_N(N, ...)                         \
     [&] {                                           \
         static uint64_t __last_log__##__LINE__ = 0; \
@@ -589,6 +599,9 @@ inline LogBuffer& operator << (LogBuffer& log, const NamedValue<ALogString>& v)
         return __logstat##__LINE__;                 \
     }()
 
+// output log only first N rounds every T seconds.
+// example: LOG_FIRST_N_EVERY_T(10, 60, LOG_INFO(....))
+// this log line will only print 10 rounds every 60 seconds.
 #define LOG_FIRST_N_EVERY_T(N, T, ...)                \
     [&] {                                             \
         static uint64_t __last_log__##__LINE__ = 0;   \
