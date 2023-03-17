@@ -486,19 +486,6 @@ struct LogBuilder {
     }
 #define LOG_AUDIT(...) (__LOG__(default_audit_logger, ALOG_AUDIT, __VA_ARGS__))
 
-#define LOG_ONCE(duration, ...)                        \
-    [&] {                                              \
-        static uint64_t __last_log__##__LINE__ = 0;    \
-        auto __logstat##__LINE__ = __VA_ARGS__;        \
-        auto now = time(0);                            \
-        if (__last_log__##__LINE__ + duration > now) { \
-            __logstat##__LINE__.done = true;           \
-        } else {                                       \
-            __last_log__##__LINE__ = now;              \
-        }                                              \
-        return __logstat##__LINE__;                    \
-    }()
-
 inline void set_log_output(ILogOutput* output) {
     default_logger.log_output = output;
 }
@@ -566,3 +553,56 @@ inline LogBuffer& operator << (LogBuffer& log, const NamedValue<ALogString>& v)
     return retv;                                    \
 }
 
+#define LOG_EVERY_T(T, ...)                         \
+    [&] {                                           \
+        static uint64_t __last_log__##__LINE__ = 0; \
+        auto __logstat##__LINE__ = __VA_ARGS__;     \
+        auto now = time(0);                         \
+        if (__last_log__##__LINE__ + T > now) {     \
+            __logstat##__LINE__.done = true;        \
+        } else {                                    \
+            __last_log__##__LINE__ = now;           \
+        }                                           \
+        return __logstat##__LINE__;                 \
+    }()
+
+#define LOG_EVERY_N(N, ...)                                        \
+    [&] {                                                          \
+        static uint64_t __last_log__##__LINE__ = 0;                \
+        auto __logstat##__LINE__ = __VA_ARGS__;                    \
+        if (__last_log__##__LINE__ > 0) {                          \
+            __logstat##__LINE__.done = true;                       \
+        }                                                          \
+        __last_log__##__LINE__ = (__last_log__##__LINE__ + 1) % N; \
+        return __logstat##__LINE__;                                \
+    }()
+
+#define LOG_FIRST_N(N, ...)                         \
+    [&] {                                           \
+        static uint64_t __last_log__##__LINE__ = 0; \
+        auto __logstat##__LINE__ = __VA_ARGS__;     \
+        if (__last_log__##__LINE__ >= N) {          \
+            __logstat##__LINE__.done = true;        \
+        } else {                                    \
+            __last_log__##__LINE__++;               \
+        }                                           \
+        return __logstat##__LINE__;                 \
+    }()
+
+#define LOG_FIRST_N_EVERY_T(N, T, ...)                \
+    [&] {                                             \
+        static uint64_t __last_log__##__LINE__ = 0;   \
+        static uint64_t __term_count__##__LINE__ = 0; \
+        auto __logstat##__LINE__ = __VA_ARGS__;       \
+        auto now = time(0);                           \
+        if (__last_log__##__LINE__ + T <= now) {       \
+            __last_log__##__LINE__ = now;             \
+            __term_count__##__LINE__ = 0;             \
+        }                                             \
+        if (__term_count__##__LINE__ >= N) {          \
+            __logstat##__LINE__.done = true;          \
+        } else {                                      \
+            __term_count__##__LINE__++;               \
+        }                                             \
+        return __logstat##__LINE__;                   \
+    }()
