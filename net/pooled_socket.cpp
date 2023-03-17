@@ -188,23 +188,21 @@ public:
     uint64_t evict() {
         // update time
         photon::thread_yield_to(photon::CURRENT);
-        uint64_t near_expire = expiration;
         for (auto& n : fdmap) {
             auto& list = n.second;
             while (!list.empty() &&
                    list.front()->expire.expire() < photon::now) {
                 drop_from_pool(list.pop_front());
             }
-            if (!list.empty()) {
-                near_expire =
-                    std::min(near_expire, list.front()->expire.timeout());
-            }
         }
         // remove empty entry in fdmap
+        uint64_t near_expire = expiration;
         for (auto it = fdmap.begin(); it != fdmap.end();) {
             if (it->second.empty()) {
                 it = fdmap.erase(it);
             } else {
+                near_expire =
+                    std::min(near_expire, it->second.front()->expire.timeout());
                 it++;
             }
         }
