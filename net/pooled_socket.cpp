@@ -186,8 +186,6 @@ public:
     }
 
     uint64_t evict() {
-        // update time
-        photon::thread_yield_to(photon::CURRENT);
         for (auto& n : fdmap) {
             auto& list = n.second;
             while (!list.empty() &&
