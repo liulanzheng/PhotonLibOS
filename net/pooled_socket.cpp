@@ -106,17 +106,9 @@ struct StreamListNode : public intrusive_list_node<StreamListNode> {
     std::unique_ptr<ISocketStream> stream;
     int fd;
     Timeout expire;
-    CascadingEventEngine* ev;
 
-    StreamListNode() : expire(0) {}
-    StreamListNode(EndPoint key, ISocketStream* stream, int fd, uint64_t expire,
-                   CascadingEventEngine* ev)
-        : key(key), stream(stream), fd(fd), expire(expire), ev(ev) {
-        if (fd >= 0 && ev) ev->add_interest({fd, EVENT_READ, this});
-    }
-
-    ~StreamListNode() {
-        if (fd >= 0 && ev) ev->rm_interest({fd, EVENT_READ, this});
+    StreamListNode(EndPoint key, ISocketStream* stream, int fd, uint64_t expire)
+        : key(key), stream(stream), fd(fd), expire(expire) {
     }
 };
 
@@ -133,11 +125,20 @@ protected:
         return (fd < 0) || (wait_for_fd_readable(fd, 0) != 0);
     }
 
+    void add_watch(StreamListNode* node) {
+        if (node->fd >= 0) ev->add_interest({node->fd, EVENT_READ, node});
+    }
+
+    void rm_watch(StreamListNode* node) {
+        if (node->fd >= 0) ev->rm_interest({node->fd, EVENT_READ, node});
+    }
+
     ISocketStream* get_from_pool(EndPoint ep) {
         auto it = fdmap.find(ep);
         if (it == fdmap.end()) return nullptr;
         assert(it != fdmap.end());
         auto node = it->second.pop_front();
+        rm_watch(node);
         DEFER(delete node);
         if (it->second.empty()) fdmap.erase(it);
         return node->stream.release();
@@ -145,6 +146,7 @@ protected:
 
     void push_into_pool(StreamListNode* node) {
         fdmap[node->key].push_back(node);
+        add_watch(node);
     }
 
     void drop_from_pool(StreamListNode* node) {
@@ -153,6 +155,7 @@ protected:
         auto& list = it->second;
         list.erase(node);
         if (list.empty()) fdmap.erase(it);
+        rm_watch(node);
         delete node;
     }
 
@@ -194,14 +197,12 @@ public:
                 return new PooledTCPSocketStream(sock, this, remote);
             }
             return nullptr;
-        } else {
-            if (!stream_alive(stream)) {
-                delete stream;
-                goto again;
-            }
-            auto ret = new PooledTCPSocketStream(stream, this, remote);
-            return ret;
         }
+        if (!stream_alive(stream)) {
+            delete stream;
+            goto again;
+        }
+        return new PooledTCPSocketStream(stream, this, remote);
     }
     uint64_t evict() {
         // remove empty entry in fdmap
@@ -221,6 +222,9 @@ public:
                 it++;
             }
         }
+        for (auto node : freelist) {
+            rm_watch(node);
+        }
         freelist.delete_all();
         return near_expire;
     }
@@ -228,7 +232,7 @@ public:
     bool release(EndPoint ep, ISocketStream* stream) {
         auto fd = stream->get_underlay_fd();
         if (!stream_alive(stream)) return false;
-        auto node = new StreamListNode(ep, stream, fd, expiration, ev);
+        auto node = new StreamListNode(ep, stream, fd, expiration);
         push_into_pool(node);
         return true;
     }
