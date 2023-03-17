@@ -105,11 +105,24 @@ public:
 struct StreamListNode : public intrusive_list_node<StreamListNode> {
     EndPoint key;
     std::unique_ptr<ISocketStream> stream;
+    int fd;
     Timeout expire;
 
     StreamListNode() : expire(0) {}
-    StreamListNode(EndPoint key, ISocketStream* stream, uint64_t expire)
-            : key(key), stream(stream), expire(expire) {}
+    StreamListNode(EndPoint key, ISocketStream* stream, int fd, uint64_t expire)
+            : key(key), stream(stream), fd(fd), expire(expire) {}
+    
+    bool alive() {
+        return (fd < 0) || (wait_for_fd_readable(fd, 0) != 0);
+    }
+
+    void add_watch(CascadingEventEngine* ev) {
+        ev->add_interest({fd, EVENT_READ, this});
+    }
+
+    void remove_watch(CascadingEventEngine* ev) {
+        ev->rm_interest({fd, EVENT_READ, this});
+    }
 };
 
 class TCPSocketPool : public ForwardSocketClient {
@@ -119,6 +132,34 @@ protected:
     std::unordered_map<EndPoint, intrusive_list<StreamListNode>> fdmap;
     uint64_t expiration;
     photon::Timer timer;
+
+    StreamListNode* get_from_pool(EndPoint ep) {
+        auto it = fdmap.find(ep);
+        if (it == fdmap.end())
+            return nullptr;
+        assert(it != fdmap.end());
+        auto node = it->second.pop_front();
+        node->remove_watch(ev);
+        if (it->second.empty())
+            fdmap.erase(it);
+        return node;
+    }
+
+    void push_into_pool(StreamListNode* node) {
+        node->add_watch(ev);
+        fdmap[node->key].push_back(node);
+    }
+
+    void drop_from_pool(StreamListNode* node) {
+        // remove fd interest
+        node->remove_watch(ev);
+        // or node have no record
+        auto it = fdmap.find(node->key);
+        auto &list = it->second;
+        list.erase(node);
+        if (list.empty())
+            fdmap.erase(it);
+    }
 
 public:
     TCPSocketPool(ISocketClient* client, uint64_t expiration, bool client_ownership = false)
@@ -150,7 +191,7 @@ public:
     ISocketStream* connect(EndPoint remote,
                            EndPoint local = EndPoint()) override {
     again:
-        auto node = fdmap[remote].pop_front();
+        auto node = get_from_pool(remote);
         if (!node) {
             ISocketStream* sock = m_underlay->connect(remote, local);
             if (sock) {
@@ -158,11 +199,7 @@ public:
             }
             return nullptr;
         } else {
-            auto fd = node->stream->get_underlay_fd();
-            if (fd >= 0) {
-                ev->rm_interest({fd, EVENT_READ, node});
-            }
-            if (fd >= 0 && wait_for_fd_readable(fd, 0) == 0) {
+            if (!node->alive()) {
                 delete node;
                 goto again;
             }
@@ -172,30 +209,17 @@ public:
             return ret;
         }
     }
-
-    void drop_from_pool(StreamListNode* node) {
-        // remove fd interest
-        auto fd = node->stream->get_underlay_fd();
-        if (fd >= 0) {
-            ev->rm_interest({(int)fd, EVENT_READ, node});
-        }
-        // or node have no record
-        auto &list = fdmap[node->key];
-        list.erase(node);
-        delete node;
-    }
-
     uint64_t evict() {
-        for (auto& n : fdmap) {
-            auto& list = n.second;
-            while (!list.empty() &&
-                   list.front()->expire.expire() < photon::now) {
-                drop_from_pool(list.pop_front());
-            }
-        }
         // remove empty entry in fdmap
         uint64_t near_expire = expiration;
         for (auto it = fdmap.begin(); it != fdmap.end();) {
+            auto& list = it->second;
+            while (!list.empty() &&
+                   list.front()->expire.expire() < photon::now) {
+                auto node = list.pop_front();
+                node->remove_watch(ev);
+                delete node;
+            }
             if (it->second.empty()) {
                 it = fdmap.erase(it);
             } else {
@@ -208,18 +232,14 @@ public:
     }
 
     bool release(EndPoint ep, ISocketStream* stream) {
-        auto node = new StreamListNode(ep, stream, expiration);
         auto fd = stream->get_underlay_fd();
-        if (fd >= 0) {
-            // able to fetch fd
-            // check by epoll
-            if (wait_for_fd_readable(fd, 0) == 0) {
-                return false;
-            }
-            ev->add_interest({fd, EVENT_READ, node});
+        auto node = new StreamListNode(ep, nullptr, fd, expiration);
+        if (!node->alive()) {
+            delete node;
+            return false;
         }
-        // stream back to pool
-        fdmap[ep].push_back(node);
+        node->stream.reset(stream);
+        push_into_pool(node);
         return true;
     }
 
@@ -234,6 +254,7 @@ public:
                 // socket shutdown
                 auto node = nodes[i];
                 drop_from_pool(node);
+                delete node;
             }
         }
     }
