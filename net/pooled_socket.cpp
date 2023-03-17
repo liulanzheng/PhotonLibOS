@@ -47,11 +47,10 @@ public:
         return m_underlay->shutdown(how);
     }
 
-#define FORWARD_SOCK_ACT(how, action, count)                            \
-    if (count == 0) return 0;                                           \
-    auto ret = m_underlay->action;                                      \
-    if (ret < 0 || (ShutdownHow::Read == ShutdownHow::how && ret == 0)) \
-        drop = true;                                                    \
+#define FORWARD_SOCK_ACT(pred, action, count) \
+    if (count == 0) return 0;                 \
+    auto ret = m_underlay->action;            \
+    drop = std::pred<ssize_t>()(ret, 0);      \
     return ret
 
     int close() override {
@@ -60,43 +59,43 @@ public:
         return 0;
     }
     ssize_t read(void* buf, size_t count) override {
-        FORWARD_SOCK_ACT(Read, read(buf, count), count);
+        FORWARD_SOCK_ACT(less_equal, read(buf, count), count);
     }
     ssize_t write(const void* buf, size_t count) override {
-        FORWARD_SOCK_ACT(Write, write(buf, count), count);
+        FORWARD_SOCK_ACT(less, write(buf, count), count);
     }
     ssize_t readv(const struct iovec* iov, int iovcnt) override {
-        FORWARD_SOCK_ACT(Read, readv(iov, iovcnt),
+        FORWARD_SOCK_ACT(less_equal, readv(iov, iovcnt),
                          iovector_view((struct iovec*)iov, iovcnt).sum());
     }
     ssize_t readv_mutable(struct iovec* iov, int iovcnt) override {
-        FORWARD_SOCK_ACT(Read, readv_mutable(iov, iovcnt),
+        FORWARD_SOCK_ACT(less_equal, readv_mutable(iov, iovcnt),
                          iovector_view((struct iovec*)iov, iovcnt).sum());
     }
     ssize_t writev(const struct iovec* iov, int iovcnt) override {
-        FORWARD_SOCK_ACT(Write, writev(iov, iovcnt),
+        FORWARD_SOCK_ACT(less, writev(iov, iovcnt),
                          iovector_view((struct iovec*)iov, iovcnt).sum());
     }
     ssize_t writev_mutable(struct iovec* iov, int iovcnt) override {
-        FORWARD_SOCK_ACT(Write, writev_mutable(iov, iovcnt),
+        FORWARD_SOCK_ACT(less, writev_mutable(iov, iovcnt),
                          iovector_view((struct iovec*)iov, iovcnt).sum());
     }
     ssize_t recv(void* buf, size_t count, int flags = 0) override {
-        FORWARD_SOCK_ACT(Read, recv(buf, count, flags), count);
+        FORWARD_SOCK_ACT(less_equal, recv(buf, count, flags), count);
     }
     ssize_t recv(const struct iovec* iov, int iovcnt, int flags = 0) override {
-        FORWARD_SOCK_ACT(Read, recv(iov, iovcnt, flags),
+        FORWARD_SOCK_ACT(less_equal, recv(iov, iovcnt, flags),
                          iovector_view((struct iovec*)iov, iovcnt).sum());
     }
     ssize_t send(const void* buf, size_t count, int flags = 0) override {
-        FORWARD_SOCK_ACT(Write, send(buf, count, flags), count);
+        FORWARD_SOCK_ACT(less, send(buf, count, flags), count);
     }
     ssize_t send(const struct iovec* iov, int iovcnt, int flags = 0) override {
-        FORWARD_SOCK_ACT(Write, send(iov, iovcnt, flags),
+        FORWARD_SOCK_ACT(less, send(iov, iovcnt, flags),
                          iovector_view((struct iovec*)iov, iovcnt).sum());
     }
     ssize_t sendfile(int in_fd, off_t offset, size_t count) override {
-        FORWARD_SOCK_ACT(Write, sendfile(in_fd, offset, count), count);
+        FORWARD_SOCK_ACT(less, sendfile(in_fd, offset, count), count);
     }
 
 #undef FORWARD_SOCK_ACT
