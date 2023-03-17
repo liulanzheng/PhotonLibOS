@@ -88,6 +88,17 @@ struct BeforeAndAfter {
     }
 } baa;
 
+TEST(ALog, LOG_ONCE) {
+    //update time
+    set_log_output(log_output_stdout);
+    auto x = 0;
+    for (int i=0; i< 1000000;i++) {
+        // every 60 secs print only once
+        LOG_ONCE(60, LOG_INFO("LOG_ONCE every second ...", x++)); 
+    }
+    EXPECT_EQ(1, x);
+}
+
 int main(int argc, char **argv)
 {
     ::testing::InitGoogleTest(&argc, argv);

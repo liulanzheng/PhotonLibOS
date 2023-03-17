@@ -486,6 +486,19 @@ struct LogBuilder {
     }
 #define LOG_AUDIT(...) (__LOG__(default_audit_logger, ALOG_AUDIT, __VA_ARGS__))
 
+#define LOG_ONCE(duration, ...)                        \
+    [&] {                                              \
+        static uint64_t __last_log__##__LINE__ = 0;    \
+        auto __logstat##__LINE__ = __VA_ARGS__;        \
+        auto now = time(0);                            \
+        if (__last_log__##__LINE__ + duration > now) { \
+            __logstat##__LINE__.done = true;           \
+        } else {                                       \
+            __last_log__##__LINE__ = now;              \
+        }                                              \
+        return __logstat##__LINE__;                    \
+    }()
+
 inline void set_log_output(ILogOutput* output) {
     default_logger.log_output = output;
 }
