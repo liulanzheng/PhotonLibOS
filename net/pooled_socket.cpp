@@ -107,21 +107,17 @@ struct StreamListNode : public intrusive_list_node<StreamListNode> {
     std::unique_ptr<ISocketStream> stream;
     int fd;
     Timeout expire;
+    CascadingEventEngine* ev;
 
     StreamListNode() : expire(0) {}
-    StreamListNode(EndPoint key, ISocketStream* stream, int fd, uint64_t expire)
-            : key(key), stream(stream), fd(fd), expire(expire) {}
-    
-    bool alive() {
-        return (fd < 0) || (wait_for_fd_readable(fd, 0) != 0);
+    StreamListNode(EndPoint key, ISocketStream* stream, int fd, uint64_t expire,
+                   CascadingEventEngine* ev)
+        : key(key), stream(stream), fd(fd), expire(expire), ev(ev) {
+        if (fd >= 0 && ev) ev->add_interest({fd, EVENT_READ, this});
     }
 
-    void add_watch(CascadingEventEngine* ev) {
-        ev->add_interest({fd, EVENT_READ, this});
-    }
-
-    void remove_watch(CascadingEventEngine* ev) {
-        ev->rm_interest({fd, EVENT_READ, this});
+    ~StreamListNode() {
+        if (fd >= 0 && ev) ev->rm_interest({fd, EVENT_READ, this});
     }
 };
 
@@ -133,42 +129,43 @@ protected:
     uint64_t expiration;
     photon::Timer timer;
 
-    StreamListNode* get_from_pool(EndPoint ep) {
+    bool stream_alive(ISocketStream* stream) {
+        auto fd = stream->get_underlay_fd();
+        return (fd < 0) || (wait_for_fd_readable(fd, 0) != 0);
+    }
+
+    ISocketStream* get_from_pool(EndPoint ep) {
         auto it = fdmap.find(ep);
-        if (it == fdmap.end())
-            return nullptr;
+        if (it == fdmap.end()) return nullptr;
         assert(it != fdmap.end());
         auto node = it->second.pop_front();
-        node->remove_watch(ev);
-        if (it->second.empty())
-            fdmap.erase(it);
-        return node;
+        DEFER(delete node);
+        if (it->second.empty()) fdmap.erase(it);
+        return node->stream.release();
     }
 
     void push_into_pool(StreamListNode* node) {
-        node->add_watch(ev);
         fdmap[node->key].push_back(node);
     }
 
     void drop_from_pool(StreamListNode* node) {
-        // remove fd interest
-        node->remove_watch(ev);
         // or node have no record
         auto it = fdmap.find(node->key);
-        auto &list = it->second;
+        auto& list = it->second;
         list.erase(node);
-        if (list.empty())
-            fdmap.erase(it);
+        if (list.empty()) fdmap.erase(it);
+        delete node;
     }
 
 public:
-    TCPSocketPool(ISocketClient* client, uint64_t expiration, bool client_ownership = false)
-            : ForwardSocketClient(client, client_ownership),
-              ev(photon::new_default_cascading_engine()),
-              expiration(expiration),
-              timer(expiration, {this, &TCPSocketPool::evict}) {
-        collector = (photon::thread*) photon::thread_enable_join(
-                photon::thread_create11(&TCPSocketPool::collect, this));
+    TCPSocketPool(ISocketClient* client, uint64_t expiration,
+                  bool client_ownership = false)
+        : ForwardSocketClient(client, client_ownership),
+          ev(photon::new_default_cascading_engine()),
+          expiration(expiration),
+          timer(expiration, {this, &TCPSocketPool::evict}) {
+        collector = (photon::thread*)photon::thread_enable_join(
+            photon::thread_create11(&TCPSocketPool::collect, this));
     }
 
     ~TCPSocketPool() override {
@@ -177,7 +174,7 @@ public:
         collector = nullptr;
         photon::thread_interrupt((photon::thread*)th);
         photon::thread_join((photon::join_handle*)th);
-        for (auto &l : fdmap) {
+        for (auto& l : fdmap) {
             l.second.delete_all();
         }
         delete ev;
@@ -191,34 +188,31 @@ public:
     ISocketStream* connect(EndPoint remote,
                            EndPoint local = EndPoint()) override {
     again:
-        auto node = get_from_pool(remote);
-        if (!node) {
+        auto stream = get_from_pool(remote);
+        if (!stream) {
             ISocketStream* sock = m_underlay->connect(remote, local);
             if (sock) {
                 return new PooledTCPSocketStream(sock, this, remote);
             }
             return nullptr;
         } else {
-            if (!node->alive()) {
-                delete node;
+            if (!stream_alive(stream)) {
+                delete stream;
                 goto again;
             }
-            auto ret =
-                new PooledTCPSocketStream(node->stream.release(), this, remote);
-            delete node;
+            auto ret = new PooledTCPSocketStream(stream, this, remote);
             return ret;
         }
     }
     uint64_t evict() {
         // remove empty entry in fdmap
+        intrusive_list<StreamListNode> freelist;
         uint64_t near_expire = expiration;
         for (auto it = fdmap.begin(); it != fdmap.end();) {
             auto& list = it->second;
             while (!list.empty() &&
                    list.front()->expire.expire() < photon::now) {
-                auto node = list.pop_front();
-                node->remove_watch(ev);
-                delete node;
+                freelist.push_back(list.pop_front());
             }
             if (it->second.empty()) {
                 it = fdmap.erase(it);
@@ -228,17 +222,14 @@ public:
                 it++;
             }
         }
+        freelist.delete_all();
         return near_expire;
     }
 
     bool release(EndPoint ep, ISocketStream* stream) {
         auto fd = stream->get_underlay_fd();
-        auto node = new StreamListNode(ep, nullptr, fd, expiration);
-        if (!node->alive()) {
-            delete node;
-            return false;
-        }
-        node->stream.reset(stream);
+        if (!stream_alive(stream)) return false;
+        auto node = new StreamListNode(ep, stream, fd, expiration, ev);
         push_into_pool(node);
         return true;
     }
@@ -252,9 +243,7 @@ public:
                 // it have been acquired again
                 // if it is readable or RDHUP, both condition should treat as
                 // socket shutdown
-                auto node = nodes[i];
-                drop_from_pool(node);
-                delete node;
+                drop_from_pool(nodes[i]);
             }
         }
     }
