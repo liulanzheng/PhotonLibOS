@@ -120,8 +120,10 @@ protected:
     uint64_t expiration;
     photon::Timer timer;
 
-    bool stream_alive(ISocketStream* stream) {
-        auto fd = stream->get_underlay_fd();
+    // all fd < 0 treated as socket not based on fd
+    // and always alive. Using such socket needs user
+    // to check if connected socket is still usable.
+    bool stream_alive(int fd) {
         return (fd < 0) || (wait_for_fd_readable(fd, 0) != 0);
     }
 
@@ -194,11 +196,10 @@ public:
         if (!stream) {
             stream = m_underlay->connect(remote, local);
             if (!stream) return nullptr;
-        } else if (!stream_alive(stream)) {
+        } else if (!stream_alive(stream->get_underlay_fd())) {
             delete stream;
             goto again;
         }
-        assert(stream->get_underlay_fd() >= 0);
         return new PooledTCPSocketStream(stream, this, remote);
     }
     uint64_t evict() {
@@ -228,7 +229,7 @@ public:
 
     bool release(EndPoint ep, ISocketStream* stream) {
         auto fd = stream->get_underlay_fd();
-        if (!stream_alive(stream)) return false;
+        if (!stream_alive(fd)) return false;
         auto node = new StreamListNode(ep, stream, fd, expiration);
         push_into_pool(node);
         return true;
