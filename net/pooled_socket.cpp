@@ -192,16 +192,13 @@ public:
     again:
         auto stream = get_from_pool(remote);
         if (!stream) {
-            ISocketStream* sock = m_underlay->connect(remote, local);
-            if (sock) {
-                return new PooledTCPSocketStream(sock, this, remote);
-            }
-            return nullptr;
-        }
-        if (!stream_alive(stream)) {
+            stream = m_underlay->connect(remote, local);
+            if (!stream) return nullptr;
+        } else if (!stream_alive(stream)) {
             delete stream;
             goto again;
         }
+        assert(stream->get_underlay_fd() >= 0);
         return new PooledTCPSocketStream(stream, this, remote);
     }
     uint64_t evict() {
