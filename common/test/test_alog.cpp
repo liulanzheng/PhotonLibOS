@@ -20,6 +20,7 @@ limitations under the License.
 #include "../alog-audit.h"
 #include <gtest/gtest.h>
 #include "photon/thread/thread.h"
+#include <chrono>
 #include <vector>
 #include <stdint.h>
 #include <unistd.h>
@@ -109,7 +110,6 @@ struct BeforeAndAfter {
         LOG_INFO("After global");
     }
 } baa;
-
 
 using namespace std;
 
@@ -514,6 +514,42 @@ TEST(ALog, throttled_log) {
     auto e = time(0);
     EXPECT_GT(e - t, 1);
     default_logger.log_output->set_throttle(-1UL);
+}
+
+TEST(ALog, LOG_LIMIT) {
+    //update time
+    set_log_output(log_output_stdout);
+    auto x = 0;
+    for (int i=0; i< 1000000;i++) {
+        // every 60 secs print only once
+        LOG_EVERY_T(60, LOG_INFO("LOG once every 60 second ...", x++)); 
+    }
+    // suppose to print and evaluate 1 times
+    EXPECT_EQ(1, x);
+    x = 0;
+    for (int i=0; i< 1000000;i++) {
+        // every 100`000 times logs only only once
+        LOG_EVERY_N(100000, LOG_INFO("LOG once every 100000 logs ...", x++)); 
+    }
+    // suppose to print and evaluate 1`000`000 / 100`000 = 10 times
+    EXPECT_EQ(10, x);
+    x = 0;
+    for (int i=0; i< 1000000;i++) {
+        // logs only 10 records.
+        LOG_FIRST_N(10, LOG_INFO("LOG first 10 logs ...", x++)); 
+    }
+    // suppose to print and evaluate 10 times
+    EXPECT_EQ(10, x);
+    x = 0;
+
+    auto start = std::chrono::steady_clock::now();
+    // loop for 4.1 secs
+    while (std::chrono::steady_clock::now() - start < std::chrono::milliseconds(4100)) {
+        // print only 3 logs  every 1 sec
+        LOG_FIRST_N_EVERY_T(3, 1, LOG_INFO("LOG 3 logs every 1 second ...", x++));
+    }
+    // suppose to print and evaluate 15 times
+    EXPECT_EQ(15, x);
 }
 
 int main(int argc, char **argv)
