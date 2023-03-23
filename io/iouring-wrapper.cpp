@@ -481,7 +481,7 @@ private:
         if (m_register_files_flag >= 0)
             return;
         int result;
-        if (kernel_version_compare("5.12", result) == 0 && result >= 0) {
+        if (kernel_version_compare("5.5", result) == 0 && result >= 0) {
             m_register_files_flag = 1;
             LOG_INFO("iouring: register_files is enabled");
         } else {
@@ -556,20 +556,24 @@ inline size_t do_async_io(Ts...xs) {
     return mee->async_io(xs...);
 }
 
-ssize_t iouring_pread(int fd, void* buf, size_t count, off_t offset, uint64_t timeout) {
-    return do_async_io(&io_uring_prep_read, timeout, 0, fd, buf, count, offset);
+ssize_t iouring_pread(int fd, void* buf, size_t count, off_t offset, uint64_t flags, uint64_t timeout) {
+    uint32_t ring_flags = flags >> 32;
+    return do_async_io(&io_uring_prep_read, timeout, ring_flags, fd, buf, count, offset);
 }
 
-ssize_t iouring_pwrite(int fd, const void* buf, size_t count, off_t offset, uint64_t timeout) {
-    return do_async_io(&io_uring_prep_write, timeout, 0, fd, buf, count, offset);
+ssize_t iouring_pwrite(int fd, const void* buf, size_t count, off_t offset, uint64_t flags, uint64_t timeout) {
+    uint32_t ring_flags = flags >> 32;
+    return do_async_io(&io_uring_prep_write, timeout, ring_flags, fd, buf, count, offset);
 }
 
-ssize_t iouring_preadv(int fd, const iovec* iov, int iovcnt, off_t offset, uint64_t timeout) {
-    return do_async_io(&io_uring_prep_readv, timeout, 0, fd, iov, iovcnt, offset);
+ssize_t iouring_preadv(int fd, const iovec* iov, int iovcnt, off_t offset, uint64_t flags, uint64_t timeout) {
+    uint32_t ring_flags = flags >> 32;
+    return do_async_io(&io_uring_prep_readv, timeout, ring_flags, fd, iov, iovcnt, offset);
 }
 
-ssize_t iouring_pwritev(int fd, const iovec* iov, int iovcnt, off_t offset, uint64_t timeout) {
-    return do_async_io(&io_uring_prep_writev, timeout, 0, fd, iov, iovcnt, offset);
+ssize_t iouring_pwritev(int fd, const iovec* iov, int iovcnt, off_t offset, uint64_t flags, uint64_t timeout) {
+    uint32_t ring_flags = flags >> 32;
+    return do_async_io(&io_uring_prep_writev, timeout, ring_flags, fd, iov, iovcnt, offset);
 }
 
 ssize_t iouring_send(int fd, const void* buf, size_t len, uint64_t flags, uint64_t timeout) {

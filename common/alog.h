@@ -654,7 +654,7 @@ struct __limit_first_n_every_t {
         auto __logstat__ = __VA_ARGS__;                              \
         __logstat__.done = limiter();                                \
         return __log_append_tail(std::move(__logstat__),             \
-                                 [&limiter](STFMTLogBuffer buffer) { \
+                                 [](STFMTLogBuffer buffer) {         \
                                      limiter.append_tail(buffer);    \
                                  });                                 \
     }()
