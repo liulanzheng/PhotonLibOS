@@ -66,7 +66,7 @@ limitations under the License.
 #define DEF_ASM_FUNC(name) ".text\n" \
                            #name": "
 #else
-#define DEF_ASM_FUNC(name) ".section .text."#name",\"axG\",@progbits,_photon_switch_context,comdat\n" \
+#define DEF_ASM_FUNC(name) ".section .text."#name",\"axG\",@progbits,"#name",comdat\n" \
                            ".type "#name", @function\n" \
                            #name": "
 #endif
