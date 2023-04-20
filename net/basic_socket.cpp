@@ -181,9 +181,24 @@ ssize_t zerocopy_n(int fd, iovec* iov, int iovcnt, uint32_t& num_calls, uint64_t
     return doiov_n(v, LAMBDA_TIMEOUT(sendmsg_zerocopy(fd, v.iov, v.iovcnt, num_calls, timeout)));
 }
 
-ssize_t send(int fd, const void *buf, size_t count, int flag, uint64_t timeout) {
-    return doio(LAMBDA(::send(fd, buf, count, flag | MSG_NOSIGNAL)),
+ssize_t send(int fd, const void *buf, size_t count, int flags, uint64_t timeout) {
+    return doio(LAMBDA(::send(fd, buf, count, flags)),
                     LAMBDA_TIMEOUT(photon::wait_for_fd_writable(fd, timeout)));
+}
+
+ssize_t sendmsg(int fd, const struct msghdr* msg, int flags, uint64_t timeout) {
+    return doio(LAMBDA(::sendmsg(fd, msg, flags)),
+                LAMBDA_TIMEOUT(photon::wait_for_fd_writable(fd, timeout)));
+}
+
+ssize_t recv(int fd, void* buf, size_t count, int flags, uint64_t timeout) {
+    return doio(LAMBDA(::recv(fd, buf, count, flags)),
+                LAMBDA_TIMEOUT(photon::wait_for_fd_readable(fd, timeout)));
+}
+
+ssize_t recvmsg(int fd, struct msghdr* msg, int flags, uint64_t timeout) {
+    return doio(LAMBDA(::recvmsg(fd, msg, flags)),
+                LAMBDA_TIMEOUT(photon::wait_for_fd_readable(fd, timeout)));
 }
 
 ssize_t sendv(int fd, const struct iovec *iov, int iovcnt, int flag, uint64_t timeout) {
@@ -203,7 +218,7 @@ ssize_t sendv_n(int fd, struct iovec *iov, int iovcnt, int flag, uint64_t timeou
     return doiov_n(v, LAMBDA_TIMEOUT(sendv(fd, (struct iovec*)v.iov, (int)v.iovcnt, flag, timeout)));
 }
 ssize_t write(int fd, const void *buf, size_t count, uint64_t timeout) {
-    return send(fd, buf, count, 0, timeout);
+    return send(fd, buf, count, MSG_NOSIGNAL, timeout);
 }
 ssize_t writev(int fd, const struct iovec *iov, int iovcnt, uint64_t timeout) {
     return sendv(fd, iov, iovcnt, 0, timeout);
@@ -219,7 +234,7 @@ ssize_t sendfile_fallback(ISocketStream* out_stream,
             int in_fd, off_t offset, size_t count, uint64_t timeout) {
     char buf[64 * 1024];
     void* ptr_unused = nullptr;
-    auto func = [&]() __attribute__((always_inline)) -> ssize_t {
+    auto func = [&]() -> ssize_t {
         size_t s = sizeof(buf);
         if (s > count) s = count;
         ssize_t n_read = ::pread(in_fd, buf, s, offset);
@@ -288,7 +303,7 @@ static ssize_t recv_errqueue(int fd, uint32_t &ret_counter) {
     msghdr msg = {};
     msg.msg_control = control;
     msg.msg_controllen = sizeof(control);
-    auto ret = recvmsg(fd, &msg, MSG_ERRQUEUE);
+    auto ret = ::recvmsg(fd, &msg, MSG_ERRQUEUE);
     if (ret < 0) return ret;
     cmsghdr* cm = CMSG_FIRSTHDR(&msg);
     if (cm == nullptr) {
@@ -332,6 +347,7 @@ ssize_t zerocopy_confirm(int fd, uint32_t num_calls, uint64_t timeout) {
     } while (is_counter_less_than(counter, num_calls));
     return 0;
 }
-#endif
+#endif // __linux__
+
 }  // namespace net
-}
+}  // namespace photon

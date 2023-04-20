@@ -92,42 +92,46 @@ public:
             setsockopt<int>(IPPROTO_TCP, TCP_NODELAY, 1);
         }
     }
-    virtual ~KernelSocketStream() {
+    ~KernelSocketStream() override {
         if (fd < 0) return;
         shutdown(ShutdownHow::ReadWrite);
         close();
     }
-    virtual ssize_t read(void* buf, size_t count) override {
-        return net::read_n(fd, buf, count, m_timeout);
+    ssize_t read(void* buf, size_t count) override {
+        uint64_t timeout = m_timeout;
+        auto cb = LAMBDA_TIMEOUT(do_recv(fd, buf, count, 0, timeout));
+        return net::doio_n(buf, count, cb);
     }
-    virtual ssize_t write(const void* buf, size_t count) override {
-        return net::send_n(fd, buf, count, 0, m_timeout);
+    ssize_t readv(const iovec* iov, int iovcnt) override {
+        SmartCloneIOV<8> clone(iov, iovcnt);
+        iovector_view view(clone.ptr, iovcnt);
+        uint64_t timeout = m_timeout;
+        auto cb = LAMBDA_TIMEOUT(do_recvmsg(fd, tmp_msg_hdr(view), 0, timeout));
+        return net::doiov_n(view, cb);
     }
-    virtual ssize_t readv(const struct iovec* iov, int iovcnt) override {
-        SmartCloneIOV<32> ciov(iov, iovcnt);
-        return readv_mutable(ciov.ptr, iovcnt);
+    ssize_t write(const void* buf, size_t count) override {
+        uint64_t timeout = m_timeout;
+        auto cb = LAMBDA_TIMEOUT(do_send(fd, buf, count, MSG_NOSIGNAL, timeout));
+        return net::doio_n((void*&) buf, count, cb);
     }
-    virtual ssize_t readv_mutable(struct iovec* iov, int iovcnt) override {
-        return net::readv_n(fd, iov, iovcnt, m_timeout);
+    ssize_t writev(const iovec* iov, int iovcnt) override {
+        SmartCloneIOV<8> clone(iov, iovcnt);
+        iovector_view view(clone.ptr, iovcnt);
+        uint64_t timeout = m_timeout;
+        auto cb = LAMBDA_TIMEOUT(do_sendmsg(fd, tmp_msg_hdr(view), MSG_NOSIGNAL, timeout));
+        return net::doiov_n(view, cb);
     }
-    virtual ssize_t writev(const struct iovec* iov, int iovcnt) override {
-        SmartCloneIOV<32> ciov(iov, iovcnt);
-        return writev_mutable(ciov.ptr, iovcnt);
+    ssize_t recv(void* buf, size_t count, int flags = 0) override {
+        return do_recv(fd, buf, count, flags, m_timeout);
     }
-    virtual ssize_t writev_mutable(struct iovec* iov, int iovcnt) override {
-        return net::sendv_n(fd, iov, iovcnt, 0, m_timeout);
+    ssize_t recv(const iovec* iov, int iovcnt, int flags = 0) override {
+        return do_recvmsg(fd, tmp_msg_hdr(iov, iovcnt), flags, m_timeout);
     }
-    virtual ssize_t recv(void* buf, size_t count, int flags = 0) override {
-        return net::read(fd, buf, count, m_timeout);
+    ssize_t send(const void* buf, size_t count, int flags = 0) override {
+        return do_send(fd, buf, count, flags | MSG_NOSIGNAL, m_timeout);
     }
-    virtual ssize_t recv(const struct iovec* iov, int iovcnt, int flags = 0) override {
-        return net::readv(fd, iov, iovcnt, m_timeout);
-    }
-    virtual ssize_t send(const void* buf, size_t count, int flags = 0) override {
-        return net::send(fd, buf, count, 0, m_timeout);
-    }
-    virtual ssize_t send(const struct iovec* iov, int iovcnt, int flags = 0) override {
-        return net::sendv(fd, iov, iovcnt, 0, m_timeout);
+    ssize_t send(const iovec* iov, int iovcnt, int flags = 0) override {
+        return do_sendmsg(fd, tmp_msg_hdr(iov, iovcnt), flags | MSG_NOSIGNAL, m_timeout);
     }
     virtual ssize_t sendfile(int in_fd, off_t offset, size_t count) override {
         return net::sendfile_n(fd, in_fd, &offset, count);
@@ -169,6 +173,19 @@ public:
     virtual void timeout(uint64_t tm) override { m_timeout = tm; }
 protected:
     uint64_t m_timeout = -1;
+
+    virtual ssize_t do_send(int sockfd, const void* buf, size_t count, int flags, uint64_t timeout) {
+        return photon::net::send(sockfd, buf, count, flags, timeout);
+    }
+    virtual ssize_t do_sendmsg(int sockfd, const struct msghdr* message, int flags, uint64_t timeout) {
+        return photon::net::sendmsg(sockfd, message, flags, timeout);
+    }
+    virtual ssize_t do_recv(int sockfd, void* buf, size_t count, int flags, uint64_t timeout) {
+        return photon::net::recv(sockfd, buf, count, flags, timeout);
+    }
+    virtual ssize_t do_recvmsg(int sockfd, struct msghdr* message, int flags, uint64_t timeout) {
+        return photon::net::recvmsg(sockfd, message, flags, timeout);
+    }
 
     struct tmp_msg_hdr : public ::msghdr {
         tmp_msg_hdr(const iovec* iov, int iovcnt) : ::msghdr{} {
@@ -440,8 +457,6 @@ protected:
 
 #ifdef __linux__
 class ZeroCopySocketStream : public KernelSocketStream {
-protected:
-    uint32_t m_num_calls = 0;
 public:
     explicit ZeroCopySocketStream(int fd) : KernelSocketStream(fd) {
         setsockopt<int>(SOL_SOCKET, SO_ZEROCOPY, 1);
@@ -452,30 +467,21 @@ public:
         setsockopt<int>(SOL_SOCKET, SO_ZEROCOPY, 1);
     }
 
-    ssize_t write(const void* buf, size_t count) override {
-        uint64_t timeout = m_timeout;
-        auto cb = LAMBDA_TIMEOUT(do_send_zc(fd, buf, count, 0, timeout));
-        return net::doio_n((void*&) buf, count, cb);
-    }
-
-    ssize_t send(const void* buf, size_t count, int flags = 0) override {
-        if (flags & ZEROCOPY_FLAG)
-            return do_send_zc(fd, buf, count, flags, m_timeout);
-        else
-            return KernelSocketStream::send(buf, count, flags);
-    }
-
 protected:
-    ssize_t do_send_zc(int fd, const void* buf, size_t count, int flags, uint64_t timeout) {
-        struct iovec iov{const_cast<void*>(buf), count};
-        ssize_t n_written = zerocopy_n(fd, &iov, 1, m_num_calls, timeout);
-        if (n_written != (ssize_t) count) {
-            LOG_ERRNO_RETURN(0, n_written, "zerocopy failed");
-        }
+    uint32_t m_num_calls = 0;
 
-        auto ret = zerocopy_confirm(fd, m_num_calls - 1, timeout);
-        if (ret < 0) return ret;
-        return n_written;
+    ssize_t do_send(int sockfd, const void* buf, size_t count, int flags, uint64_t timeout) override {
+        struct iovec iov{const_cast<void*>(buf), count};
+        return do_sendmsg(sockfd, tmp_msg_hdr(&iov, 1), flags, timeout);
+    }
+
+    ssize_t do_sendmsg(int sockfd, const struct msghdr* message, int flags, uint64_t timeout) override {
+        ssize_t n = photon::net::sendmsg(sockfd, message, flags | ZEROCOPY_FLAG, timeout);
+        m_num_calls++;
+        auto ret = zerocopy_confirm(sockfd, m_num_calls - 1, timeout);
+        if (ret < 0)
+            return ret;
+        return n;
     }
 };
 
@@ -514,72 +520,27 @@ class IouringSocketStream : public KernelSocketStream {
 public:
     using KernelSocketStream::KernelSocketStream;
 
-    ssize_t read(void* buf, size_t count) override {
-        uint64_t timeout = m_timeout;
-        auto cb = LAMBDA_TIMEOUT(do_recv(fd, buf, count, 0, timeout));
-        return net::doio_n(buf, count, cb);
-    }
-
-    ssize_t write(const void* buf, size_t count) override {
-        uint64_t timeout = m_timeout;
-        auto cb = LAMBDA_TIMEOUT(do_send(fd, buf, count, 0, timeout));
-        return net::doio_n((void*&) buf, count, cb);
-    }
-
-    ssize_t readv(const iovec* iov, int iovcnt) override {
-        SmartCloneIOV<8> clone(iov, iovcnt);
-        iovector_view view(clone.ptr, iovcnt);
-        uint64_t timeout = m_timeout;
-        auto cb = LAMBDA_TIMEOUT(do_recvmsg(fd, view.iov, view.iovcnt, 0, timeout));
-        return net::doiov_n(view, cb);
-    }
-
-    ssize_t writev(const iovec* iov, int iovcnt) override {
-        SmartCloneIOV<8> clone(iov, iovcnt);
-        iovector_view view(clone.ptr, iovcnt);
-        uint64_t timeout = m_timeout;
-        auto cb = LAMBDA_TIMEOUT(do_sendmsg(fd, view.iov, view.iovcnt, 0, timeout));
-        return net::doiov_n(view, cb);
-    }
-
-    ssize_t recv(void* buf, size_t count, int flags = 0) override {
-        return do_recv(fd, buf, count, flags, m_timeout);
-    }
-
-    ssize_t recv(const iovec* iov, int iovcnt, int flags = 0) override {
-        return do_recvmsg(fd, iov, iovcnt, flags, m_timeout);
-    }
-
-    ssize_t send(const void* buf, size_t count, int flags = 0) override {
-        if (flags & ZEROCOPY_FLAG)
-            return do_send_zc(fd, buf, count, flags | MSG_NOSIGNAL | MSG_WAITALL, m_timeout);
-        else
-            return do_send(fd, buf, count, flags | MSG_NOSIGNAL, m_timeout);
-    }
-
-    ssize_t send(const iovec* iov, int iovcnt, int flags = 0) override {
-        return do_sendmsg(fd, iov, iovcnt, flags | MSG_NOSIGNAL, m_timeout);
-    }
-
 protected:
-    virtual ssize_t do_send(int fd, const void* buf, size_t count, int flags, uint64_t timeout) {
-        return photon::iouring_send(fd, buf, count, flags, timeout);
+    ssize_t do_send(int sockfd, const void* buf, size_t count, int flags, uint64_t timeout) override {
+        if (flags & ZEROCOPY_FLAG)
+            return photon::iouring_send_zc(sockfd, buf, count, flags | MSG_WAITALL, timeout);
+        else
+            return photon::iouring_send(sockfd, buf, count, flags, timeout);
     }
 
-    virtual ssize_t do_recv(int fd, void* buf, size_t count, int flags, uint64_t timeout) {
-        return photon::iouring_recv(fd, buf, count, flags, timeout);
+    ssize_t do_sendmsg(int sockfd, const struct msghdr* message, int flags, uint64_t timeout) override {
+        if (flags & ZEROCOPY_FLAG)
+            return photon::iouring_sendmsg_zc(sockfd, message, flags | MSG_WAITALL, timeout);
+        else
+            return photon::iouring_sendmsg(sockfd, message, flags, timeout);
     }
 
-    virtual ssize_t do_sendmsg(int fd, const iovec* iov, int iovcnt, int flags, uint64_t timeout) {
-        return photon::iouring_sendmsg(fd, tmp_msg_hdr(iov, iovcnt), flags, timeout);
+    ssize_t do_recv(int sockfd, void* buf, size_t count, int flags, uint64_t timeout) override {
+        return photon::iouring_recv(sockfd, buf, count, flags, timeout);
     }
 
-    virtual ssize_t do_recvmsg(int fd, const iovec* iov, int iovcnt, int flags, uint64_t timeout) {
-        return photon::iouring_recvmsg(fd, tmp_msg_hdr(iov, iovcnt), flags, timeout);
-    }
-
-    virtual ssize_t do_send_zc(int fd, const void* buf, size_t count, int flags, uint64_t timeout) {
-        return photon::iouring_send_zc(fd, buf, count, flags, timeout);
+    ssize_t do_recvmsg(int sockfd, struct msghdr* message, int flags, uint64_t timeout) override {
+        return photon::iouring_recvmsg(sockfd, message, flags, timeout);
     }
 };
 
@@ -631,24 +592,26 @@ public:
     }
 
 private:
-    ssize_t do_send(int fd, const void* buf, size_t count, int flags, uint64_t timeout) override {
-        return photon::iouring_send(fd, buf, count, IouringFixedFileFlag | flags, timeout);
+    ssize_t do_send(int sockfd, const void* buf, size_t count, int flags, uint64_t timeout) override {
+        if (flags & ZEROCOPY_FLAG)
+            return photon::iouring_send_zc(sockfd, buf, count, IouringFixedFileFlag | flags | MSG_WAITALL, timeout);
+        else
+            return photon::iouring_send(sockfd, buf, count, IouringFixedFileFlag | flags, timeout);
     }
 
-    ssize_t do_recv(int fd, void* buf, size_t count, int flags, uint64_t timeout) override {
-        return photon::iouring_recv(fd, buf, count, IouringFixedFileFlag | flags, timeout);
+    ssize_t do_sendmsg(int sockfd, const struct msghdr* message, int flags, uint64_t timeout) override {
+        if (flags & ZEROCOPY_FLAG)
+            return photon::iouring_sendmsg_zc(sockfd, message, IouringFixedFileFlag | flags | MSG_WAITALL, timeout);
+        else
+            return photon::iouring_sendmsg(sockfd, message, IouringFixedFileFlag | flags, timeout);
     }
 
-    ssize_t do_sendmsg(int fd, const iovec* iov, int iovcnt, int flags, uint64_t timeout) override {
-        return photon::iouring_sendmsg(fd, tmp_msg_hdr(iov, iovcnt), IouringFixedFileFlag | flags, timeout);
+    ssize_t do_recv(int sockfd, void* buf, size_t count, int flags, uint64_t timeout) override {
+        return photon::iouring_recv(sockfd, buf, count, IouringFixedFileFlag | flags, timeout);
     }
 
-    ssize_t do_recvmsg(int fd, const iovec* iov, int iovcnt, int flags, uint64_t timeout) override {
-        return photon::iouring_recvmsg(fd, tmp_msg_hdr(iov, iovcnt), IouringFixedFileFlag | flags, timeout);
-    }
-
-    ssize_t do_send_zc(int fd, const void* buf, size_t count, int flags, uint64_t timeout) override {
-        return photon::iouring_send_zc(fd, buf, count, IouringFixedFileFlag | flags, timeout);
+    ssize_t do_recvmsg(int sockfd, struct msghdr* message, int flags, uint64_t timeout) override {
+        return photon::iouring_recvmsg(sockfd, message, IouringFixedFileFlag | flags, timeout);
     }
 };
 
@@ -811,43 +774,30 @@ public:
         if (fd >= 0) etpoller.unregister_notifier(fd);
     }
 
-    ssize_t recv(void* buf, size_t count, int flags = 0) override {
-        auto timeout = m_timeout;
-        return etdoio(LAMBDA(::read(fd, buf, count)), LAMBDA_TIMEOUT(wait_for_readable(timeout)));
-    }
-
-    ssize_t recv(const struct iovec* iov, int iovcnt, int flags = 0) override {
-        auto timeout = m_timeout;
-        return etdoio(LAMBDA(::readv(fd, iov, iovcnt)), LAMBDA_TIMEOUT(wait_for_readable(timeout)));
-    }
-
-    ssize_t send(const void* buf, size_t count, int flags = 0) override {
-        return do_send(buf, count, flags);
-    }
-
-    ssize_t send(const struct iovec* iov, int iovcnt, int flags = 0) override {
-        return do_send(iov, iovcnt, flags);
-    }
-
     ssize_t sendfile(int in_fd, off_t offset, size_t count) override {
         void* buf_unused = nullptr;
         return doio_n(buf_unused, count, LAMBDA(do_sendfile(in_fd, offset, count)));
     }
 
 private:
-    ssize_t do_send(const void* buf, size_t count, int flags = 0) {
-        auto timeout = m_timeout;
-        return etdoio(LAMBDA(::send(fd, buf, count, MSG_NOSIGNAL | flags)),
+    ssize_t do_send(int sockfd, const void* buf, size_t count, int flags, uint64_t timeout) override {
+        return etdoio(LAMBDA(::send(sockfd, buf, count, flags)),
                       LAMBDA_TIMEOUT(wait_for_writable(timeout)));
     }
 
-    ssize_t do_send(const struct iovec* iov, int iovcnt, int flags = 0) {
-        auto timeout = m_timeout;
-        struct msghdr msg{};
-        msg.msg_iov = (iovec*) iov;
-        msg.msg_iovlen = iovcnt;
-        return etdoio(LAMBDA(::sendmsg(fd, &msg, MSG_NOSIGNAL | flags)),
+    ssize_t do_sendmsg(int sockfd, const struct msghdr* message, int flags, uint64_t timeout) override {
+        return etdoio(LAMBDA(::sendmsg(sockfd, message, flags)),
                       LAMBDA_TIMEOUT(wait_for_writable(timeout)));
+    }
+
+    ssize_t do_recv(int sockfd, void* buf, size_t count, int flags, uint64_t timeout) override {
+        return etdoio(LAMBDA(::read(sockfd, buf, count)),
+                      LAMBDA_TIMEOUT(wait_for_readable(timeout)));
+    }
+
+    ssize_t do_recvmsg(int sockfd, struct msghdr* message, int flags, uint64_t timeout) override {
+        return etdoio(LAMBDA(::recvmsg(sockfd, message, flags)),
+                      LAMBDA_TIMEOUT(wait_for_readable(timeout)));
     }
 
     ssize_t do_sendfile(int in_fd, off_t offset, size_t count) {

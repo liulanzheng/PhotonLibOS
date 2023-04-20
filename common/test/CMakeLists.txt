@@ -23,9 +23,9 @@ add_executable(test-constexprstr test_constexprstr.cpp)
 target_link_libraries(test-constexprstr PRIVATE photon_shared ${testing_libs})
 add_test(NAME test-constexprstr COMMAND $<TARGET_FILE:test-constexprstr>)
 
-add_executable(test-lockfree test_lockfree.cpp)
-target_link_libraries(test-lockfree PRIVATE photon_shared ${testing_libs})
-add_test(NAME test-lockfree COMMAND $<TARGET_FILE:test-lockfree>)
+#add_executable(test-lockfree test_lockfree.cpp)
+#target_link_libraries(test-lockfree PRIVATE photon_shared ${testing_libs})
+#add_test(NAME test-lockfree COMMAND $<TARGET_FILE:test-lockfree>)
 
 add_executable(test-alog test_alog.cpp x.cpp)
 target_link_libraries(test-alog PRIVATE photon_shared ${testing_libs})

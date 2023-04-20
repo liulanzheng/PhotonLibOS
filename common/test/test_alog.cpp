@@ -163,7 +163,7 @@ TEST(ALog, log_to_file) {
     LOG_DEBUG(HELLO);// this should put into file
     ret = log_output_file_close();
     EXPECT_EQ(0, ret);
-    char buffer[256];
+    char buffer[8192];
     fd = ::open("/tmp/logfile", O_RDONLY);
     int length = ::read(fd, &buffer, sizeof(buffer));
     EXPECT_GT(length, 0);

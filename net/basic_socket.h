@@ -33,6 +33,11 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen,
 int accept(int fd, struct sockaddr *addr, socklen_t *addrlen,
            uint64_t timeout = -1);
 
+ssize_t send(int fd, const void* buf, size_t len, int flags, uint64_t timeout = -1);
+ssize_t sendmsg(int fd, const struct msghdr* msg, int flags, uint64_t timeout = -1);
+ssize_t recv(int fd, void* buf, size_t count, int flags, uint64_t timeout = -1);
+ssize_t recvmsg(int fd, struct msghdr* msg, int flags, uint64_t timeout = -1);
+
 ssize_t read(int fd, void *buf, size_t count, uint64_t timeout = -1);
 
 ssize_t readv(int fd, const struct iovec *iov, int iovcnt,
@@ -63,8 +68,6 @@ ssize_t sendfile_fallback(ISocketStream* out_stream, int in_fd, off_t offset, si
 ssize_t zerocopy_n(int fd, iovec* iov, int iovcnt, uint32_t& num_calls, uint64_t timeout = -1);
 
 ssize_t zerocopy_confirm(int fd, uint32_t num_calls, uint64_t timeout = -1);
-
-ssize_t send(int fd, const void *buf, size_t count, int flag, uint64_t timeout =-1);
 
 ssize_t sendv(int fd, const struct iovec *iov, int iovcnt, int flag, uint64_t timeout =-1);
 
