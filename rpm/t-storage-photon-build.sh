@@ -21,7 +21,38 @@ ROOT=$CUR_DIR/../
 
 cd $ROOT
 git submodule update --init --recursive
-./build.sh -c -b release -d || exit 1
+
+uname -a | grep x86_64
+if [ $? -eq 0 ]; then
+    ARCH=x86_64
+else
+    ARCH=aarch64
+fi
+# ./build.sh -c -b release -d || exit 1
+
+uname -a | grep al8
+if [ $? -eq 0 ]; then
+    # alios8
+    if [ $ARCH == "x86_64" ]; then
+        # x86
+        sudo rpm -Uvh http://yum.tbsite.net/taobao/7/x86_64/current/mag/mag-1.0.25-20230315134520.alios7.x86_64.rpm
+    else
+        # aarch64
+        sudo rpm -Uvh http://yum.tbsite.net/taobao/7/aarch64/current/mag/mag-1.0.25-20230315134520.alios7.aarch64.rpm
+    fi
+else
+    # alios7
+    sudo yum install -b current mag -y
+fi
+
+mag update --images -i /home/admin/.ssh/id_rsa
+mkdir -p build
+mkdir -p package
+mag build --system=alios7u-gcc9.2.1 -I Magfiles -j 64 -o build/photon.tar.gz -i /home/admin/.ssh/id_rsa --upload
+pushd build
+tar xvpf photon.tar.gz
+popd
+cp build/lib64/libphoton.* package/
 
 TOP_DIR=/tmp/photon_rpm_build/
 rm -rf $TOP_DIR
@@ -30,9 +61,9 @@ mkdir -p $TOP_DIR
 cd $CUR_DIR
 rpmbuild -bb --define "_topdir $TOP_DIR" --define "_rpm_version ${VERSION}" --define "_rpm_release ${RELEASE}" ./t-storage-photon.spec
 
-ls -lha $TOP_DIR/RPMS/x86_64/
+ls -lha $TOP_DIR/RPMS/${ARCH}/
 
-RPM_DIR=$TOP_DIR/RPMS/x86_64/
-for rpm in `find $RPM_DIR -name "*${RELEASE}*.rpm"`; do
+RPM_DIR=$TOP_DIR/RPMS/${ARCH}/
+for rpm in $(find $RPM_DIR -name "*${RELEASE}*.rpm"); do
     mv $rpm .
 done
