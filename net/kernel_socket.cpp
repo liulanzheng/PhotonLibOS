@@ -44,6 +44,9 @@ limitations under the License.
 #ifdef PHOTON_URING
 #include <photon/io/iouring-wrapper.h>
 #endif
+#ifdef ENABLE_FSTACK_DPDK
+#include <photon/io/fstack-dpdk.h>
+#endif
 
 #include "base_socket.h"
 #include "../io/events_map.h"
@@ -83,13 +86,16 @@ public:
     int fd = -1;
     explicit KernelSocketStream(int fd) : fd(fd) {}
     KernelSocketStream(int socket_family, bool nonblocking) {
+        if (fd >= 0)
+            return;
         if (nonblocking) {
             fd = net::socket(socket_family, SOCK_STREAM, 0);
         } else {
             fd = ::socket(socket_family, SOCK_STREAM, 0);
         }
-        if (fd > 0 && socket_family == AF_INET) {
-            setsockopt<int>(IPPROTO_TCP, TCP_NODELAY, 1);
+        if (fd >= 0 && socket_family == AF_INET) {
+            int val = 1;
+            ::setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &val, (socklen_t) sizeof(val));
         }
     }
     ~KernelSocketStream() override {
@@ -133,44 +139,42 @@ public:
     ssize_t send(const iovec* iov, int iovcnt, int flags = 0) override {
         return do_sendmsg(fd, tmp_msg_hdr(iov, iovcnt), flags | MSG_NOSIGNAL, m_timeout);
     }
-    virtual ssize_t sendfile(int in_fd, off_t offset, size_t count) override {
+    ssize_t sendfile(int in_fd, off_t offset, size_t count) override {
         return net::sendfile_n(fd, in_fd, &offset, count);
     }
-    virtual int shutdown(ShutdownHow how) final {
+    int shutdown(ShutdownHow how) final {
         // shutdown how defined as 0 for RD, 1 for WR and 2 for RDWR
         // in sys/socket.h, cast ShutdownHow into int just fits
         return ::shutdown(fd, static_cast<int>(how));
     }
-    virtual Object* get_underlay_object(uint64_t recursion = 0) override {
+    Object* get_underlay_object(uint64_t recursion = 0) override {
         return (Object*) (uint64_t) fd;
     }
-    virtual int close() final {
+    int close() final {
         auto ret = ::close(fd);
         fd = -1;
         return ret;
     }
-    virtual int getsockname(EndPoint& addr) override {
+    int getsockname(EndPoint& addr) override {
         return get_socket_name(fd, addr);
     }
-    virtual int getpeername(EndPoint& addr) override {
+    int getpeername(EndPoint& addr) override {
         return get_peer_name(fd, addr);
     }
-    virtual int getsockname(char* path, size_t count) override {
+    int getsockname(char* path, size_t count) override {
         return get_socket_name(fd, path, count);
     }
-    virtual int getpeername(char* path, size_t count) override {
+    int getpeername(char* path, size_t count) override {
         return get_peer_name(fd, path, count);
     }
-    virtual int setsockopt(int level, int option_name, const void* option_value,
-                           socklen_t option_len) final {
+    int setsockopt(int level, int option_name, const void* option_value, socklen_t option_len) override {
         return ::setsockopt(fd, level, option_name, option_value, option_len);
     }
-    virtual int getsockopt(int level, int option_name, void* option_value,
-                           socklen_t* option_len) final {
+    int getsockopt(int level, int option_name, void* option_value, socklen_t* option_len) override {
         return ::getsockopt(fd, level, option_name, option_value, option_len);
     }
-    virtual uint64_t timeout() const override { return m_timeout; }
-    virtual void timeout(uint64_t tm) override { m_timeout = tm; }
+    uint64_t timeout() const override { return m_timeout; }
+    void timeout(uint64_t tm) override { m_timeout = tm; }
 protected:
     uint64_t m_timeout = -1;
 
@@ -287,8 +291,7 @@ public:
     }
 
     // Comply with the NewObj interface.
-    // The derived classes may continue to add more implementations.
-    int init() {
+    virtual int init() {
         if (m_nonblocking) {
             m_listen_fd = net::socket(m_socket_family, SOCK_STREAM, 0);
         } else {
@@ -382,14 +385,14 @@ public:
         return get_peer_name(m_listen_fd, path, count);
     }
 
-    int setsockopt(int level, int option_name, const void* option_value, socklen_t option_len) final {
+    int setsockopt(int level, int option_name, const void* option_value, socklen_t option_len) override {
         if (::setsockopt(m_listen_fd, level, option_name, option_value, option_len) != 0) {
             LOG_ERRNO_RETURN(EINVAL, -1, "failed to setsockopt");
         }
         return m_opts.put_opt(level, option_name, option_value, option_len);
     }
 
-    int getsockopt(int level, int option_name, void* option_value, socklen_t* option_len) final {
+    int getsockopt(int level, int option_name, void* option_value, socklen_t* option_len) override {
         if (::getsockopt(m_listen_fd, level, option_name, option_value, option_len) == 0) return 0;
         return m_opts.get_opt(level, option_name, option_value, option_len);
     }
@@ -489,7 +492,7 @@ class ZeroCopySocketServer : public KernelSocketServer {
 public:
     using KernelSocketServer::KernelSocketServer;
 
-    int init() {
+    int init() override {
         if (!net::zerocopy_available()) {
             LOG_ERROR_RETURN(0, -1, "zerocopy not available");
         }
@@ -634,6 +637,137 @@ protected:
 };
 
 #endif // PHOTON_URING
+
+#ifdef ENABLE_FSTACK_DPDK
+
+class FstackDpdkSocketStream : public KernelSocketStream {
+public:
+    using KernelSocketStream::KernelSocketStream;
+
+    FstackDpdkSocketStream(int socket_family, bool nonblocking) : KernelSocketStream(socket_family, nonblocking) {
+        fd = fstack_socket(socket_family, SOCK_STREAM, 0);
+        if (fd < 0)
+            return;
+        if (socket_family == AF_INET) {
+            int val = 1;
+            fstack_setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &val, (socklen_t) sizeof(val));
+        }
+    }
+
+    ~FstackDpdkSocketStream() override {
+        if (fd < 0) return;
+        fstack_shutdown(fd, (int) ShutdownHow::ReadWrite);
+        fstack_close(fd);
+        fd = -1;
+    }
+
+protected:
+    ssize_t do_send(int sockfd, const void* buf, size_t count, int flags, uint64_t timeout) override {
+        return fstack_send(sockfd, buf, count, flags, timeout);
+    }
+
+    ssize_t do_sendmsg(int sockfd, const struct msghdr* message, int flags, uint64_t timeout) override {
+        return fstack_sendmsg(sockfd, message, flags, timeout);
+    }
+
+    ssize_t do_recv(int sockfd, void* buf, size_t count, int flags, uint64_t timeout) override {
+        return fstack_recv(sockfd, buf, count, flags, timeout);
+    }
+
+    ssize_t do_recvmsg(int sockfd, struct msghdr* message, int flags, uint64_t timeout) override {
+        return fstack_recvmsg(sockfd, message, flags, timeout);
+    }
+
+    int setsockopt(int level, int option_name, const void* option_value, socklen_t option_len) override {
+        return fstack_setsockopt(fd, level, option_name, option_value, option_len);
+    }
+
+    int getsockopt(int level, int option_name, void* option_value, socklen_t* option_len) override {
+        return fstack_getsockopt(fd, level, option_name, option_value, option_len);
+    }
+};
+
+class FstackDpdkSocketClient : public KernelSocketClient {
+protected:
+    using KernelSocketClient::KernelSocketClient;
+
+    KernelSocketStream* create_stream() override {
+        return new FstackDpdkSocketStream(m_socket_family, m_nonblocking);
+    }
+
+    int fd_connect(int fd, const sockaddr* remote, socklen_t addrlen) override {
+        return fstack_connect(fd, remote, addrlen, m_timeout);
+    }
+};
+
+class FstackDpdkSocketServer : public KernelSocketServer {
+public:
+    using KernelSocketServer::KernelSocketServer;
+
+    int init() override {
+        m_listen_fd = fstack_socket(m_socket_family, SOCK_STREAM, 0);
+        if (m_listen_fd < 0)
+            return -1;
+        if (m_socket_family == AF_INET) {
+            int val = 1;
+            fstack_setsockopt(m_listen_fd, IPPROTO_TCP, TCP_NODELAY, &val, (socklen_t) sizeof(val));
+        }
+        return 0;
+    }
+
+    int bind(uint16_t port, IPAddr addr) override {
+        auto addr_in = EndPoint(addr, port).to_sockaddr_in();
+        return fstack_bind(m_listen_fd, (sockaddr*) &addr_in, sizeof(addr_in));
+    }
+
+    int bind(const char* path, size_t count) override {
+        LOG_ERRNO_RETURN(ENOSYS, -1, "Not implemented");
+    }
+
+    int listen(int backlog) override {
+        return fstack_listen(m_listen_fd, backlog);
+    }
+
+    int setsockopt(int level, int option_name, const void* option_value, socklen_t option_len) override {
+        if (fstack_setsockopt(m_listen_fd, level, option_name, option_value, option_len) != 0) {
+            LOG_ERRNO_RETURN(EINVAL, -1, "failed to setsockopt");
+        }
+        return m_opts.put_opt(level, option_name, option_value, option_len);
+    }
+
+    int getsockopt(int level, int option_name, void* option_value, socklen_t* option_len) override {
+        if (fstack_getsockopt(m_listen_fd, level, option_name, option_value, option_len) == 0)
+            return 0;
+        return m_opts.get_opt(level, option_name, option_value, option_len);
+    }
+
+protected:
+    KernelSocketStream* create_stream(int fd) override {
+        return new FstackDpdkSocketStream(fd);
+    }
+
+    int fd_accept(int fd, struct sockaddr* addr, socklen_t* addrlen) override {
+        return fstack_accept(fd, addr, addrlen, m_timeout);
+    }
+
+private:
+    class FstackSockOptBuffer : public SockOptBuffer {
+    public:
+        int setsockopt(int fd) override {
+            for (auto& opt : *this) {
+                if (fstack_setsockopt(fd, opt.level, opt.opt_name, opt.opt_val, opt.opt_len) != 0) {
+                    LOG_ERRNO_RETURN(EINVAL, -1, "Failed to setsockopt ",
+                                     VALUE(opt.level), VALUE(opt.opt_name), VALUE(opt.opt_val));
+                }
+            }
+            return 0;
+        }
+    };
+
+    FstackSockOptBuffer m_opts;
+};
+
+#endif // ENABLE_FSTACK_DPDK
 
 /* ET Socket - Start */
 
@@ -825,7 +959,7 @@ public:
         if (m_listen_fd >= 0) etpoller.unregister_notifier(m_listen_fd);
     }
 
-    int init()  {
+    int init() override {
         if (KernelSocketServer::init() != 0) return -1;
         return etpoller.register_notifier(m_listen_fd, this);
     }
@@ -899,6 +1033,14 @@ extern "C" ISocketClient* new_smc_socket_client() {
 extern "C" ISocketServer* new_smc_socket_server() {
     return NewObj<KernelSocketServer>(AF_SMC, false, true)->init();
 }
+#ifdef ENABLE_FSTACK_DPDK
+extern "C" ISocketClient* new_fstack_dpdk_socket_client() {
+    return new FstackDpdkSocketClient(AF_INET, true);
+}
+extern "C" ISocketServer* new_fstack_dpdk_socket_server() {
+    return NewObj<FstackDpdkSocketServer>(AF_INET, false, true)->init();
+}
+#endif // ENABLE_FSTACK_DPDK
 #endif // __linux__
 
 }

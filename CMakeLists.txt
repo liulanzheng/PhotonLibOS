@@ -2,16 +2,16 @@ cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 
 project(
         photon
-        VERSION 0.4
+        VERSION 0.6
         LANGUAGES C CXX ASM
 )
 
-# Utilities
+# Utility Modules and Find Modules
 include(FindPackageHandleStandardArgs)
-include(FindPkgConfig)
 include(CheckCXXCompilerFlag)
 include(FetchContent)
 set(FETCHCONTENT_QUIET false)
+find_package(PkgConfig REQUIRED)
 
 # Options
 option(ENABLE_URING "enable io_uring function" OFF)
@@ -19,8 +19,8 @@ option(ENABLE_FUSE "enable fuse function" OFF)
 option(ENABLE_SASL "enable sasl" OFF)
 option(ENABLE_MIMIC_VDSO "enable mimic vdso" OFF)
 option(BUILD_TESTING "enable build testing" OFF)
-option(FETCH_GFLAGS_SOURCE "fetch gflags source" OFF)
-option(FETCH_GTEST_SOURCE "fetch gtest and gmock source" OFF)
+option(FETCH_GTEST_GFLAGS_SOURCE "Fetch gtest, gmock and gflags source code. Link their static libs" OFF)
+option(ENABLE_FSTACK_DPDK "Use f-stack + DPDK as the event engine" OFF)
 
 # Get CPU arch
 execute_process(COMMAND uname -m OUTPUT_VARIABLE ARCH OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -90,6 +90,7 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux")
             FetchContent_Declare(
                     liburing
                     GIT_REPOSITORY https://github.com/axboe/liburing.git
+                    # GIT_REPOSITORY https://gitee.com/mirrors_axboe/liburing.git
                     GIT_TAG liburing-2.3
                     UPDATE_COMMAND ./configure
             )
@@ -120,7 +121,7 @@ if (ENABLE_SASL)
     find_package(gsasl REQUIRED)
 endif ()
 
-if (FETCH_GFLAGS_SOURCE)
+if (FETCH_GTEST_GFLAGS_SOURCE)
     FetchContent_Declare(
             gflags
             GIT_REPOSITORY https://github.com/gflags/gflags.git
@@ -129,9 +130,6 @@ if (FETCH_GFLAGS_SOURCE)
             GIT_SUBMODULES ""
     )
     FetchContent_MakeAvailable(gflags)
-endif()
-
-if (FETCH_GTEST_SOURCE)
     FetchContent_Declare(
             googletest
             GIT_REPOSITORY https://github.com/google/googletest.git
@@ -181,7 +179,11 @@ endif ()
 if (ENABLE_SASL)
     list(APPEND PHOTON_SRC net/security-context/sasl-stream.cpp)
 endif ()
+if (ENABLE_FSTACK_DPDK)
+    list(APPEND PHOTON_SRC io/fstack-dpdk.cpp)
+endif ()
 
+# An object library compiles source files but does not archive or link their object files.
 add_library(photon_obj OBJECT ${PHOTON_SRC})
 target_include_directories(photon_obj PUBLIC include ${OPENSSL_INCLUDE_DIR})
 target_compile_definitions(photon_obj PRIVATE _FILE_OFFSET_BITS=64 FUSE_USE_VERSION=29)
@@ -196,8 +198,15 @@ if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 8.0)
     # This option is enabled by default after -std=c++17
     target_compile_options(photon_obj PRIVATE -faligned-new)
 endif()
+if (ENABLE_FSTACK_DPDK)
+    pkg_check_modules(DPDK REQUIRED libdpdk)
+    find_package(fstack REQUIRED)
+    target_include_directories(photon_obj PRIVATE ${DPDK_INCLUDE_DIRS} ${FSTACK_INCLUDE_DIRS})
+    target_compile_definitions(photon_obj PRIVATE ENABLE_FSTACK_DPDK)
+endif()
 
-# Make virtual interface for external dynamic libs
+# Make virtual interface for external libs.
+# Could be system-wide dynamic libs, or third-party static libs.
 add_library(external_lib INTERFACE)
 set(EXTERNAL_LIB_ARGS
         ZLIB::ZLIB
@@ -219,6 +228,9 @@ endif ()
 if (ENABLE_SASL)
     list(APPEND EXTERNAL_LIB_ARGS ${GSASL_LIBRARIES})
 endif ()
+if (ENABLE_FSTACK_DPDK)
+    list(APPEND EXTERNAL_LIB_ARGS ${DPDK_STATIC_LDFLAGS} ${FSTACK_LIBRARIES})
+endif()
 target_link_libraries(external_lib INTERFACE ${EXTERNAL_LIB_ARGS})
 
 # Link photon shared lib
@@ -247,7 +259,7 @@ target_link_libraries(photon_static ${static_link_libs})
 if (BUILD_TESTING)
     include(CTest)
 
-if (FETCH_GTEST_SOURCE AND FETCH_GFLAGS_SOURCE)
+if (FETCH_GTEST_GFLAGS_SOURCE)
     set(testing_libs gtest gmock gflags::gflags)
 else()
     find_package(GTest REQUIRED)
