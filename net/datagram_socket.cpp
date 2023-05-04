@@ -21,6 +21,7 @@ limitations under the License.
 #include <photon/io/fd-events.h>
 #include <photon/net/basic_socket.h>
 #include <photon/net/socket.h>
+#include <sys/fcntl.h>
 #include <sys/un.h>
 #include <unistd.h>
 
@@ -36,14 +37,26 @@ protected:
     int fd;
     const size_t m_max_msg_size;
 
+    int set_fd_nonblocking(int fd) {
+        int flags = fcntl(fd, F_GETFL, 0);
+        return (flags < 0) ? flags : fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    }
+
 public:
     DatagramSocketBase(int AF, size_t maxsize)
         : fd(AF), m_max_msg_size(maxsize) {}
 
     int init(int nfd) {
         auto AF = fd;
+#ifndef __APPLE__
         constexpr static auto FLAG = SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC;
+#else
+        constexpr static auto FLAG = SOCK_DGRAM;
+#endif
         fd = (nfd >= 0) ? nfd : (::socket(AF, FLAG, 0));
+#ifdef __APPLE__
+        set_fd_nonblocking(fd);
+#endif
         return fd < 0;
     }
 
@@ -70,7 +83,8 @@ public:
         flags |= MSG_NOSIGNAL;
         struct msghdr hdr {
             .msg_name = (void*)addr, .msg_namelen = (socklen_t)addrlen,
-            .msg_iov = (iovec*)iov, .msg_iovlen = (size_t)iovcnt,
+            .msg_iov = (iovec*)iov,
+            .msg_iovlen = (decltype(msghdr::msg_iovlen))iovcnt,
             .msg_control = nullptr, .msg_controllen = 0, .msg_flags = flags,
         };
         return doio([&] { return ::sendmsg(fd, &hdr, MSG_DONTWAIT | flags); },
@@ -81,7 +95,8 @@ public:
         struct msghdr hdr {
             .msg_name = (void*)addr,
             .msg_namelen = addrlen ? (socklen_t)*addrlen : 0,
-            .msg_iov = (iovec*)iov, .msg_iovlen = (size_t)iovcnt,
+            .msg_iov = (iovec*)iov,
+            .msg_iovlen = (decltype(msghdr::msg_iovlen))iovcnt,
             .msg_control = nullptr, .msg_controllen = 0, .msg_flags = flags,
         };
         auto ret =
