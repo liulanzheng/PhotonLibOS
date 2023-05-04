@@ -239,11 +239,11 @@ ssize_t sendfile_fallback(ISocketStream* out_stream,
         if (s > count) s = count;
         ssize_t n_read = ::pread(in_fd, buf, s, offset);
         if (n_read != (ssize_t) s)
-            LOG_ERRNO_RETURN(0, -1, "failed to read fd ", in_fd);
+            LOG_ERRNO_RETURN(0, (ssize_t)-1, "failed to read fd ", in_fd);
         offset += n_read;
         ssize_t n_write = out_stream->write(buf, s);
         if (n_write != (ssize_t) s)
-            LOG_ERRNO_RETURN(0, -1, "failed to write to stream ", out_stream);
+            LOG_ERRNO_RETURN(0, (ssize_t)-1, "failed to write to stream ", out_stream);
         return n_write;
     };
     return doio_n(ptr_unused, count, func);
