@@ -62,7 +62,8 @@ public:
         };
         // f-stack will exit the program if init failed.
         // Unable to change the behavior unless it provides more flexible APIs ...
-        ff_init(LEN(argv), argv);
+        if (ff_init(LEN(argv), argv))
+            return -1;
 
         _kq = ff_kqueue();
         if (_kq < 0)

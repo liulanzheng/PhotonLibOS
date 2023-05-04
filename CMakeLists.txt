@@ -198,15 +198,19 @@ if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 8.0)
     # This option is enabled by default after -std=c++17
     target_compile_options(photon_obj PRIVATE -faligned-new)
 endif()
+
+# Add f-stack and dpdk libs.
 if (ENABLE_FSTACK_DPDK)
     pkg_check_modules(DPDK REQUIRED libdpdk)
     find_package(fstack REQUIRED)
     target_include_directories(photon_obj PRIVATE ${DPDK_INCLUDE_DIRS} ${FSTACK_INCLUDE_DIRS})
     target_compile_definitions(photon_obj PRIVATE ENABLE_FSTACK_DPDK)
+
+    add_library(fstack_dpdk INTERFACE)
+    target_link_libraries(fstack_dpdk INTERFACE ${DPDK_STATIC_LDFLAGS} ${FSTACK_LIBRARIES})
 endif()
 
-# Make virtual interface for external libs.
-# Could be system-wide dynamic libs, or third-party static libs.
+# Make virtual interface for external dynamic libs.
 add_library(external_lib INTERFACE)
 set(EXTERNAL_LIB_ARGS
         ZLIB::ZLIB
@@ -228,9 +232,6 @@ endif ()
 if (ENABLE_SASL)
     list(APPEND EXTERNAL_LIB_ARGS ${GSASL_LIBRARIES})
 endif ()
-if (ENABLE_FSTACK_DPDK)
-    list(APPEND EXTERNAL_LIB_ARGS ${DPDK_STATIC_LDFLAGS} ${FSTACK_LIBRARIES})
-endif()
 target_link_libraries(external_lib INTERFACE ${EXTERNAL_LIB_ARGS})
 
 # Link photon shared lib
@@ -239,9 +240,9 @@ set_target_properties(photon_shared PROPERTIES OUTPUT_NAME photon)
 if (APPLE)
     set(shared_link_libs external_lib -Wl,-force_load easy_weak)
 elseif (ENABLE_URING)
-    set(shared_link_libs -Wl,--whole-archive easy_weak uring -Wl,--no-whole-archive external_lib)
+    set(shared_link_libs -Wl,--whole-archive easy_weak fstack_weak uring -Wl,--no-whole-archive external_lib)
 else()
-    set(shared_link_libs -Wl,--whole-archive easy_weak -Wl,--no-whole-archive external_lib)
+    set(shared_link_libs -Wl,--whole-archive easy_weak fstack_weak -Wl,--no-whole-archive external_lib)
 endif ()
 target_link_libraries(photon_shared ${shared_link_libs})
 
@@ -249,9 +250,9 @@ target_link_libraries(photon_shared ${shared_link_libs})
 add_library(photon_static STATIC $<TARGET_OBJECTS:photon_obj>)
 set_target_properties(photon_static PROPERTIES OUTPUT_NAME photon)
 if (ENABLE_URING)
-    set(static_link_libs easy_weak uring external_lib)
+    set(static_link_libs easy_weak fstack_weak uring external_lib)
 else ()
-    set(static_link_libs easy_weak external_lib)
+    set(static_link_libs easy_weak fstack_weak external_lib)
 endif ()
 target_link_libraries(photon_static ${static_link_libs})
 
