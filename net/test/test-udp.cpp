@@ -34,6 +34,10 @@ TEST(UDP, basic) {
     DEFER(delete s1);
     auto s2 = new_udp_socket();
     DEFER(delete s2);
+    s1->setsockopt(SOL_SOCKET, SO_SNDBUF, 256*1024);
+    s2->setsockopt(SOL_SOCKET, SO_SNDBUF, 256*1024);
+    s1->setsockopt(SOL_SOCKET, SO_RCVBUF, 256*1024);
+    s2->setsockopt(SOL_SOCKET, SO_RCVBUF, 256*1024);
 
     EXPECT_EQ(0, s1->bind(EndPoint(IPAddr("127.0.0.1"), 0)));
     auto ep = s1->getsockname();
@@ -41,10 +45,10 @@ TEST(UDP, basic) {
 
     constexpr static size_t msgsize = 63 * 1024;  // more data returned failure
     char hugepack[msgsize];
+    char buf[msgsize];
     std::fill(&hugepack[0], &hugepack[sizeof(hugepack) - 1], 0xEA);
     s2->connect(ep);
     ASSERT_EQ(msgsize, s2->send(hugepack, sizeof(hugepack)));
-    char buf[msgsize];
     ASSERT_EQ(msgsize, s1->recv(buf, sizeof(buf)));
 
     s2->connect(ep);
@@ -95,13 +99,22 @@ TEST(UDP, uds_huge_datag) {
     DEFER(delete s1);
     auto s2 = new_uds_datagram_socket();
     DEFER(delete s2);
+    auto s3 = new_uds_datagram_socket();
+    DEFER(delete s3);
+
+    s1->setsockopt(SOL_SOCKET, SO_SNDBUF, 256*1024);
+    s2->setsockopt(SOL_SOCKET, SO_SNDBUF, 256*1024);
+    s3->setsockopt(SOL_SOCKET, SO_SNDBUF, 256*1024);
+    s1->setsockopt(SOL_SOCKET, SO_RCVBUF, 256*1024);
+    s2->setsockopt(SOL_SOCKET, SO_RCVBUF, 256*1024);
+    s3->setsockopt(SOL_SOCKET, SO_RCVBUF, 256*1024);
 
     EXPECT_EQ(0, s1->bind(uds_path));
     char path[1024] = {};
     socklen_t pathlen = s1->getsockname(path, 1024);
     LOG_INFO("Bind at ", path);
 
-    constexpr static size_t msgsize = 207 * 1024;  // more data returned failure
+    constexpr static size_t msgsize = 63 * 1024;  // more data returned failure
     char hugepack[msgsize];
     std::fill(&hugepack[0], &hugepack[sizeof(hugepack) - 1], 0xEA);
     EXPECT_EQ(0, s2->connect(path));
@@ -109,8 +122,9 @@ TEST(UDP, uds_huge_datag) {
     char buf[msgsize];
     ASSERT_EQ(msgsize, s1->recv(buf, sizeof(buf)));
     EXPECT_EQ(0, memcmp(hugepack, buf, sizeof(hugepack)));
-    ASSERT_EQ(msgsize,
-              s2->sendto(hugepack, sizeof(hugepack), uds_path));
+    // Since BSD kernel not allowing connected socket using sendto at all
+    // here use new socket `s3` to send message
+    ASSERT_EQ(msgsize, s3->sendto(hugepack, sizeof(hugepack), uds_path));
     ASSERT_EQ(msgsize, s1->recv(buf, sizeof(buf)));
     EXPECT_EQ(0, memcmp(hugepack, buf, sizeof(hugepack)));
 }
