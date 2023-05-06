@@ -540,7 +540,7 @@ template <typename QueueType>
 class RingChannel : public QueueType {
 protected:
     photon::semaphore queue_sem;
-    std::atomic<uint64_t> idler;
+    std::atomic<uint64_t> idler{0};
     static constexpr uint64_t BUSY_YIELD_TIMEOUT = 1024;
 
     using T = decltype(std::declval<QueueType>().recv());
