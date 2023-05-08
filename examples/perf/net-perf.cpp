@@ -37,10 +37,11 @@ DEFINE_uint64(port, 9527, "port");
 DEFINE_uint64(buf_size, 512, "buffer size");
 DEFINE_uint64(vcpu_num, 1, "server vcpu num. Increase this value to enable multi-vcpu scheduling");
 
-int event_engine = 0;
-bool stop_test = false;
-uint64_t qps = 0;
-uint64_t time_cost = 0;
+static int event_engine = 0;
+static bool stop_test = false;
+static uint64_t qps = 0;
+static uint64_t time_cost = 0;
+static const int ALIGNMENT = 4096;
 
 static void handle_signal(int sig) {
     LOG_INFO("Try to gracefully stop test ...");
@@ -75,9 +76,9 @@ static int ping_pong_client() {
     DEFER(delete cli);
 
     auto run_ping_pong_worker = [&]() -> int {
-        AlignedAlloc alloc(512);
-        void* buf = alloc.alloc(FLAGS_buf_size);
-        DEFER(alloc.dealloc(buf));
+        AlignedAlloc allocator(ALIGNMENT);
+        void* buf = allocator.alloc(FLAGS_buf_size);
+        DEFER(allocator.dealloc(buf));
 
         auto conn = cli->connect(ep);
         if (conn == nullptr) {
@@ -132,9 +133,9 @@ static int streaming_client() {
     DEFER(delete conn);
 
     auto send = [&]() -> int {
-        AlignedAlloc alloc(512);
-        void* buf = alloc.alloc(FLAGS_buf_size);
-        DEFER(alloc.dealloc(buf));
+        AlignedAlloc allocator(ALIGNMENT);
+        void* buf = allocator.alloc(FLAGS_buf_size);
+        DEFER(allocator.dealloc(buf));
         while (!stop_test) {
             ssize_t ret = conn->write(buf, FLAGS_buf_size);
             if (ret != (ssize_t) FLAGS_buf_size) {
@@ -144,9 +145,9 @@ static int streaming_client() {
         return 0;
     };
     auto recv = [&]() -> int {
-        AlignedAlloc alloc(512);
-        void* buf = alloc.alloc(FLAGS_buf_size);
-        DEFER(alloc.dealloc(buf));
+        AlignedAlloc allocator(ALIGNMENT);
+        void* buf = allocator.alloc(FLAGS_buf_size);
+        DEFER(allocator.dealloc(buf));
         while (!stop_test) {
             ssize_t ret = conn->read(buf, FLAGS_buf_size);
             if (ret != (ssize_t) FLAGS_buf_size) {
@@ -201,9 +202,9 @@ static int echo_server() {
             work_pool->thread_migrate();
         }
 
-        AlignedAlloc alloc(512);
-        void* buf = alloc.alloc(FLAGS_buf_size);
-        DEFER(alloc.dealloc(buf));
+        AlignedAlloc allocator(ALIGNMENT);
+        void* buf = allocator.alloc(FLAGS_buf_size);
+        DEFER(allocator.dealloc(buf));
 
         while (true) {
             ssize_t ret1, ret2;
@@ -229,7 +230,7 @@ static int echo_server() {
 
     server->set_handler(handler);
     server->bind(FLAGS_port, photon::net::IPAddr());
-    server->listen(1024);
+    server->listen();
     server->start_loop(true);
 
     photon::thread_join((photon::join_handle*) qps_th);
