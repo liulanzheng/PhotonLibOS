@@ -43,6 +43,7 @@ int curl_perform(CURL* curl, uint64_t timeout);
 void libcurl_fini();
 
 std::string url_escape(const char*);
+std::string url_unescape(const char*);
 
 inline void convert(const std::string& v, uint64_t& value) {
     value = std::atoll(v.c_str());

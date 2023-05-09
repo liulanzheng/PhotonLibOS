@@ -30,6 +30,7 @@ limitations under the License.
 #include <photon/thread/thread11.h>
 #include <photon/io/fd-events.h>
 #include "events_map.h"
+#include "resettable_ee.h"
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
@@ -43,31 +44,45 @@ namespace photon {
 constexpr static EventsMap<EVUnderlay<POLLIN | POLLRDHUP, POLLOUT, POLLERR>>
     evmap;
 
-class iouringEngine : public MasterEventEngine, public CascadingEventEngine {
+class iouringEngine : public MasterEventEngine, public CascadingEventEngine, public ResettableEventEngine {
 public:
     explicit iouringEngine(bool master) : m_master(master) {}
 
     ~iouringEngine() {
         LOG_INFO("Finish event engine: iouring ", VALUE(m_master));
+        fini();
+    }
+
+    int reset() override {
+        fini();
+        m_event_contexts.clear();
+        return init();
+    }
+
+    int fini() {
         if (m_cancel_poller != nullptr) {
             m_cancel_poller_running = false;
             thread_interrupt(m_cancel_poller);
             thread_join((join_handle*) m_cancel_poller);
+            m_cancel_poller = nullptr;
         }
         if (m_cancel_fd >= 0) {
             close(m_cancel_fd);
+            m_cancel_fd = -1;
         }
         if (m_cascading_event_fd >= 0) {
             if (io_uring_unregister_eventfd(m_ring) != 0) {
                 LOG_ERROR("iouring: failed to unregister cascading event fd");
             }
             close(m_cascading_event_fd);
+            m_cascading_event_fd = -1;
         }
         if (m_ring != nullptr) {
             io_uring_queue_exit(m_ring);
         }
         delete m_ring;
         m_ring = nullptr;
+        return 0;
     }
 
     int init() {
@@ -134,6 +149,7 @@ public:
             if (m_cancel_fd < 0) {
                 LOG_ERRNO_RETURN(0, -1, "iouring: failed to create eventfd");
             }
+            m_cancel_poller_running = true;
             m_cancel_poller = thread_create11(64 * 1024, &iouringEngine::run_cancel_poller, this);
             thread_enable_join(m_cancel_poller);
 
@@ -509,6 +525,7 @@ private:
                     break;
                 }
                 LOG_ERROR("iouring: poll eventfd failed, `", ERRNO());
+                continue;
             }
             eventfd_t val;
             if (eventfd_read(m_cancel_fd, &val) != 0) {

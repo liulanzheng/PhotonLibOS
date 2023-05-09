@@ -21,13 +21,14 @@ limitations under the License.
 #include <sys/event.h>
 #include <photon/common/alog.h>
 #include "events_map.h"
+#include "resettable_ee.h"
 
 namespace photon {
 
 constexpr static EventsMap<EVUnderlay<EVFILT_READ, EVFILT_WRITE, EVFILT_EXCEPT>>
     evmap;
 
-class KQueue : public MasterEventEngine, public CascadingEventEngine {
+class KQueue : public MasterEventEngine, public CascadingEventEngine, public ResettableEventEngine {
 public:
     struct InFlightEvent {
         uint32_t interests = 0;
@@ -55,12 +56,25 @@ public:
         return 0;
     }
 
+    int reset() override {
+        if_close_fd(_kq);           // close original fd
+        _inflight_events.clear();   // reset members
+        _n = 0;
+        _tm = {0, 0};
+        return init();              // re-init
+    }
+
     ~KQueue() override {
         LOG_INFO("Finish event engine: kqueue");
         // if (_n > 0) LOG_INFO(VALUE(_events[0].ident), VALUE(_events[0].filter), VALUE(_events[0].flags));
         // assert(_n == 0);
-        if (_kq >= 0)
-            close(_kq);
+        if_close_fd(_kq);
+    }
+
+    int if_close_fd(int& fd) {
+        if (fd < 0) return 0;
+        DEFER(fd = -1);
+        return close(fd);
     }
 
     int enqueue(int fd, short event, uint16_t action, uint32_t event_flags, void* udata, bool immediate = false) {

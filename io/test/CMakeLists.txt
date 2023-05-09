@@ -6,6 +6,10 @@ add_executable(signalfdtest signalfdtest.cpp)
 target_link_libraries(signalfdtest PRIVATE photon_shared ${testing_libs})
 add_test(NAME signalfdtest COMMAND $<TARGET_FILE:signalfdtest>)
 
+add_executable(test-fork test-fork.cpp)
+target_link_libraries(test-fork PRIVATE photon_shared ${testing_libs})
+add_test(NAME test-fork COMMAND $<TARGET_FILE:test-fork>)
+
 add_executable(signalfdboom signalfdboom.cpp)
 target_link_libraries(signalfdboom PRIVATE photon_shared ${testing_libs})
 add_test(NAME signalfdboom COMMAND $<TARGET_FILE:signalfdboom>)

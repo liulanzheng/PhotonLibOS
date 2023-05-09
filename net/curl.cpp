@@ -109,7 +109,7 @@ static uint64_t on_timer(void* = nullptr) {
 }
 /* CURLMOPT_TIMERFUNCTION */
 static int timer_cb(CURLM*, long timeout_ms, void*) {
-    if (timeout_ms >= 0) {
+    if (timeout_ms >= 0 && cctx.g_timer) {
         cctx.g_timer->reset(timeout_ms * 1000UL);
     }
     return 0;
@@ -158,6 +158,8 @@ public:
     void start() { loop->async_run(); }
 
     void stop() { loop->stop(); }
+
+    photon::thread* loop_thread() { return loop->loop_thread(); }
 
 protected:
     EventLoop* loop;
@@ -209,6 +211,12 @@ void __OpenSSLGlobalInit();
 //     curl_global_cleanup();
 // }
 
+void fork_hook_libcurl() {
+    LOG_INFO("reset libcurl at fork");
+    // interrupt g_loop by ETIMEDOUT to replace g_poller
+    thread_interrupt(cctx.g_loop->loop_thread(), ETIMEDOUT);
+}
+
 int libcurl_init(long flags, long pipelining, long maxconn) {
     if (cctx.g_loop == nullptr) {
         __OpenSSLGlobalInit();
@@ -239,26 +247,35 @@ int libcurl_init(long flags, long pipelining, long maxconn) {
 
         libcurl_set_pipelining(pipelining);
         libcurl_set_maxconnects(maxconn);
+        pthread_atfork(nullptr, nullptr, &fork_hook_libcurl);
+        LOG_INFO("libcurl initialized");
     }
 
     return 0;
 }
 void libcurl_fini() {
+    delete cctx.g_timer;
+    cctx.g_timer = nullptr;
     cctx.g_loop->stop();
     delete cctx.g_loop;
     cctx.g_loop = nullptr;
-    delete cctx.g_timer;
-    cctx.g_timer = nullptr;
     delete cctx.g_poller;
     cctx.g_poller = nullptr;
     CURLMcode ret = curl_multi_cleanup(cctx.g_libcurl_multi);
     if (ret != CURLM_OK)
         LOG_ERROR("libcurl-multi cleanup error: ", curl_multi_strerror(ret));
     cctx.g_libcurl_multi = nullptr;
+    LOG_INFO("libcurl finished");
 }
 
 std::string url_escape(const char* str) {
     auto s = curl_escape(str, 0);
+    DEFER(curl_free(s));
+    return std::string(s);
+}
+
+std::string url_unescape(const char* str) {
+    auto s = curl_unescape(str, 0);
     DEFER(curl_free(s));
     return std::string(s);
 }

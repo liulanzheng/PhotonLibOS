@@ -59,5 +59,21 @@ targets = {
           '-lphoton'
         ],
         testing=['syncio'],
-      ),
+    ),
+    'fork_ut': cpp_fast_test(
+        incs=[
+          './',
+        ],
+        srcs=[
+          'test-fork.cpp',
+        ],
+        static_deps=[
+          'gtest-1.7.0:gtest',
+          'curl-7.42.1:curl',
+        ],
+        ldflags=[
+          '-lphoton'
+        ],
+        testing=['fork'],
+    ),
 }
