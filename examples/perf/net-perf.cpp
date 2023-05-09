@@ -16,13 +16,11 @@ limitations under the License.
 
 #include <fcntl.h>
 #include <chrono>
-#include <vector>
 
 #include <gflags/gflags.h>
 
 #include <photon/photon.h>
 #include <photon/io/signal.h>
-#include <photon/common/io-alloc.h>
 #include <photon/thread/thread11.h>
 #include <photon/thread/workerpool.h>
 #include <photon/common/alog.h>
@@ -41,7 +39,6 @@ static int event_engine = 0;
 static bool stop_test = false;
 static uint64_t qps = 0;
 static uint64_t time_cost = 0;
-static const int ALIGNMENT = 4096;
 
 static void handle_signal(int sig) {
     LOG_INFO("Try to gracefully stop test ...");
@@ -76,9 +73,7 @@ static int ping_pong_client() {
     DEFER(delete cli);
 
     auto run_ping_pong_worker = [&]() -> int {
-        AlignedAlloc allocator(ALIGNMENT);
-        void* buf = allocator.alloc(FLAGS_buf_size);
-        DEFER(allocator.dealloc(buf));
+        char buf[FLAGS_buf_size];
 
         auto conn = cli->connect(ep);
         if (conn == nullptr) {
@@ -133,9 +128,7 @@ static int streaming_client() {
     DEFER(delete conn);
 
     auto send = [&]() -> int {
-        AlignedAlloc allocator(ALIGNMENT);
-        void* buf = allocator.alloc(FLAGS_buf_size);
-        DEFER(allocator.dealloc(buf));
+        char buf[FLAGS_buf_size];
         while (!stop_test) {
             ssize_t ret = conn->write(buf, FLAGS_buf_size);
             if (ret != (ssize_t) FLAGS_buf_size) {
@@ -145,9 +138,7 @@ static int streaming_client() {
         return 0;
     };
     auto recv = [&]() -> int {
-        AlignedAlloc allocator(ALIGNMENT);
-        void* buf = allocator.alloc(FLAGS_buf_size);
-        DEFER(allocator.dealloc(buf));
+        char buf[FLAGS_buf_size];
         while (!stop_test) {
             ssize_t ret = conn->read(buf, FLAGS_buf_size);
             if (ret != (ssize_t) FLAGS_buf_size) {
@@ -201,11 +192,7 @@ static int echo_server() {
         if (FLAGS_vcpu_num > 1) {
             work_pool->thread_migrate();
         }
-
-        AlignedAlloc allocator(ALIGNMENT);
-        void* buf = allocator.alloc(FLAGS_buf_size);
-        DEFER(allocator.dealloc(buf));
-
+        char buf[FLAGS_buf_size];
         while (true) {
             ssize_t ret1, ret2;
             ret1 = sock->recv(buf, FLAGS_buf_size);

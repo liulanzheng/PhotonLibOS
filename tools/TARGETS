@@ -6,6 +6,7 @@ includes = {
 
 iofiles = glob('../io/*.cpp')
 iofiles.remove("../io/kqueue.cpp")
+iofiles.remove("io/fstack-dpdk.cpp")
 
 targets = {
 	'photon_lib' : cpp_library (
