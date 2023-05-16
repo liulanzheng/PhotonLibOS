@@ -820,6 +820,7 @@ R"(
         int err = posix_memalign((void**)&ptr, PAGE_SIZE, stack_size);
         if (unlikely(err))
             LOG_ERROR_RETURN(err, nullptr, "Failed to allocate photon stack! ", ERRNO(err));
+        madvise(ptr, stack_size, MADV_NOHUGEPAGE);
         auto p = ptr + stack_size - sizeof(thread) - randomizer;
         (uint64_t&)p &= ~63;
         auto th = new (p) thread;
