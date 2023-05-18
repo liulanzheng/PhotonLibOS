@@ -1,0 +1,16 @@
+# $$PHOTON_UNPUBLISHED_FILE$$
+
+
+targets = {
+    'extfs_unit_test': cpp_fast_test (
+        testing = ['extfs_test'],
+        srcs = glob('*.cpp'),
+        deps = [
+            'gtest-1.7.0:gtest',
+            E2FSPROGS_OPT,
+        ],
+        ldflags = [
+            '-lphoton',
+        ],
+    ),
+}

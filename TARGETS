@@ -22,6 +22,7 @@ targets = {
                 glob('common/executor/*.cpp') +
                 glob('fs/*.cpp') +
                 glob('fs/httpfs/*.cpp') +
+                glob('fs/extfs/*.cpp') +
                 iofiles +
                 glob('net/*.cpp') +
                 glob('net/http/*.cpp') +
@@ -39,13 +40,14 @@ targets = {
             'gflags-2.1.2:gflags',
             'kerberos-1.15.1:krb5',
             'kerberos-1.15.1:k5crypto',
-            'kerberos-1.15.1:com_err',
             'kerberos-1.15.1:krb5support',
             'kerberos-1.15.1:gssapi_krb5',
             'keyutils-1.5.8:keyutils',
             'gsasl-1.8.0:gsasl',
             'liburing-2.3:uring',
             ':third_party/easy_weak_lib',
+            '%s:ext2fs' % E2FSPROGS_OPT,
+            '%s:com_err' % E2FSPROGS_OPT,
         ],
         custom_flags = {
             'whole_archive_static_deps': 1,
@@ -77,4 +79,8 @@ targets = {
         url = 'http://test-xunyi.oss-cn-hangzhou-zmf.aliyuncs.com/daditest%2Fkeyutils-1.5.8.tar.gz => keyutils-1.5.8',
         md5 = '3ddc0f80571caa15b02450cee0c59b78',
     ),
+    E2FSPROGS_OPT : pre_http_archive(
+        url = '%s => %s' % (E2FSPROGS_OPT_URL, E2FSPROGS_OPT),
+        md5 = E2FSPROGS_OPT_MD5
+    )
 }

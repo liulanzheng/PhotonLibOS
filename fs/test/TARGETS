@@ -1,7 +1,8 @@
 # $$PHOTON_UNPUBLISHED_FILE$$
 
 includes = {
-    '../httpfs/test/TARGETS'
+    '../extfs/test/TARGETS',
+    '../httpfs/test/TARGETS',
 }
 
 targets = {

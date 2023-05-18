@@ -19,8 +19,9 @@ option(ENABLE_FUSE "enable fuse function" OFF)
 option(ENABLE_SASL "enable sasl" OFF)
 option(ENABLE_MIMIC_VDSO "enable mimic vdso" OFF)
 option(BUILD_TESTING "enable build testing" OFF)
-option(FETCH_GTEST_GFLAGS_SOURCE "Fetch gtest, gmock and gflags source code. Link their static libs" OFF)
+option(FETCH_GTEST_GFLAGS_SOURCE "Fetch gtest, gmock and gflags source code. Link their static libs" ON)
 option(ENABLE_FSTACK_DPDK "Use f-stack + DPDK as the event engine" OFF)
+option(ENABLE_EXTFS "enable extfs" ON)
 
 # Get CPU arch
 execute_process(COMMAND uname -m OUTPUT_VARIABLE ARCH OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -120,11 +121,14 @@ find_package(CURL REQUIRED)
 if (ENABLE_SASL)
     find_package(gsasl REQUIRED)
 endif ()
+if (ENABLE_EXTFS)
+    find_package(e2fs REQUIRED)
+endif()
 
 if (FETCH_GTEST_GFLAGS_SOURCE)
     FetchContent_Declare(
             gflags
-            GIT_REPOSITORY https://github.com/gflags/gflags.git
+            GIT_REPOSITORY https://ghproxy.com/https://github.com/gflags/gflags.git
             # GIT_REPOSITORY https://gitee.com/mirrors/gflags.git
             GIT_TAG v2.2.2
             GIT_SUBMODULES ""
@@ -132,7 +136,7 @@ if (FETCH_GTEST_GFLAGS_SOURCE)
     FetchContent_MakeAvailable(gflags)
     FetchContent_Declare(
             googletest
-            GIT_REPOSITORY https://github.com/google/googletest.git
+            GIT_REPOSITORY https://ghproxy.com/https://github.com/google/googletest.git
             # GIT_REPOSITORY https://gitee.com/mirrors/googletest.git
             GIT_TAG release-1.12.1
     )
@@ -181,6 +185,10 @@ if (ENABLE_SASL)
 endif ()
 if (ENABLE_FSTACK_DPDK)
     list(APPEND PHOTON_SRC io/fstack-dpdk.cpp)
+endif ()
+if (ENABLE_EXTFS)
+    file(GLOB EXTFS_SRC fs/extfs/*.cpp)
+    list(APPEND PHOTON_SRC ${EXTFS_SRC})
 endif ()
 
 # An object library compiles source files but does not archive or link their object files.
@@ -232,6 +240,9 @@ endif ()
 if (ENABLE_SASL)
     list(APPEND EXTERNAL_LIB_ARGS ${GSASL_LIBRARIES})
 endif ()
+if (ENABLE_EXTFS)
+    list(APPEND EXTERNAL_LIB_ARGS ${LIBE2FS_LIBRARIES})
+endif ()
 target_link_libraries(external_lib INTERFACE ${EXTERNAL_LIB_ARGS})
 
 # Link photon shared lib
@@ -280,4 +291,8 @@ endif()
     add_subdirectory(rpc/test)
     add_subdirectory(thread/test)
     add_subdirectory(net/security-context/test)
+if (ENABLE_EXTFS)
+    add_subdirectory(fs/extfs/test)
+endif ()
+
 endif ()

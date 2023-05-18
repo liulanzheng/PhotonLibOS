@@ -1,2 +1,10 @@
 # $$PHOTON_UNPUBLISHED_FILE$$
 arch = shell('uname -i')
+
+# e2fsprogs
+E2FSPROGS_OPT = 'e2fsprogs-opt-1.47.0'
+E2FSPROGS_OPT_URL = 'http://apsara-release-build.oss-cn-hangzhou-zmf.aliyuncs.com/t-storage-e2fsprogs/4302456/%s.%s.tar.gz' % (E2FSPROGS_OPT, arch)
+if arch == 'x86_64':
+    E2FSPROGS_OPT_MD5 = '06a924a93a16c6cd84fde78f1d2de070'
+elif arch == 'aarch64':
+    E2FSPROGS_OPT_MD5 = '65b218956d64e528d6095ddd44867ab4'
