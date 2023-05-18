@@ -19,9 +19,9 @@ option(ENABLE_FUSE "enable fuse function" OFF)
 option(ENABLE_SASL "enable sasl" OFF)
 option(ENABLE_MIMIC_VDSO "enable mimic vdso" OFF)
 option(BUILD_TESTING "enable build testing" OFF)
-option(FETCH_GTEST_GFLAGS_SOURCE "Fetch gtest, gmock and gflags source code. Link their static libs" ON)
+option(FETCH_GTEST_GFLAGS_SOURCE "Fetch gtest, gmock and gflags source code. Link their static libs" OFF)
 option(ENABLE_FSTACK_DPDK "Use f-stack + DPDK as the event engine" OFF)
-option(ENABLE_EXTFS "enable extfs" ON)
+option(ENABLE_EXTFS "enable extfs" OFF)
 
 # Get CPU arch
 execute_process(COMMAND uname -m OUTPUT_VARIABLE ARCH OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -128,7 +128,7 @@ endif()
 if (FETCH_GTEST_GFLAGS_SOURCE)
     FetchContent_Declare(
             gflags
-            GIT_REPOSITORY https://ghproxy.com/https://github.com/gflags/gflags.git
+            GIT_REPOSITORY https://github.com/gflags/gflags.git
             # GIT_REPOSITORY https://gitee.com/mirrors/gflags.git
             GIT_TAG v2.2.2
             GIT_SUBMODULES ""
@@ -136,7 +136,7 @@ if (FETCH_GTEST_GFLAGS_SOURCE)
     FetchContent_MakeAvailable(gflags)
     FetchContent_Declare(
             googletest
-            GIT_REPOSITORY https://ghproxy.com/https://github.com/google/googletest.git
+            GIT_REPOSITORY https://github.com/google/googletest.git
             # GIT_REPOSITORY https://gitee.com/mirrors/googletest.git
             GIT_TAG release-1.12.1
     )
