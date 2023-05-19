@@ -1,4 +1,4 @@
-find_path(LIBE2FS_INCLUDE_DIRS NAMES ext2fs.h PATHS /usr/include/ext2fs NO_DEFAULT_PATH)
+find_path(LIBE2FS_INCLUDE_DIRS ext2fs/ext2fs.h)
 
 find_library(LIBE2FS_LIBRARIES ext2fs)
 
