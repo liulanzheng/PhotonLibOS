@@ -130,7 +130,7 @@ int fork_parent_process() {
         return m_pid;
     }
     photon::fini();
-    photon::init(photon::INIT_EVENT_EPOLL | photon::INIT_EVENT_SIGNAL, photon::INIT_IO_LIBCURL);
+    photon::init(photon::INIT_EVENT_DEFAULT, photon::INIT_IO_LIBCURL);
 
     photon::block_all_signal();
     photon::sync_signal(SIGINT, &sigint_handler);

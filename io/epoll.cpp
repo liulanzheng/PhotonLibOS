@@ -84,7 +84,7 @@ public:
         if_close_fd(_engine_fd);
         if_close_fd(_evfd);
     }
-    int if_close_fd(int& fd) {
+    static int if_close_fd(int& fd) {
         if (fd < 0) return 0;
         DEFER(fd = -1);
         return close(fd);

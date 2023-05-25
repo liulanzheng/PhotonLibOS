@@ -27,6 +27,7 @@ limitations under the License.
 #include "../thread/thread11.h"
 #include "../common/alog.h"
 #include "../net/basic_socket.h"
+#include "resettable_ee.h"
 
 #ifndef EVFILT_EXCEPT
 #define EVFILT_EXCEPT (-15)
@@ -37,7 +38,7 @@ namespace photon {
 constexpr static EventsMap<EVUnderlay<EVFILT_READ, EVFILT_WRITE, EVFILT_EXCEPT>>
     evmap;
 
-class FstackDpdkEngine : public MasterEventEngine, public CascadingEventEngine {
+class FstackDpdkEngine : public MasterEventEngine, public CascadingEventEngine, public ResettableEventEngine {
 public:
     struct InFlightEvent {
         uint32_t interests = 0;
@@ -76,12 +77,21 @@ public:
         return 0;
     }
 
+    int reset() override {
+        assert(false);
+    }
+
     ~FstackDpdkEngine() override {
         LOG_INFO("Finish f-stack dpdk engine");
         // if (_n > 0) LOG_INFO(VALUE(_events[0].ident), VALUE(_events[0].filter), VALUE(_events[0].flags));
         // assert(_n == 0);
-        if (_kq >= 0)
-            close(_kq);
+        if_close_fd(_kq);
+    }
+
+    static int if_close_fd(int& fd) {
+        if (fd < 0) return 0;
+        DEFER(fd = -1);
+        return close(fd);
     }
 
     int enqueue(int fd, short event, uint16_t action, uint32_t event_flags, void* udata, bool immediate = false) {
