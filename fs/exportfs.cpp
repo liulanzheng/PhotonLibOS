@@ -58,7 +58,8 @@ namespace fs
         {
             {
                 SCOPED_LOCK(lock);
-                op_queue.send(Delegate<void>(&ExportBase::perform_helper<Func>, act));
+                op_queue.send(
+                    Delegate<void>(&ExportBase::perform_helper<Func>, act));
             }
         }
         static int wait4events(void*, EventLoop*)

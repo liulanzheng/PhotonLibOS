@@ -531,6 +531,10 @@ namespace common {
  * photon thread when queue is empty, and once it got object by recv, it will
  * trying using `thread_yield` instead of semaphore, to get better performance
  * and load balancing.
+ * Watch out that `recv` should run in photon environment (because it has to)
+ * use photon semaphore to be notified that new item has sended. `send` could
+ * running in photon or std::thread environment (needs to set template `Pause` as
+ * `ThreadPause`).
  *
  * @tparam QueueType shoulde be one of LockfreeMPMCRingQueue,
  * LockfreeBatchMPMCRingQueue, or LockfreeSPSCRingQueue, with their own template
@@ -566,9 +570,10 @@ public:
         : m_busy_yield_turn(busy_yield_turn),
           m_busy_yield_timeout(busy_yield_timeout) {}
 
+    template <typename Pause = ThreadPause>
     void send(const T& x) {
         while (!push(x)) {
-            if (!full()) photon::thread_yield();
+            if (!full()) Pause::pause();
         }
         queue_sem.signal(idler.load(std::memory_order_acquire));
     }
