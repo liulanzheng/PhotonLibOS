@@ -18,6 +18,7 @@ limitations under the License.
 
 #include <photon/common/callback.h>
 #include <photon/common/executor/stdlock.h>
+#include <photon/photon.h>
 
 #include <atomic>
 #include <type_traits>
@@ -26,14 +27,17 @@ namespace photon {
 
 class ExecutorImpl;
 
-ExecutorImpl *_new_executor();
+ExecutorImpl *_new_executor(int init_ev, int init_io    );
 void _delete_executor(ExecutorImpl *e);
 void _issue(ExecutorImpl *e, Delegate<void> cb);
 
 class Executor {
 public:
-    ExecutorImpl *e = _new_executor();
+    ExecutorImpl *e = nullptr;
     ~Executor() { _delete_executor(e); }
+    Executor(int init_ev = photon::INIT_EVENT_DEFAULT,
+             int init_io = photon::INIT_IO_DEFAULT)
+        : e(_new_executor(init_ev, init_io)) {}
 
     template <
         typename Context = StdContext, typename Func,
@@ -68,8 +72,8 @@ public:
     // The task object will be delete after work done
     template <typename Context = StdContext, typename Func>
     void async_perform(Func *task) {
-        void (*func)(void*);
-        func = [](void* task_) {
+        void (*func)(void *);
+        func = [](void *task_) {
             using Task = decltype(task);
             auto t = (Task)task_;
             (*t)();
@@ -79,7 +83,7 @@ public:
     }
 
 protected:
-    static constexpr int64_t kCondWaitMaxTime = 1000L * 1000;
+    static constexpr int64_t kCondWaitMaxTime = 100L * 1000;
 
     template <typename Context>
     struct AsyncOp {

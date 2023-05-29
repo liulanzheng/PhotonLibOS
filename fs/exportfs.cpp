@@ -34,7 +34,8 @@ namespace photon {
 namespace fs
 {
     static EventLoop* evloop = nullptr;
-    using Queue = LockfreeSPSCRingQueue<Delegate<void>, 65536>;
+    using Queue =
+        common::RingChannel<LockfreeSPSCRingQueue<Delegate<void>, 65536>>;
 
     class ExportBase
     {
@@ -44,7 +45,7 @@ namespace fs
         static Queue op_queue;
         static int ref;
         static condition_variable cond;
-        static semaphore sem;
+        static Delegate<void> op;
         static ThreadPoolBase* pool;
         template<typename Func>
         static void perform_helper(void* arg) {
@@ -59,12 +60,11 @@ namespace fs
                 SCOPED_LOCK(lock);
                 op_queue.send(Delegate<void>(&ExportBase::perform_helper<Func>, act));
             }
-            sem.signal(1);
         }
         static int wait4events(void*, EventLoop*)
         {
-            sem.wait(1);
-            if (op_queue.empty()) return -1;
+            op = op_queue.recv();
+            if (!op) return -1;
             return 1;
 
         }
@@ -79,11 +79,20 @@ namespace fs
             photon::thread_yield_to(th); // let `th` to run and pop an op
             return 0;
         }
+        static void stop() {
+            {
+                SCOPED_LOCK(lock);
+                op_queue.send({});
+            }
+            while (evloop->state() != evloop->STOP) {
+                photon::thread_yield();
+            }
+        }
         static void* do_opq(void*)
         {
             DEFER({if (--ref == 0) cond.notify_all();});
-            if (op_queue.empty()) return nullptr;
-            auto func = op_queue.recv();
+            auto func = op;
+            op = {};
             if (func) func();
             return nullptr;
         }
@@ -129,7 +138,7 @@ namespace fs
     __attribute__((visibility("hidden"))) Queue ExportBase::op_queue;
     __attribute__((visibility("hidden"))) int ExportBase::ref = 1;
     __attribute__((visibility("hidden"))) condition_variable ExportBase::cond;
-    __attribute__((visibility("hidden"))) semaphore ExportBase::sem(0);
+    __attribute__((visibility("hidden"))) Delegate<void> ExportBase::op;
     __attribute__((visibility("hidden"))) ThreadPoolBase* ExportBase::pool = nullptr;
 
 #define PERFORM(ID, expr) \
@@ -549,7 +558,6 @@ namespace fs
             LOG_ERROR_RETURN(EFAULT, -1, "failed to create event loop");
 
         ExportBase::ref = 1;
-        ExportBase::sem.wait(ExportBase::sem.count());
         if (thread_pool_capacity != 0) ExportBase::pool = new_thread_pool(thread_pool_capacity);
         evloop->async_run();
         return 0;
@@ -562,8 +570,7 @@ namespace fs
         if (!evloop)
             LOG_ERROR_RETURN(ENOSYS, -1, "not inited yet");
 
-        ExportBase::sem.signal(1);
-        evloop->stop();
+        ExportBase::stop();
         --ExportBase::ref;
         while (ExportBase::ref != 0)
         {
@@ -577,7 +584,6 @@ namespace fs
             auto cb = ExportBase::op_queue.recv();
             cb();
         }
-        ExportBase::sem.wait(ExportBase::sem.count());
         return 0;
     }
     IAsyncFile* export_as_async_file(IFile* file)

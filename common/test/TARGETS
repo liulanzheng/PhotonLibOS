@@ -99,5 +99,22 @@ targets = {
         ldflags=[
             '-lphoton',
         ],
-    )
+    ),
+    'benchfs': cpp_program(
+        incs = [
+            './'
+        ],
+        srcs = [
+            'benchfs.cpp',
+        ],
+        deps = [
+            'benchmark-1.6.1:benchmark',
+        ],
+        static_deps = [
+            'gtest-1.7.0:gtest',
+        ],
+        ldflags=[
+            '-lphoton',
+        ]
+    ),
 }
