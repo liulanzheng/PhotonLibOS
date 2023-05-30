@@ -77,8 +77,13 @@ ExecutorImpl *_new_executor(int init_ev, int init_io) {
     return new ExecutorImpl(init_ev, init_io);
 }
 
-void _delete_executor(ExecutorImpl *e) { delete e; }
+Executor::Executor(int init_ev, int init_io)
+    : e(new ExecutorImpl(init_ev, init_io)) {}
 
-void _issue(ExecutorImpl *e, Delegate<void> act) { e->queue.send<ThreadPause>(act); }
+Executor::~Executor() { delete e; }
+
+void Executor::_issue(ExecutorImpl *e, Delegate<void> act) {
+    e->queue.send<ThreadPause>(act);
+}
 
 }  // namespace photon

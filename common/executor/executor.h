@@ -27,17 +27,12 @@ namespace photon {
 
 class ExecutorImpl;
 
-ExecutorImpl *_new_executor(int init_ev, int init_io    );
-void _delete_executor(ExecutorImpl *e);
-void _issue(ExecutorImpl *e, Delegate<void> cb);
-
 class Executor {
 public:
-    ExecutorImpl *e = nullptr;
-    ~Executor() { _delete_executor(e); }
+    ExecutorImpl *e;
     Executor(int init_ev = photon::INIT_EVENT_DEFAULT,
-             int init_io = photon::INIT_IO_DEFAULT)
-        : e(_new_executor(init_ev, init_io)) {}
+             int init_io = photon::INIT_IO_DEFAULT);
+    ~Executor();
 
     template <
         typename Context = StdContext, typename Func,
@@ -79,7 +74,7 @@ public:
             (*t)();
             delete t;
         };
-        _issue(e, {func, task});
+        Executor::_issue(e, {func, task});
     }
 
 protected:
@@ -107,10 +102,12 @@ protected:
         }
         template <typename Func>
         void call(ExecutorImpl *e, Func &&act) {
-            _issue(e, act);
+            Executor::_issue(e, act);
             wait_for_completion();
         }
     };
+
+    static void _issue(ExecutorImpl *e, Delegate<void> cb);
 };
 
 }  // namespace photon
