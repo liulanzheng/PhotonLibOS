@@ -74,7 +74,7 @@ public:
             (*t)();
             delete t;
         };
-        Executor::_issue(e, {func, task});
+        _issue(e, {func, task});
     }
 
 protected:
@@ -102,7 +102,7 @@ protected:
         }
         template <typename Func>
         void call(ExecutorImpl *e, Func &&act) {
-            Executor::_issue(e, act);
+            _issue(e, act);
             wait_for_completion();
         }
     };

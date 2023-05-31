@@ -73,10 +73,6 @@ public:
     }
 };
 
-ExecutorImpl *_new_executor(int init_ev, int init_io) {
-    return new ExecutorImpl(init_ev, init_io);
-}
-
 Executor::Executor(int init_ev, int init_io)
     : e(new ExecutorImpl(init_ev, init_io)) {}
 
