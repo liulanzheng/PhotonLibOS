@@ -25,7 +25,7 @@ public:
 
     ExecutorImpl(int init_ev, int init_io) {
         th.reset(
-            new std::thread(&ExecutorImpl::do_loop, this, init_ev, init_io));
+            new std::thread(&ExecutorImpl::launch, this, init_ev, init_io));
     }
 
     ExecutorImpl() {}
@@ -65,9 +65,7 @@ public:
         }
     }
 
-    void do_loop(int init_ev, int init_io) {
-        photon::init(init_ev, init_io);
-        DEFER(photon::fini());
+    void do_loop() {
         pth = photon::CURRENT;
         pool = photon::new_thread_pool(32);
         LOG_INFO("worker start");
@@ -76,13 +74,18 @@ public:
         photon::delete_thread_pool(pool);
         pool = nullptr;
     }
+
+    void launch(int init_ev, int init_io) {
+        photon::init(init_ev, init_io);
+        DEFER(photon::fini());
+        do_loop();
+    }
 };
 
 Executor::Executor(int init_ev, int init_io)
     : e(new ExecutorImpl(init_ev, init_io)) {}
 
-Executor::Executor(create_on_current_vcpu)
-    : e(new ExecutorImpl()) {}
+Executor::Executor(create_on_current_vcpu) : e(new ExecutorImpl()) {}
 
 Executor::~Executor() { delete e; }
 
@@ -92,15 +95,7 @@ void Executor::_issue(ExecutorImpl *e, Delegate<void> act) {
 
 Executor *Executor::export_as_executor() {
     auto ret = new Executor(create_on_current_vcpu());
-    auto th = photon::thread_create11([ret] {
-        ret->e->pth = photon::CURRENT;
-        ret->e->pool = photon::new_thread_pool(32);
-        LOG_INFO("worker entered");
-        ret->e->main_loop();
-        LOG_INFO("worker exit");
-        photon::delete_thread_pool(ret->e->pool);
-        ret->e->pool = nullptr;
-    });
+    auto th = photon::thread_create11(&ExecutorImpl::do_loop, ret->e);
     photon::thread_yield_to(th);
     return ret;
 }
