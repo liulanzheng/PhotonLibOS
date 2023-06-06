@@ -57,5 +57,20 @@ targets={
         ldflags = [
             '-lphoton'
         ]
+    ),
+    'testexportasexecutor': cpp_fast_test(
+        testing=['enter_as_executor',],
+        incs = ['../'],
+        srcs = ['test_export_as_executor.cpp'],
+        deps = [
+            'gtest-1.7.0:gtest',
+            'gtest-1.7.0:gtest_main',
+            'liberpc-devel-17.1.0:erpc',
+            'zlib-1.2.8:z',
+            'apsara-protobuf-2.4.1:protobuf',
+        ],
+        ldflags = [
+            '-lphoton'
+        ]
     )
 }

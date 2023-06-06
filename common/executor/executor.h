@@ -77,8 +77,14 @@ public:
         _issue(e, {func, task});
     }
 
+    static Executor* export_as_executor();
+
 protected:
     static constexpr int64_t kCondWaitMaxTime = 100L * 1000;
+
+    struct create_on_current_vcpu {};
+
+    Executor(create_on_current_vcpu);
 
     template <typename Context>
     struct AsyncOp {
