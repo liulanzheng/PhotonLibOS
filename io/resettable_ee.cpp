@@ -23,6 +23,8 @@ static thread_local intrusive_list<ResettableEventEngine> ree_list;
 static thread_local bool registed = false;
 
 void fork_hook_event_engine() {
+    if (!registed)
+        return;
     LOG_INFO("reset event engine at fork");
     for (auto ree : ree_list) {
         LOG_DEBUG("reset event engine ", VALUE(ree));

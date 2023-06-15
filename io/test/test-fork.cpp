@@ -17,6 +17,7 @@ limitations under the License.
 #include <unistd.h>
 #include <sys/wait.h>
 #include <gtest/gtest.h>
+#include <thread>
 
 #include <photon/common/alog.h>
 #include <photon/photon.h>
@@ -189,6 +190,29 @@ TEST(ForkTest, Fork) {
 
     LOG_INFO("parent process exit status `", exit_normal);
     EXPECT_EQ(true, exit_normal);
+}
+
+TEST(ForkTest, ForkInThread) {
+    photon::init(photon::INIT_EVENT_DEFAULT, photon::INIT_IO_LIBCURL);
+    DEFER(photon::fini());
+
+    int ret = -1;
+    std::thread th([&]() {
+        pid_t pid = fork();
+        ASSERT_GE(pid, 0);
+
+        if (pid == 0) {
+            LOG_INFO("child hello, pid `", getpid());
+            exit(0);
+        } else {
+            LOG_INFO("parent hello, pid `", getpid());
+            int statVal;
+            waitpid(pid, &statVal, 0);
+            ret = check_process_exit_stat(statVal, pid);
+        }
+    });
+    th.join();
+    EXPECT_EQ(0, ret);
 }
 
 int main(int argc, char **argv) {

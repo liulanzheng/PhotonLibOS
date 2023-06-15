@@ -211,10 +211,14 @@ void __OpenSSLGlobalInit();
 //     curl_global_cleanup();
 // }
 
+static thread_local bool registed = false;
 void fork_hook_libcurl() {
+    if (!registed)
+        return;
     LOG_INFO("reset libcurl at fork");
     // interrupt g_loop by ETIMEDOUT to replace g_poller
-    thread_interrupt(cctx.g_loop->loop_thread(), ETIMEDOUT);
+    if (cctx.g_loop)
+        thread_interrupt(cctx.g_loop->loop_thread(), ETIMEDOUT);
 }
 
 int libcurl_init(long flags, long pipelining, long maxconn) {
@@ -247,7 +251,10 @@ int libcurl_init(long flags, long pipelining, long maxconn) {
 
         libcurl_set_pipelining(pipelining);
         libcurl_set_maxconnects(maxconn);
-        pthread_atfork(nullptr, nullptr, &fork_hook_libcurl);
+        if (!registed) {
+            pthread_atfork(nullptr, nullptr, &fork_hook_libcurl);
+            registed = true;
+        }
         LOG_INFO("libcurl initialized");
     }
 

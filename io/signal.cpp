@@ -227,9 +227,12 @@ namespace photon
 #endif
     }
 
+    static thread_local bool registed = false;
     // should be invoked in child process after forked, to clear signal mask
     static void fork_hook_signalfd(void)
     {
+        if (!registed)
+            return;
         LOG_INFO("reset signalfd at fork");
         sigset_t sigset0;       // can NOT use photon::clear_signal_mask(),
         sigemptyset(&sigset0);  // as memory may be shared with parent, when vfork()ed
@@ -246,7 +249,8 @@ namespace photon
         if (sgfd == -1)
             LOG_ERROR("failed to create signalfd() or kqueue()");
         // interrupt event loop by ETIMEDOUT to replace sgfd
-        thread_interrupt(eloop->loop_thread(), ETIMEDOUT);
+        if (eloop)
+            thread_interrupt(eloop->loop_thread(), ETIMEDOUT);
     }
 
     int sync_signal_init()
@@ -277,7 +281,10 @@ namespace photon
         eloop->async_run();
         LOG_INFO("signalfd initialized");
         thread_yield(); // give a chance let eloop to execute do_wait
-        pthread_atfork(nullptr, nullptr, &fork_hook_signalfd);
+        if (!registed) {
+            pthread_atfork(nullptr, nullptr, &fork_hook_signalfd);
+            registed = true;
+        }
         return clear_signal_mask();
     }
 
