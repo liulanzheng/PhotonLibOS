@@ -215,6 +215,25 @@ TEST(ForkTest, ForkInThread) {
     EXPECT_EQ(0, ret);
 }
 
+TEST(ForkTest, PopenInThread) {
+    photon::init(photon::INIT_EVENT_DEFAULT, photon::INIT_IO_LIBCURL);
+    DEFER(photon::fini());
+
+    photon::semaphore sem(0);
+    auto cmd = "du -sb \"/tmp\"";
+    ssize_t size = -1;
+    std::thread([&] {
+        auto f = popen(cmd, "r");
+        EXPECT_NE(nullptr, f);
+        DEFER(fclose(f));
+        fscanf(f, "%lu", &size);
+        sem.signal(1);
+    }).detach();
+    sem.wait(1);
+    EXPECT_NE(-1, size);
+    LOG_INFO(VALUE(size));
+}
+
 int main(int argc, char **argv) {
     set_log_output_level(0);
 
