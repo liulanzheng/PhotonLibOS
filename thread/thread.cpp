@@ -111,6 +111,24 @@ namespace photon
         }
     };
 
+    void* default_stack_alloc(void*, size_t stack_size) {
+        char* ptr = nullptr;
+        int err = posix_memalign((void**)&ptr, PAGE_SIZE, stack_size);
+        if (unlikely(err))
+            LOG_ERROR_RETURN(err, nullptr, "Failed to allocate photon stack! ", ERRNO(err));
+#if defined(__linux__)
+        madvise(ptr, stack_size, MADV_NOHUGEPAGE);
+#endif
+        return ptr;
+    }
+
+    void default_stack_dealloc(void*, void* ptr, size_t) {
+        free(ptr);
+    }
+
+    Delegate<void*, size_t> stack_alloc(&default_stack_alloc, nullptr);
+    Delegate<void, void*, size_t> stack_dealloc(&default_stack_dealloc, nullptr);
+
     struct vcpu_t;
     struct thread;
     class Stack
@@ -261,7 +279,7 @@ namespace photon
 #ifndef __aarch64__
             madvise(b, stack_size, MADV_DONTNEED);
 #endif
-            free(b);
+            stack_dealloc(b, stack_size);
         }
     };
 
@@ -816,13 +834,7 @@ R"(
             LOG_ERROR_RETURN(ENOSYS, nullptr, "Photon not initialized in this vCPU (OS thread)");
         size_t randomizer = (rand() % 32) * (1024 + 8);
         stack_size = align_up(randomizer + stack_size + sizeof(thread), PAGE_SIZE);
-        char* ptr = nullptr;
-        int err = posix_memalign((void**)&ptr, PAGE_SIZE, stack_size);
-        if (unlikely(err))
-            LOG_ERROR_RETURN(err, nullptr, "Failed to allocate photon stack! ", ERRNO(err));
-#if defined(__linux__)
-        madvise(ptr, stack_size, MADV_NOHUGEPAGE);
-#endif
+        char* ptr = (char*)stack_alloc(stack_size);
         auto p = ptr + stack_size - sizeof(thread) - randomizer;
         (uint64_t&)p &= ~63;
         auto th = new (p) thread;

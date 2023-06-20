@@ -40,6 +40,12 @@ namespace photon
     extern __thread thread* CURRENT;
     extern volatile uint64_t now;
 
+    extern Delegate<void*, size_t> stack_alloc;
+    extern Delegate<void, void*, size_t> stack_dealloc;
+
+    void* default_stack_alloc(void*, size_t stack_size);
+    void default_stack_dealloc(void*, void* stack_ptr, size_t stack_size);
+
     enum states
     {
         READY = 0,      // Ready to run
