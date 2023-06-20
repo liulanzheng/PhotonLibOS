@@ -339,7 +339,9 @@ public:
         setopt(CURLOPT_HTTPGET, 1L);
         setopt(CURLOPT_URL, url);
         setopt(CURLOPT_HTTPHEADER, headers.list);
+#if LIBCURL_VERSION_MAJOR > 7 || LIBCURL_VERSION_MAJOR == 7 && LIBCURL_VERSION_MINOR >= 37
         setopt(CURLOPT_PROXYHEADER, proxy_headers.list);
+#endif
         set_write_stream(stream);
         ret = (CURLcode)net::curl_perform(m_curl, timeout);
         return get_response_code();
@@ -349,7 +351,9 @@ public:
         setopt(CURLOPT_HTTPGET, 1L);
         setopt(CURLOPT_URL, url);
         setopt(CURLOPT_HTTPHEADER, headers.list);
+#if LIBCURL_VERSION_MAJOR > 7 || LIBCURL_VERSION_MAJOR == 7 && LIBCURL_VERSION_MINOR >= 37
         setopt(CURLOPT_PROXYHEADER, proxy_headers.list);
+#endif
         ret = (CURLcode)net::curl_perform(m_curl, timeout);
         return get_response_code();
     }
@@ -359,7 +363,9 @@ public:
         setopt(CURLOPT_URL, url);
         setopt(CURLOPT_CUSTOMREQUEST, "HEAD");
         setopt(CURLOPT_HTTPHEADER, headers.list);
+#if LIBCURL_VERSION_MAJOR > 7 || LIBCURL_VERSION_MAJOR == 7 && LIBCURL_VERSION_MINOR >= 37
         setopt(CURLOPT_PROXYHEADER, proxy_headers.list);
+#endif
         set_write_stream(stream);
         ret = (CURLcode)net::curl_perform(m_curl, timeout);
         return get_response_code();
@@ -380,7 +386,9 @@ public:
     long POST(const char* url, const char* post_fields, W* wstream,
               uint64_t timeout = -1) {
         setopt(CURLOPT_HTTPHEADER, headers.list);
+#if LIBCURL_VERSION_MAJOR > 7 || LIBCURL_VERSION_MAJOR == 7 && LIBCURL_VERSION_MINOR >= 37
         setopt(CURLOPT_PROXYHEADER, proxy_headers.list);
+#endif
         setopt(CURLOPT_POSTFIELDS, post_fields);
         return POST(url, wstream, timeout);
     }
@@ -391,7 +399,9 @@ public:
         setopt(CURLOPT_URL, url);
         setopt(CURLOPT_POST, 1L);
         setopt(CURLOPT_HTTPHEADER, headers.list);
+#if LIBCURL_VERSION_MAJOR > 7 || LIBCURL_VERSION_MAJOR == 7 && LIBCURL_VERSION_MINOR >= 37
         setopt(CURLOPT_PROXYHEADER, proxy_headers.list);
+#endif
         ret = (CURLcode)net::curl_perform(m_curl, timeout);
         return get_response_code();
     }
@@ -404,7 +414,9 @@ public:
         setopt(CURLOPT_PUT, 1L);
         setopt(CURLOPT_URL, url);
         setopt(CURLOPT_HTTPHEADER, headers.list);
+#if LIBCURL_VERSION_MAJOR > 7 || LIBCURL_VERSION_MAJOR == 7 && LIBCURL_VERSION_MINOR >= 37
         setopt(CURLOPT_PROXYHEADER, proxy_headers.list);
+#endif
         // setopt(CURLOPT_INFILESIZE_LARGE, (curl_off_t)file_info.st_size);
         ret = (CURLcode)net::curl_perform(m_curl, timeout);
         return get_response_code();
@@ -413,7 +425,9 @@ public:
         setopt(CURLOPT_URL, url);
         setopt(CURLOPT_CUSTOMREQUEST, "DELETE");
         setopt(CURLOPT_HTTPHEADER, headers.list);
+#if LIBCURL_VERSION_MAJOR > 7 || LIBCURL_VERSION_MAJOR == 7 && LIBCURL_VERSION_MINOR >= 37
         setopt(CURLOPT_PROXYHEADER, proxy_headers.list);
+#endif
         ret = (CURLcode)net::curl_perform(m_curl, timeout);
         return get_response_code();
     }
