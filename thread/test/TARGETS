@@ -54,6 +54,7 @@ targets = {
         ],
     ),
     'test-std-compat': cpp_fast_test(
+        testing=['std',],
         incs=[
             './',
         ],
@@ -68,6 +69,7 @@ targets = {
         ],
     ),
     'test-specific-key': cpp_fast_test(
+        testing=['specific-key',],
         incs=[ './' ],
         srcs=[
             'test-specific-key.cpp',
@@ -80,6 +82,7 @@ targets = {
         ],
     ),
     'test-thread-local': cpp_fast_test(
+        testing=['thread-local',],
         incs=[ './' ],
         srcs=[
             'test-thread-local.cpp',
@@ -92,6 +95,7 @@ targets = {
         ],
     ),
     'test-tls-order-native': cpp_fast_test(
+        testing=['tls-order-native',],
         srcs=[
             'test-tls-order-native.cpp',
         ],
@@ -103,6 +107,7 @@ targets = {
         ],
     ),
     'test-tls-order-photon': cpp_fast_test(
+        testing=['tls-order-photon',],
         srcs=[
             'test-tls-order-photon.cpp',
         ],
@@ -113,4 +118,13 @@ targets = {
             '-lphoton',
         ],
     ),
+    'test-lib-data' : cpp_fast_test(
+        testing=['libdata',],
+        srcs=[
+            'test-lib-data.cpp'
+        ],
+        static_deps=[
+            'gtest-1.7.0:gtest',
+        ],
+    )
 }

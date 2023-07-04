@@ -130,9 +130,9 @@ namespace photon
         free(ptr);
     }
 
-    Delegate<void*, size_t> photon_thread_alloc(
+    static Delegate<void*, size_t> photon_thread_alloc(
         &default_photon_thread_stack_alloc, nullptr);
-    Delegate<void, void*, size_t> photon_thread_dealloc(
+    static Delegate<void, void*, size_t> photon_thread_dealloc(
         &default_photon_thread_stack_dealloc, nullptr);
 
     struct vcpu_t;
@@ -1814,5 +1814,12 @@ R"(
 
     void stackful_free(void* ptr) {
         CURRENT->stackful_free(ptr);
+    }
+
+    void set_photon_thread_stack_allocator(
+        Delegate<void *, size_t> _photon_thread_alloc,
+        Delegate<void, void *, size_t> _photon_thread_dealloc) {
+        photon_thread_alloc = _photon_thread_alloc;
+        photon_thread_dealloc = _photon_thread_dealloc;
     }
 }
