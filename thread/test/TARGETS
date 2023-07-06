@@ -126,5 +126,8 @@ targets = {
         static_deps=[
             'gtest-1.7.0:gtest',
         ],
+        ldflags=[
+            '-lphoton',
+        ],
     )
 }
