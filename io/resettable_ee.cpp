@@ -16,6 +16,7 @@ limitations under the License.
 
 #include "resettable_ee.h"
 #include <photon/common/alog.h>
+#include <pthread.h>
 
 namespace photon {
 
