@@ -15,6 +15,7 @@
 #include <photon/fs/filesystem.h>
 #include <photon/fs/forwardfs.h>
 #include <photon/fs/exportfs.h>
+#include <photon/thread/awaiter.h>
 
 using namespace photon::fs;
 
@@ -115,7 +116,7 @@ static void MultiThreaded_bench_executor(benchmark::State& state)
 
     for (auto _: state) {
         // while (true) {
-        ex->perform(nullfunc);
+        ex->perform<photon::StdContext>(nullfunc);
         // state.PauseTiming();
         // usleep(1000);
         // state.ResumeTiming();

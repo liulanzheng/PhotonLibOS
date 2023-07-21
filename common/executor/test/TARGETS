@@ -72,5 +72,20 @@ targets={
         ldflags = [
             '-lphoton'
         ]
-    )
+    ),
+    'testinphoton': cpp_fast_test(
+        testing=['photon perform',],
+        incs = ['../'],
+        srcs = ['test_photon.cpp'],
+        deps = [
+            'gtest-1.7.0:gtest',
+            'gtest-1.7.0:gtest_main',
+            'liberpc-devel-17.1.0:erpc',
+            'zlib-1.2.8:z',
+            'apsara-protobuf-2.4.1:protobuf',
+        ],
+        ldflags = [
+            '-lphoton'
+        ]
+    ),
 }
