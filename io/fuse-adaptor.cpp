@@ -166,13 +166,16 @@ int run_fuse(int argc, char *argv[], const struct ::fuse_operations *op,
         int flags = fcntl(fd, F_GETFL, 0);
         if (flags >= 0) fcntl(fd, F_SETFL, flags | O_NONBLOCK);
         std::vector<std::thread> ths;
+        photon::semaphore sem(0);
         for (int i = 0; i < cfg.threads; ++i) {
           ths.emplace_back(std::thread([&]() {
               init(INIT_EVENT_EPOLL, INIT_IO_LIBAIO);
               DEFER(fini());
               if (fuse_session_loop_mpt(se) != 0) res = -1;
+              sem.signal(1);
           }));
         }
+        sem.wait(cfg.threads);
         for (auto& th : ths) th.join();
         fuse_session_reset(se);
     } else {
