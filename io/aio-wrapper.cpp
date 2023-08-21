@@ -342,6 +342,13 @@ retry:
         return rst;
     }
 
+    static thread_local bool registed = false;
+    void fork_hook_libaio() {
+        if (!registed) return;
+        LOG_INFO("reset libaio at fork");
+        libaio_wrapper_fini();
+        libaio_wrapper_init();
+    }
 
     int libaio_wrapper_init()
     {
@@ -365,6 +372,8 @@ retry:
         assert(ctx->polling_thread);
         libaio_ctx = ctx.release();
         thread_yield_to(libaio_ctx->polling_thread);
+        pthread_atfork(nullptr, nullptr, &fork_hook_libaio);
+        registed = true;
         return 0;
     }
 

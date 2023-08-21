@@ -18,6 +18,7 @@ limitations under the License.
 #include <sys/wait.h>
 #include <gtest/gtest.h>
 #include <thread>
+#include <fcntl.h>
 
 #include <photon/common/alog.h>
 #include <photon/photon.h>
@@ -25,6 +26,7 @@ limitations under the License.
 #include <photon/io/fd-events.h>
 #include <photon/io/signal.h>
 #include <photon/net/curl.h>
+#include <photon/fs/localfs.h>
 
 bool exit_flag = false;
 bool exit_normal = false;
@@ -233,6 +235,35 @@ TEST(ForkTest, PopenInThread) {
     EXPECT_NE(-1, size);
     LOG_INFO(VALUE(size));
 }
+
+#ifdef __linux___
+TEST(ForkTest, LIBAIO) {
+    photon::init(photon::INIT_EVENT_EPOLL, photon::INIT_IO_LIBAIO);
+    DEFER(photon::fini());
+
+    int ret = -1;
+    pid_t pid = fork();
+    ASSERT_GE(pid, 0);
+
+    if (pid == 0) {
+        std::unique_ptr<photon::fs::IFileSystem> fs(
+            photon::fs::new_localfs_adaptor("/tmp/", photon::fs::ioengine_libaio));
+        std::unique_ptr<photon::fs::IFile> lf(
+            fs->open("test_local_fs_fork", O_RDWR | O_CREAT, 0755));
+        void* buf = nullptr;
+        ::posix_memalign(&buf, 4096, 4096);
+        DEFER(free(buf));
+        auto ret = lf->pwrite(buf, 4096, 0);
+        EXPECT_EQ(ret, 4096);
+        exit(lf->close());
+    } else {
+        int statVal;
+        waitpid(pid, &statVal, 0);
+        ret = check_process_exit_stat(statVal, pid);
+    }
+    EXPECT_EQ(0, ret);
+}
+#endif
 
 int main(int argc, char **argv) {
     set_log_output_level(0);
