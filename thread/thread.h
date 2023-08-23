@@ -443,6 +443,13 @@ namespace photon
     void* default_photon_thread_stack_alloc(void*, size_t stack_size);
     void default_photon_thread_stack_dealloc(void*, void* stack_ptr,
                                              size_t stack_size);
+
+    // Threadlocal Pooled stack allocator
+    // better performance, and keep thread safe
+    void* threadlocal_pooled_photon_thread_stack_alloc(void*, size_t stack_size);
+    void threadlocal_pooled_photon_thread_stack_dealloc(void*, void* stack_ptr,
+                                                        size_t stack_size);
+
     void set_photon_thread_stack_allocator(
         Delegate<void*, size_t> photon_thread_alloc = {
             &default_photon_thread_stack_alloc, nullptr},

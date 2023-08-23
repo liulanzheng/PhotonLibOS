@@ -831,12 +831,15 @@ R"(
 
     extern "C" void _photon_thread_stub() asm ("_photon_thread_stub");
 
+    static size_t __thread_create_randomizer = 0;
+
     thread* thread_create(thread_entry start, void* arg,
                 uint64_t stack_size, uint16_t reserved_space) {
         RunQ rq;
         if (unlikely(!rq.current))
             LOG_ERROR_RETURN(ENOSYS, nullptr, "Photon not initialized in this vCPU (OS thread)");
-        size_t randomizer = (rand() % 32) * (1024 + 8);
+        // size_t randomizer = (rand() % 32) * (1024 + 8);
+        size_t randomizer = ((__thread_create_randomizer++) % 32) * (1024 + 8);
         stack_size = align_up(randomizer + stack_size + sizeof(thread), PAGE_SIZE);
         char* ptr = (char*)photon_thread_alloc(stack_size);
         auto p = ptr + stack_size - sizeof(thread) - randomizer;
