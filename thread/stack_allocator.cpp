@@ -9,12 +9,10 @@
 
 namespace photon {
 
-namespace thread_stack_allocator {
-
 template <size_t MIN_ALLOCATION_SIZE = 4UL * 1024,
           size_t MAX_ALLOCATION_SIZE = 64UL * 1024 * 1024,
           size_t ALIGNMENT = 64>
-class ThreadStackAllocator {
+class PooledStackAllocator {
     constexpr static bool is_power2(size_t n) { return (n & (n - 1)) == 0; }
     static_assert(is_power2(ALIGNMENT), "must be 2^n");
     static_assert(is_power2(MAX_ALLOCATION_SIZE), "must be 2^n");
@@ -22,7 +20,7 @@ class ThreadStackAllocator {
         __builtin_ffsl(MAX_ALLOCATION_SIZE / MIN_ALLOCATION_SIZE);
 
 public:
-    ThreadStackAllocator() {
+    PooledStackAllocator() {
         auto size = MIN_ALLOCATION_SIZE;
         for (auto& slot : slots) {
             slot.set_alloc_size(size);
@@ -110,15 +108,16 @@ public:
     }
 };
 
-static thread_local ThreadStackAllocator<> _alloc;
-
-}  // namespace thread_stack_allocator
-
-void* threadlocal_pooled_photon_thread_stack_alloc(void*, size_t stack_size) {
-    return photon::thread_stack_allocator::_alloc.alloc(stack_size);
+static PooledStackAllocator<>& get_pooled_stack_allocator() {
+    thread_local PooledStackAllocator<> _alloc;
+    return _alloc;
 }
-void threadlocal_pooled_photon_thread_stack_dealloc(void*, void* stack_ptr,
-                                                    size_t stack_size) {
-    photon::thread_stack_allocator::_alloc.dealloc(stack_ptr, stack_size);
+
+void* pooled_stack_alloc(void*, size_t stack_size) {
+    return get_pooled_stack_allocator().alloc(stack_size);
 }
+void pooled_stack_dealloc(void*, void* stack_ptr, size_t stack_size) {
+    get_pooled_stack_allocator().dealloc(stack_ptr, stack_size);
+}
+
 }  // namespace photon
