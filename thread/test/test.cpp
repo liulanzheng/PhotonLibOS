@@ -1868,6 +1868,67 @@ TEST(intrusive_list, split) {
 
 }
 
+void *null_task(void *) { return nullptr; }
+
+uint64_t test_pool() {
+    auto tp = photon::new_thread_pool(100);
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < 100; i++) {
+        for (int j = 0; j < 100; j++) {
+            tp->thread_create(&null_task, nullptr);
+        }
+        photon::thread_yield();
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+    photon::thread_yield();
+    photon::delete_thread_pool(tp);
+    return (end - start).count();
+}
+
+uint64_t test_thcr() {
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < 100; i++) {
+        for (int j = 0; j < 100; j++) {
+            photon::thread_create(&null_task, nullptr);
+        }
+        photon::thread_yield();
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+    photon::thread_yield();
+    return (end - start).count();
+}
+
+TEST(pooled_stack_allocator, perf) {
+    std::vector<std::thread> ths;
+    LOG_INFO("--------ThreadPool--------");
+    for (int i = 0; i < 4; i++) {
+        ths.emplace_back([] {
+            photon::vcpu_init();
+            DEFER(photon::vcpu_fini());
+            LOG_INFO(VALUE(test_pool()));
+        });
+    }
+    for (auto &x : ths) {
+        x.join();
+    }
+    ths.clear();
+    LOG_INFO("--------thread_create--------");
+    photon::using_pooled_stack_allocator();
+    photon::pooled_stack_trim_threshold(1024UL * 1024 * 1024);
+    for (int i = 0; i < 4; i++) {
+        ths.emplace_back([] {
+            photon::vcpu_init();
+            DEFER(photon::vcpu_fini());
+            LOG_INFO(VALUE(test_thcr()));
+        });
+    }
+    for (auto &x : ths) {
+        x.join();
+    }
+    ths.clear();
+    photon::set_photon_thread_stack_allocator();
+}
+
 int main(int argc, char** arg)
 {
     ::testing::InitGoogleTest(&argc, arg);

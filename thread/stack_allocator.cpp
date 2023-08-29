@@ -20,93 +20,109 @@ class PooledStackAllocator {
         __builtin_ffsl(MAX_ALLOCATION_SIZE / MIN_ALLOCATION_SIZE);
 
 public:
-    PooledStackAllocator() {
-        auto size = MIN_ALLOCATION_SIZE;
-        for (auto& slot : slots) {
-            slot.set_alloc_size(size);
-            size *= 2;
-        }
-    }
+    PooledStackAllocator() {}
 
 protected:
-    const int BASE_OFF = log2_round(MIN_ALLOCATION_SIZE);
-    class Slot {
-        size_t alloc_size = ALIGNMENT;
-        std::vector<void*> pool;
+    size_t in_pool_size = 0;
+    static size_t trim_threshold;
 
-    public:
+    static void* __alloc(size_t alloc_size) {
+        void* ptr;
+        int ret = ::posix_memalign(&ptr, ALIGNMENT, alloc_size);
+        if (ret != 0) {
+            errno = ret;
+            return nullptr;
+        }
+#if defined(__linux__)
+        madvise(ptr, alloc_size, MADV_NOHUGEPAGE);
+#endif
+        return ptr;
+    }
+
+    static void __dealloc(void* ptr, size_t size) {
+        madvise(ptr, size, MADV_DONTNEED);
+        free(ptr);
+    }
+
+    struct Slot {
+        std::vector<std::pair<void*, size_t>> pool;
+
         ~Slot() {
             for (auto pt : pool) {
-                free(pt);
+                __dealloc(pt.first, pt.second);
             }
         }
-        void set_alloc_size(size_t x) { alloc_size = x; }
-        int alloc(void** ptr) {
-            int ret = ::posix_memalign((void**)ptr, ALIGNMENT, alloc_size);
-            if (ret != 0) {
-                errno = ret;
-                return -1;
-            }
-#if defined(__linux__)
-            madvise(*ptr, alloc_size, MADV_NOHUGEPAGE);
-#endif
-            return alloc_size;
-        }
-        void* get() {
+        std::pair<void*, size_t> get() {
             if (!pool.empty()) {
                 auto ret = pool.back();
                 pool.pop_back();
                 return ret;
-            } else {
-                void* ptr = nullptr;
-                alloc(&ptr);
-                return ptr;
             }
+            return {nullptr, 0};
         }
-        void put(void* ptr) { pool.push_back(ptr); }
+        void put(void* ptr, size_t size) { pool.emplace_back(ptr, size); }
     };
 
-    static inline int log2_round(unsigned int x, bool round_up = false) {
-        assert(x > 0);
-        int ret = sizeof(x) * 8 - 1 - __builtin_clz(x);
-        if (round_up && (1U << ret) < x) return ret + 1;
-        return ret;
-    }
-
-    int get_slot(unsigned int x) {
-        int i = log2_round(x, true);
-        if (i < BASE_OFF) return 0;
-        return i - BASE_OFF;
+    static inline uint32_t get_slot(uint32_t length) {
+        static auto base = __builtin_clz(MIN_ALLOCATION_SIZE - 1);
+        auto index = __builtin_clz(length - 1);
+        return base > index ? base - index : 0;
     }
 
     Slot slots[N_SLOTS];
 
 public:
     void* alloc(size_t size) {
-        if (unlikely(size > MAX_ALLOCATION_SIZE)) {
-            void* ptr = nullptr;
-            int ret = ::posix_memalign(&ptr, ALIGNMENT, size);
-            if (ret != 0) {
-                errno = ret;
-                return nullptr;
-            }
-#if defined(__linux__)
-            madvise(ptr, size, MADV_NOHUGEPAGE);
-#endif
-            return ptr;
+        auto idx = get_slot(size);
+        if (unlikely(idx > N_SLOTS)) {
+            // larger than biggest slot
+            return __alloc(size);
         }
-        return slots[get_slot(size)].get();
+        auto ptr = slots[idx].get();
+        if (unlikely(!ptr.first)) {
+            // slots[idx] empty
+            return __alloc(size);
+        }
+        // got from pool
+        in_pool_size -= ptr.second;
+        return ptr.first;
     }
     int dealloc(void* ptr, size_t size) {
-        if (unlikely(size > MAX_ALLOCATION_SIZE)) {
-            madvise(ptr, size, MADV_DONTNEED);
-            free(ptr);
+        auto idx = get_slot(size);
+        if (unlikely(idx > N_SLOTS ||
+                     (in_pool_size + size >= trim_threshold))) {
+            // big block or in-pool buffers reaches to threshold
+            __dealloc(ptr, size);
             return 0;
         }
-        slots[get_slot(size)].put(ptr);
+        // Collect into pool
+        in_pool_size += size;
+        slots[idx].put(ptr, size);
         return 0;
     }
+    size_t trim(size_t keep_size) {
+        size_t count = 0;
+        for (int i = 0; in_pool_size > keep_size; i = (i + 1) % N_SLOTS) {
+            if (!slots[i].pool.empty()) {
+                auto ptr = slots[i].pool.back();
+                slots[i].pool.pop_back();
+                in_pool_size -= ptr.second;
+                count += ptr.second;
+                __dealloc(ptr.first, ptr.second);
+            }
+        }
+        return count;
+    }
+    size_t threshold(size_t x) {
+        trim_threshold = x;
+        return trim_threshold;
+    }
 };
+
+template <size_t MIN_ALLOCATION_SIZE, size_t MAX_ALLOCATION_SIZE,
+          size_t ALIGNMENT>
+size_t PooledStackAllocator<MIN_ALLOCATION_SIZE, MAX_ALLOCATION_SIZE,
+                            ALIGNMENT>::trim_threshold = 1024UL * 1024 * 1024;
 
 static PooledStackAllocator<>& get_pooled_stack_allocator() {
     thread_local PooledStackAllocator<> _alloc;
@@ -118,6 +134,14 @@ void* pooled_stack_alloc(void*, size_t stack_size) {
 }
 void pooled_stack_dealloc(void*, void* stack_ptr, size_t stack_size) {
     get_pooled_stack_allocator().dealloc(stack_ptr, stack_size);
+}
+
+size_t pooled_stack_trim_current_vcpu(size_t keep_size) {
+    return get_pooled_stack_allocator().trim(keep_size);
+}
+
+size_t pooled_stack_trim_threshold(size_t x) {
+    return get_pooled_stack_allocator().threshold(x);
 }
 
 }  // namespace photon

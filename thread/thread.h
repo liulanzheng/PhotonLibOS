@@ -449,6 +449,12 @@ namespace photon
     void* pooled_stack_alloc(void*, size_t stack_size);
     void pooled_stack_dealloc(void*, void* stack_ptr, size_t stack_size);
 
+    // Pooled stack allocator active trim till in-pool size less than keep_size
+    // for current vcpu
+    size_t pooled_stack_trim(size_t keep_size);
+    // Pooled stack allocator set trim limit
+    size_t pooled_stack_trim_threshold(size_t x);
+
     void set_photon_thread_stack_allocator(
         Delegate<void*, size_t> photon_thread_alloc = {
             &default_photon_thread_stack_alloc, nullptr},
