@@ -451,7 +451,7 @@ namespace photon
 
     // Free memory in pooled stack allocator till in-pool memory size less than
     // `keep_size` for current vcpu
-    size_t pooled_stack_trim(size_t keep_size);
+    size_t pooled_stack_trim_current_vcpu(size_t keep_size);
     // Pooled stack allocator set keep-in-pool size
     size_t pooled_stack_trim_threshold(size_t threshold);
 
