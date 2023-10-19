@@ -143,6 +143,12 @@ if (FETCH_GTEST_GFLAGS_SOURCE)
     FetchContent_MakeAvailable(googletest)
 endif()
 
+FetchContent_Declare(
+    tinyxml2
+    URL https://github.com/leethomason/tinyxml2/archive/refs/tags/9.0.0.tar.gz
+)
+FetchContent_MakeAvailable(tinyxml2)
+
 # Compile photon objects
 file(GLOB PHOTON_SRC
         photon.cpp
@@ -166,6 +172,7 @@ file(GLOB PHOTON_SRC
         io/resettable_ee.cpp
         net/*.cpp
         net/http/*.cpp
+        net/mq/mns/*.cpp
         net/security-context/tls-stream.cpp
         rpc/*.cpp
         thread/*.cpp
@@ -194,7 +201,7 @@ endif ()
 
 # An object library compiles source files but does not archive or link their object files.
 add_library(photon_obj OBJECT ${PHOTON_SRC})
-target_include_directories(photon_obj PUBLIC include ${OPENSSL_INCLUDE_DIR})
+target_include_directories(photon_obj PUBLIC include ${OPENSSL_INCLUDE_DIR} ${tinyxml2_SOURCE_DIR})
 target_compile_definitions(photon_obj PRIVATE _FILE_OFFSET_BITS=64 FUSE_USE_VERSION=29)
 if (ENABLE_URING)
     target_include_directories(photon_obj PUBLIC ${liburing_include_dir})
@@ -229,6 +236,7 @@ set(EXTERNAL_LIB_ARGS
         OpenSSL::SSL
         OpenSSL::Crypto
         CURL::libcurl
+        tinyxml2::tinyxml2
         -lpthread
         )
 
