@@ -228,7 +228,6 @@ public:
         return m_exists ? 0 : -1;
     }
 
-    //TODO: 这里是否需要考虑m_common_header被打爆的问题？
     void add_header(va_list args) {
         auto k = va_arg(args, const char*);
         auto v = va_arg(args, const char*);

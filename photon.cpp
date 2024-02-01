@@ -22,6 +22,7 @@ limitations under the License.
 #include "thread/thread.h"
 #include "thread/thread-pool.h"
 #include "thread/stack-allocator.h"
+#include "thread/vcpu_local.h"
 #ifdef ENABLE_FSTACK_DPDK
 #include "io/fstack-dpdk.h"
 #endif
@@ -95,6 +96,7 @@ int init(uint64_t event_engine, uint64_t io_engine, const PhotonOptions& options
 }
 
 int fini() {
+    at_vcpu_exit();
 #ifdef __linux__
     FINI_IO(LIBAIO, libaio_wrapper)
     FINI_IO(SOCKET_EDGE_TRIGGER, et_poller)

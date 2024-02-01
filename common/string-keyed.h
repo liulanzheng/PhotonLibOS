@@ -49,7 +49,7 @@ public:
 
 protected:
     explicit string_key(const char* s, size_t n) :
-        std::string_view((char*)malloc(n + 1), n)
+        std::string_view((char*)calloc(1, n + 1), n)
     {
         auto ptr = (char*)begin();
         memcpy(ptr, s, n);
