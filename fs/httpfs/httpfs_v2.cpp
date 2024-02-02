@@ -103,7 +103,9 @@ public:
 class HttpFile_v2 : public fs::VirtualReadOnlyFile {
 public:
     std::string m_url;
-    net::http::CommonHeaders<> m_common_header;
+    std::map<std::string, std::string> m_common_header;
+    photon::mutex m_common_header_mtx;
+    // net::http::CommonHeaders<> m_common_header;
     HttpFs_v2* m_fs;
     struct stat m_stat;
     uint64_t m_stat_gettime = 0;
@@ -153,7 +155,12 @@ public:
         op.set_enable_proxy(m_fs->get_client()->has_proxy());
     again:
         op.req.reset(net::http::Verb::GET, url, op.enable_proxy);
-        op.req.headers.merge(m_common_header);
+        // op.req.headers.merge(m_common_header);
+        m_common_header_mtx.lock();
+        for (auto x: m_common_header) {
+            op.req.headers.insert(x.first, x.second);
+        }
+        m_common_header_mtx.unlock();
         op.req.headers.range(offset, offset + length - 1);
         op.req.headers.content_length(0);
         op.timeout = tmo;
@@ -231,7 +238,9 @@ public:
     void add_header(va_list args) {
         auto k = va_arg(args, const char*);
         auto v = va_arg(args, const char*);
-        m_common_header.insert(k, v);
+        m_common_header_mtx.lock();
+        m_common_header[k] = v;
+        m_common_header_mtx.unlock();
     }
 
     void add_url_param(va_list args) { m_url_param = va_arg(args, const char*); }
