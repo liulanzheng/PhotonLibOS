@@ -57,6 +57,21 @@ public:
 
     struct LockHandle;
 
+    LockHandle* try_lock(uint64_t offset, uint64_t length)
+    {
+        range_t r(offset, length);
+        SCOPED_LOCK(m_lock);
+        auto it = m_index.lower_bound(r);
+        if (it != m_index.end() && it->offset < r.end()) {
+            return nullptr;
+        } else {
+            it = m_index.emplace_hint(it, r);
+            assert(it != m_index.end());
+            static_assert(sizeof(it) == sizeof(LockHandle*), "...");
+            return (LockHandle*&)it;
+        }
+    }
+
     LockHandle* try_lock_wait2(uint64_t offset, uint64_t length)
     {
         range_t r(offset, length);
