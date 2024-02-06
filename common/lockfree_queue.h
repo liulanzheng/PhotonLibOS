@@ -548,8 +548,8 @@ class RingChannel : public QueueType {
 protected:
     photon::semaphore queue_sem;
     std::atomic<uint64_t> idler{0};
-    uint64_t default_yield_turn = -1UL;
-    uint64_t default_yield_usec = 1024;
+    uint64_t m_busy_yield_turn;
+    uint64_t m_busy_yield_timeout;
 
     using T = decltype(std::declval<QueueType>().recv());
 
@@ -561,42 +561,41 @@ public:
     using QueueType::read_available;
     using QueueType::write_available;
 
-    RingChannel() = default;
-    explicit RingChannel(uint64_t max_yield_turn, uint64_t max_yield_usec)
-        : default_yield_turn(max_yield_turn),
-          default_yield_usec(max_yield_usec) {}
+    /**
+     * @brief Construct a new Ring Channel object
+     *
+     * @param busy_yield_timeout setting yield timeout, default is template
+     * parameter DEFAULT_BUSY_YIELD_TIMEOUT. Ring Channel will try busy yield
+     * in `busy_yield_timeout` usecs.
+     */
+    RingChannel(uint64_t busy_yield_turn = 64,
+                uint64_t busy_yield_timeout = 1024)
+        : m_busy_yield_turn(busy_yield_turn),
+          m_busy_yield_timeout(busy_yield_timeout) {}
 
     template <typename Pause = ThreadPause>
     void send(const T& x) {
         while (!push(x)) {
-            Pause::pause();
+            if (!full()) Pause::pause();
         }
-        if (idler.load(std::memory_order_acquire)) queue_sem.signal(1);
+        queue_sem.signal(idler.load(std::memory_order_acquire));
     }
-    T recv(uint64_t max_yield_turn, uint64_t max_yield_usec) {
+    T recv() {
         T x;
-        if (pop(x)) return x;
-        // yield once if failed, so photon::now will be update
-        photon::thread_yield();
+        Timeout yield_timeout(m_busy_yield_timeout);
+        int yield_turn = m_busy_yield_turn;
         idler.fetch_add(1, std::memory_order_acq_rel);
         DEFER(idler.fetch_sub(1, std::memory_order_acq_rel));
-        Timeout yield_timeout(max_yield_usec);
-        uint64_t yield_turn = max_yield_turn;
         while (!pop(x)) {
-            if (yield_turn > 0 && !yield_timeout.expired()) {
+            if (yield_turn > 0 && photon::now < yield_timeout.expiration()) {
                 yield_turn--;
                 photon::thread_yield();
             } else {
-                // wait for 100ms
-                queue_sem.wait(1, 100UL * 1000);
-                // reset yield mark and set into busy wait
-                yield_turn = max_yield_turn;
-                yield_timeout.timeout(max_yield_usec);
+                queue_sem.wait(1);
             }
         }
         return x;
     }
-    T recv() { return recv(default_yield_turn, default_yield_usec); }
 };
 
 }  // namespace common
