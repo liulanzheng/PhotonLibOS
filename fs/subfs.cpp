@@ -84,6 +84,7 @@ namespace fs
                 if (subfs->base_path_len == 0) return;
 
                 size_t len = strlen(path);
+                if (len > 0 && path[0] == '/') path++;
                 size_t len2 = len + subfs->base_path_len;
                 if (len2 >= sizeof(buf) - 2)
                 {
