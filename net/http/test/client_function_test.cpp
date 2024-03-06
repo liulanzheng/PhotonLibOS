@@ -520,7 +520,7 @@ system("mkdir -p /tmp/ease_ut/http_test/");
     system("echo \"this is a http_client request body text for socket stream\" > /tmp/ease_ut/http_test/ease-httpclient-gettestfile");
     auto tcpserver = new_tcp_socket_server();
     tcpserver->setsockopt<int>(IPPROTO_TCP, TCP_NODELAY, 1);
-    tcpserver->bind_any4();
+    tcpserver->bind_v4any();
     tcpserver->listen();
     DEFER(delete tcpserver);
     auto server = new_http_server();

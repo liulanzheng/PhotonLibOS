@@ -28,7 +28,8 @@ public:
 
     ExecutorImpl *e;
     Executor(int init_ev = photon::INIT_EVENT_DEFAULT,
-             int init_io = photon::INIT_IO_DEFAULT);
+             int init_io = photon::INIT_IO_DEFAULT,
+             const PhotonOptions& options = {});
     ~Executor();
 
     template <
