@@ -23,7 +23,7 @@ public:
     CBList queue;
     photon::ThreadPoolBase *pool;
 
-    ExecutorImpl(int init_ev, int init_io, const PhotonOptions& options) {
+    ExecutorImpl(int init_ev, int init_io, const PhotonOptions& options): queue(0, 0) {
         th.reset(
             new std::thread(&ExecutorImpl::launch, this, init_ev, init_io, options));
     }
