@@ -318,6 +318,7 @@ public:
                     break;
                 }
             }
+            ipaddr.recycle(ipaddr->empty());
         }
     }
 
