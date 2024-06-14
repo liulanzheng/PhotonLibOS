@@ -40,6 +40,9 @@ public:
     bool tls_ctx_ownership;
     std::unique_ptr<ISocketClient> tcpsock;
     std::unique_ptr<Resolver> resolver;
+    std::vector<std::string> devices;
+    int cur_dev = 0;
+    int total_dev = 0;
 
     PooledDialer(TLSContext *_tls_ctx) :
             tls_ctx(_tls_ctx ? _tls_ctx : new_tls_context(nullptr, nullptr, nullptr)),
@@ -47,6 +50,20 @@ public:
             resolver(new_default_resolver(kDNSCacheLife)) {
         auto tcp_cli = new_tcp_socket_client();
         tcpsock.reset(new_tcp_socket_pool(tcp_cli, -1, true));
+        const char* env_dev = std::getenv("HTTP_DEVICE");
+        LOG_INFO(VALUE(env_dev));
+        if (env_dev != nullptr) {
+            auto str_devs = estring(env_dev);
+            LOG_INFO(VALUE(str_devs));
+            auto dev_split = str_devs.split(',');
+            for (auto it : dev_split) {
+                std::string x(it);
+                LOG_INFO(VALUE(x));
+                devices.emplace_back(x);
+            }
+        }
+        total_dev = devices.size();
+        LOG_INFO(VALUE(total_dev));
     }
 
     ~PooledDialer() {
@@ -78,9 +95,18 @@ ISocketStream* PooledDialer::dial(std::string_view host, uint16_t port, bool sec
 
     EndPoint ep(ipaddr, port);
     LOG_DEBUG("Connecting ` ssl: `", ep, secure);
-
     tcpsock->timeout(timeout);
-    ISocketStream *sock = tcpsock->connect(ep);
+
+    ISocketStream *sock = nullptr;
+    if (total_dev == 0) {
+        sock = tcpsock->connect(ep);
+    } else {
+        // LOG_INFO(VALUE(devices[cur_dev]), devices[cur_dev].size());
+        tcpsock->setsockopt(SOL_SOCKET, SO_BINDTODEVICE, devices[cur_dev].c_str(), devices[cur_dev].size());
+        cur_dev++;
+        if (cur_dev == total_dev) cur_dev = 0;
+        sock = tcpsock->connect(ep);
+    }
     if (secure) {
         sock = new_tls_stream(tls_ctx, sock, photon::net::SecurityRole::Client, true);
     }
