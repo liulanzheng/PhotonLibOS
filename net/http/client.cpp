@@ -102,10 +102,9 @@ ISocketStream* PooledDialer::dial(std::string_view host, uint16_t port, bool sec
         sock = tcpsock->connect(ep);
     } else {
         // LOG_INFO(VALUE(devices[cur_dev]), devices[cur_dev].size());
-        tcpsock->setsockopt(SOL_SOCKET, SO_BINDTODEVICE, devices[cur_dev].c_str(), devices[cur_dev].size());
-        cur_dev++;
-        if (cur_dev == total_dev) cur_dev = 0;
         sock = tcpsock->connect(ep);
+        sock->setsockopt(SOL_SOCKET, SO_BINDTODEVICE, devices[cur_dev].c_str(), devices[cur_dev].size());
+        cur_dev = (cur_dev+1) % total_dev;
     }
     if (secure) {
         sock = new_tls_stream(tls_ctx, sock, photon::net::SecurityRole::Client, true);
