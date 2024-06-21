@@ -19,10 +19,12 @@ limitations under the License.
 #include <unordered_map>
 
 #include <photon/common/alog.h>
+#include <photon/common/alog-stdstring.h>
 #include <photon/io/fd-events.h>
 #include <photon/thread/thread11.h>
 #include <photon/thread/timer.h>
 #include <photon/net/basic_socket.h>
+#include <photon/common/estring.h>
 
 #include "base_socket.h"
 
@@ -119,6 +121,10 @@ protected:
     std::unordered_map<EndPoint, intrusive_list<StreamListNode>> fdmap;
     uint64_t TTL_us;
     photon::Timer timer;
+    std::vector<EndPoint> ips;
+    int cur_ip = 0;
+    int total_ips = 0;
+
 
     // all fd < 0 treated as socket not based on fd
     // and always alive. Using such socket needs user
@@ -170,6 +176,18 @@ public:
           timer(TTL_us, {this, &TCPSocketPool::evict}) {
         collector = (photon::thread*)photon::thread_enable_join(
             photon::thread_create11(&TCPSocketPool::collect, this));
+        const char* env_src_ips = std::getenv("HTTP_SOURCE_IP");
+        LOG_INFO(VALUE(env_src_ips));
+        if (env_src_ips != nullptr) {
+            auto str_ips = estring(env_src_ips);
+            auto ips_split = str_ips.split(',');
+            for (auto it : ips_split) {
+                std::string x(it);
+                ips.emplace_back(IPAddr(x.c_str()), 0);
+            }
+        }
+        total_ips = ips.size();
+        LOG_INFO(VALUE(total_ips));
     }
 
     ~TCPSocketPool() override {
@@ -194,7 +212,12 @@ public:
     again:
         auto stream = get_from_pool(remote);
         if (!stream) {
-            stream = m_underlay->connect(remote, local);
+            if (total_ips > 0 && !local) {
+                stream = m_underlay->connect(remote, &ips[cur_ip]);
+                cur_ip = (cur_ip+1) % total_ips;
+            } else {
+                stream = m_underlay->connect(remote, local);
+            }
             if (!stream) return nullptr;
         } else if (!stream_alive(stream->get_underlay_fd())) {
             delete stream;
