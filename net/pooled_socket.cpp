@@ -122,7 +122,6 @@ protected:
     uint64_t TTL_us;
     photon::Timer timer;
     std::vector<EndPoint> ips;
-    int cur_ip = 0;
     int total_ips = 0;
 
 
@@ -188,6 +187,7 @@ public:
         }
         total_ips = ips.size();
         LOG_INFO(VALUE(total_ips));
+        srand(time(nullptr));
     }
 
     ~TCPSocketPool() override {
@@ -213,8 +213,8 @@ public:
         auto stream = get_from_pool(remote);
         if (!stream) {
             if (total_ips > 0 && !local) {
-                stream = m_underlay->connect(remote, &ips[cur_ip]);
-                cur_ip = (cur_ip+1) % total_ips;
+                int x = rand() % total_ips;
+                stream = m_underlay->connect(remote, &ips[x]);
             } else {
                 stream = m_underlay->connect(remote, local);
             }
