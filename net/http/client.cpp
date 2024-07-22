@@ -39,6 +39,7 @@ public:
     net::TLSContext* tls_ctx = nullptr;
     bool tls_ctx_ownership;
     std::unique_ptr<ISocketClient> tcpsock;
+    std::unique_ptr<ISocketClient> tlssock;
     std::unique_ptr<Resolver> resolver;
 
     PooledDialer(TLSContext *_tls_ctx) :
@@ -46,7 +47,9 @@ public:
             tls_ctx_ownership(_tls_ctx == nullptr),
             resolver(new_default_resolver(kDNSCacheLife)) {
         auto tcp_cli = new_tcp_socket_client();
+        auto tls_cli = new_tls_client(tls_ctx, new_tcp_socket_client(), true);
         tcpsock.reset(new_tcp_socket_pool(tcp_cli, -1, true));
+        tlssock.reset(new_tcp_socket_pool(tls_cli, -1, true));
     }
 
     ~PooledDialer() {
@@ -57,6 +60,7 @@ public:
     int vcpu_exit() override {
         resolver.reset();
         tcpsock.reset();
+        tlssock.reset();
         return 0;
     }
 
@@ -70,28 +74,33 @@ public:
 };
 
 ISocketStream* PooledDialer::dial(std::string_view host, uint16_t port, bool secure, uint64_t timeout) {
-    LOG_DEBUG("Dialing to `:`", host, port);
-    auto ipaddr = resolver->resolve(host);
+    LOG_DEBUG("Dial to ` `", host, port);
+    std::string strhost(host);
+    auto ipaddr = resolver->resolve(strhost.c_str());
     if (ipaddr.undefined()) {
         LOG_ERROR_RETURN(ENOENT, nullptr, "DNS resolve failed, name = `", host)
     }
 
     EndPoint ep(ipaddr, port);
     LOG_DEBUG("Connecting ` ssl: `", ep, secure);
-    tcpsock->timeout(timeout);
-    ISocketStream *sock = tcpsock->connect(ep);
+    ISocketStream *sock = nullptr;
     if (secure) {
-        sock = new_tls_stream(tls_ctx, sock, photon::net::SecurityRole::Client, true);
+        tlssock->timeout(timeout);
+        sock = tlssock->connect(ep);
+        tls_stream_set_hostname(sock, strhost.c_str());
+    } else {
+        tcpsock->timeout(timeout);
+        sock = tcpsock->connect(ep);
     }
     if (sock) {
-        LOG_DEBUG("Connected ` ", ep, VALUE(host), VALUE(secure));
+        LOG_DEBUG("Connected ` host : ` ssl: ` `", ep, host, secure, sock);
         return sock;
     }
     LOG_ERROR("connection failed, ssl : ` ep : `  host : `", secure, ep, host);
     if (ipaddr.undefined()) LOG_DEBUG("No connectable resolve result");
     // When failed, remove resolved result from dns cache so that following retries can try
     // different ips.
-    resolver->discard_cache(host, ipaddr);
+    resolver->discard_cache(strhost.c_str(), ipaddr);
     return nullptr;
 }
 
