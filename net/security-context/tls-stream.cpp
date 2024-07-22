@@ -387,6 +387,8 @@ public:
     int shutdown(ShutdownHow) override { return SSL_shutdown(ssl); }
 
     int close() override {
+        ERRNO err;
+        DEFER(errno = err.no);
         shutdown(ShutdownHow::ReadWrite);
         if (m_ownership) {
             return m_underlay->close();
