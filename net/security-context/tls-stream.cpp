@@ -196,6 +196,7 @@ class TLSSocketStream : public ForwardSocketStream {
 public:
     SSL* ssl;
     BIO* ssbio;
+    bool closed = false;
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
     static void* BIO_get_data(BIO* b) { return b->ptr; }
@@ -338,7 +339,8 @@ public:
     }
 
     ~TLSSocketStream() {
-        close();
+        if (!closed)
+            close();
         SSL_free(ssl);
     }
 
@@ -388,7 +390,7 @@ public:
 
     int close() override {
         ERRNO err;
-        DEFER(errno = err.no);
+        DEFER({errno = err.no; closed = true;});
         shutdown(ShutdownHow::ReadWrite);
         if (m_ownership) {
             return m_underlay->close();
