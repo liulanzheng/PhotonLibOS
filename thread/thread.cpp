@@ -1041,7 +1041,7 @@ R"(
 
     volatile uint64_t now;
     static std::atomic<pthread_t> ts_updater(0);
-    static inline uint64_t update_now()
+    static inline NowTime update_now()
     {
 #if defined(__x86_64__) && defined(__linux__) && defined(ENABLE_MIMIC_VDSO)
         if (likely(__mimic_vdso_time_x86))
@@ -1049,11 +1049,10 @@ R"(
 #endif
         struct timeval tv;
         gettimeofday(&tv, NULL);
-        uint64_t nnow = tv.tv_sec;
-        nnow *= 1000 * 1000;
-        nnow += tv.tv_usec;
+        uint64_t nnow = tv.tv_sec * 1000ul * 1000ul + tv.tv_usec;
         now = nnow;
-        return nnow;
+        assert(tv.tv_sec <= UINT32_MAX && tv.tv_usec < 1000000);
+        return {nnow, ((uint64_t)tv.tv_sec << 32) | (uint32_t)tv.tv_usec};
     }
     __attribute__((always_inline))
     static inline uint32_t _rdtsc()
@@ -1078,23 +1077,28 @@ R"(
     #endif
     }
     static uint32_t last_tsc = 0;
-    static inline uint64_t if_update_now(bool accurate = false) {
+    static inline void if_update_now(bool accurate = false) {
 #if defined(__x86_64__) && defined(__linux__) && defined(ENABLE_MIMIC_VDSO)
         if (likely(__mimic_vdso_time_x86)) {
             return photon::now = __mimic_vdso_time_x86.get_now(accurate);
         }
 #endif
         if (likely(ts_updater.load(std::memory_order_relaxed))) {
-            return photon::now;
+            return;
         }
-        if (unlikely(accurate))
-            return update_now();
+        if (unlikely(accurate)) {
+            update_now();
+            return;
+        }
         uint32_t tsc = _rdtsc();
         if (unlikely(last_tsc != tsc)) {
             last_tsc = tsc;
-            return update_now();
+            update_now();
         }
-        return photon::now;
+    }
+    NowTime __update_now() {
+        last_tsc = _rdtsc();
+        return update_now();
     }
     int timestamp_updater_init() {
         if (!ts_updater) {
