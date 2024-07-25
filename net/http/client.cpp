@@ -41,15 +41,29 @@ public:
     std::unique_ptr<ISocketClient> tcpsock;
     std::unique_ptr<ISocketClient> tlssock;
     std::unique_ptr<Resolver> resolver;
+    photon::mutex init_mtx;
+    bool initialized = false;
 
-    PooledDialer(TLSContext *_tls_ctx) :
-            tls_ctx(_tls_ctx ? _tls_ctx : new_tls_context(nullptr, nullptr, nullptr)),
-            tls_ctx_ownership(_tls_ctx == nullptr),
-            resolver(new_default_resolver(kDNSCacheLife)) {
+    PooledDialer() {}
+
+    int init(TLSContext *_tls_ctx) {
+        if (initialized)
+            return 0;
+        SCOPED_LOCK(init_mtx);
+        if (initialized)
+            return 0;
+        tls_ctx = _tls_ctx;
+        if (!tls_ctx) {
+            tls_ctx_ownership = true;
+            tls_ctx = new_tls_context(nullptr, nullptr, nullptr);
+        }
         auto tcp_cli = new_tcp_socket_client();
         auto tls_cli = new_tls_client(tls_ctx, new_tcp_socket_client(), true);
         tcpsock.reset(new_tcp_socket_pool(tcp_cli, -1, true));
         tlssock.reset(new_tcp_socket_pool(tls_cli, -1, true));
+        resolver.reset(new_default_resolver(kDNSCacheLife));
+        initialized = true;
+        return 0;
     }
 
     ~PooledDialer() {
@@ -135,8 +149,10 @@ public:
 
     PooledDialer* get_dialer() {
         if (dialer == nullptr) {
-            dialer = new PooledDialer(m_tls_ctx);
+            // 保证new PooledDialer()中不存在协程切换
+            dialer = new PooledDialer();
         }
+        dialer->init(m_tls_ctx);
         return dialer;
     }
 
