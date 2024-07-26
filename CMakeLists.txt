@@ -107,7 +107,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/output)
 #   lib:        XXX_LIBRARIES
 #   source:     PHOTON_XXX_SOURCE
 
-set(dependencies zlib openssl curl)
+set(dependencies zlib openssl)
 
 if (CMAKE_SYSTEM_NAME MATCHES "Linux")
     LIST(APPEND dependencies aio)

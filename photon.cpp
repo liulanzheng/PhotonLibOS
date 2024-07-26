@@ -27,9 +27,9 @@ limitations under the License.
 #include "io/fstack-dpdk.h"
 #endif
 #include "io/reset_handle.h"
-#include "net/curl.h"
 #include "net/socket.h"
 #include "fs/exportfs.h"
+#include "common/alog.h"
 
 namespace photon {
 
@@ -80,7 +80,7 @@ int init(uint64_t event_engine, uint64_t io_engine, const PhotonOptions& options
     INIT_IO(FSTACK_DPDK, fstack_dpdk);
 #endif
     INIT_IO(EXPORTFS, exportfs)
-    INIT_IO(LIBCURL, libcurl)
+    //INIT_IO(LIBCURL, libcurl)
 #ifdef __linux__
     INIT_IO(LIBAIO, libaio_wrapper, options.libaio_queue_depth)
     INIT_IO(SOCKET_EDGE_TRIGGER, et_poller)
@@ -101,7 +101,7 @@ int fini() {
     FINI_IO(LIBAIO, libaio_wrapper)
     FINI_IO(SOCKET_EDGE_TRIGGER, et_poller)
 #endif
-    FINI_IO(LIBCURL, libcurl)
+    //FINI_IO(LIBCURL, libcurl)
     FINI_IO(EXPORTFS, exportfs)
 #ifdef ENABLE_FSTACK_DPDK
     FINI_IO(FSTACK_DPDK, fstack_dpdk)
