@@ -31,7 +31,7 @@ namespace photon {
 namespace net {
 namespace http {
 static const uint64_t kDNSCacheLife = 3600UL * 1000 * 1000;
-static constexpr char USERAGENT[] = "PhotonLibOS_HTTP";
+static constexpr char USERAGENT[] = "OSSConnector";
 
 
 class PooledDialer: public VCPULocal {
