@@ -87,7 +87,7 @@ public:
 
     void worker_thread_routine(int ev_engine, int io_engine) {
         photon::init(ev_engine, io_engine, {
-            .use_pooled_stack_allocator = true,
+            .use_pooled_stack_allocator = false,
             .bypass_threadpool = true,
         });
         DEFER(photon::fini());
