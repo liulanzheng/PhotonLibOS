@@ -194,6 +194,14 @@ protected:
 
 class KernelSocketClient : public SocketClientBase {
 public:
+    std::vector<sockaddr_storage> src_ss;
+    int src_ss_cnt;
+
+    KernelSocketClient(IPAddr* src_ip = nullptr, int src_ip_size = 0): src_ss_cnt(src_ip_size) {
+        for (int i = 0; i < src_ss_cnt; i++)
+            src_ss.emplace_back(EndPoint(src_ip[i], 0));
+    }
+
     ISocketStream* connect(const char* path, size_t count) override {
         struct sockaddr_un addr_un;
         if (fill_uds_path(addr_un, path, count) != 0) return nullptr;
@@ -203,7 +211,12 @@ public:
     ISocketStream* connect(const EndPoint& remote, const EndPoint* local) override {
         sockaddr_storage r(remote);
         if (likely(!local || local->is_ipv4() != remote.is_ipv4())) {
-            return do_connect(r.get_sockaddr(), r.get_socklen());
+            if (src_ss_cnt > 0) {
+                int rid = rand() % src_ss_cnt;
+                return do_connect(r.get_sockaddr(), r.get_socklen(), &src_ss[rid]);
+            } else {
+                return do_connect(r.get_sockaddr(), r.get_socklen());
+            }
         }
         sockaddr_storage l(*local);
         return do_connect(r.get_sockaddr(), r.get_socklen(), &l);
@@ -976,8 +989,8 @@ protected:
 
 /* ET Socket - End */
 
-extern "C" ISocketClient* new_tcp_socket_client() {
-    return new KernelSocketClient();
+extern "C" ISocketClient* new_tcp_socket_client(IPAddr* src_ip, int src_ip_size) {
+    return new KernelSocketClient(src_ip, src_ip_size);
 }
 extern "C" ISocketServer* new_tcp_socket_server() {
     return NewObj<KernelSocketServer>()->init();

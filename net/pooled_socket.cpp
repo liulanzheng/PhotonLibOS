@@ -121,9 +121,6 @@ protected:
     std::unordered_map<EndPoint, intrusive_list<StreamListNode>> fdmap;
     uint64_t TTL_us;
     photon::Timer timer;
-    std::vector<EndPoint> ips;
-    int total_ips = 0;
-
 
     // all fd < 0 treated as socket not based on fd
     // and always alive. Using such socket needs user
@@ -175,19 +172,6 @@ public:
           timer(TTL_us, {this, &TCPSocketPool::evict}) {
         collector = (photon::thread*)photon::thread_enable_join(
             photon::thread_create11(&TCPSocketPool::collect, this));
-        const char* env_src_ips = std::getenv("HTTP_SOURCE_IP");
-        LOG_INFO(VALUE(env_src_ips));
-        if (env_src_ips != nullptr) {
-            auto str_ips = estring(env_src_ips);
-            auto ips_split = str_ips.split(',');
-            for (auto it : ips_split) {
-                std::string x(it);
-                ips.emplace_back(IPAddr(x.c_str()), 0);
-            }
-        }
-        total_ips = ips.size();
-        LOG_INFO(VALUE(total_ips));
-        srand(time(nullptr));
     }
 
     ~TCPSocketPool() override {
@@ -212,12 +196,7 @@ public:
     again:
         auto stream = get_from_pool(remote);
         if (!stream) {
-            if (total_ips > 0 && !local) {
-                int x = rand() % total_ips;
-                stream = m_underlay->connect(remote, &ips[x]);
-            } else {
-                stream = m_underlay->connect(remote, local);
-            }
+            stream = m_underlay->connect(remote, local);
             if (!stream) return nullptr;
         } else if (!stream_alive(stream->get_underlay_fd())) {
             delete stream;

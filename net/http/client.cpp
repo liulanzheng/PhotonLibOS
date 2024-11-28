@@ -43,6 +43,7 @@ public:
     std::unique_ptr<Resolver> resolver;
     photon::mutex init_mtx;
     bool initialized = false;
+    std::vector<IPAddr> ips;
 
     PooledDialer() {}
 
@@ -57,8 +58,18 @@ public:
             tls_ctx_ownership = true;
             tls_ctx = new_tls_context(nullptr, nullptr, nullptr);
         }
-        auto tcp_cli = new_tcp_socket_client();
-        auto tls_cli = new_tls_client(tls_ctx, new_tcp_socket_client(), true);
+
+        const char* env_src_ips = std::getenv("HTTP_SOURCE_IP");
+        if (env_src_ips != nullptr) {
+            auto ips_split = estring_view(env_src_ips).split(',');
+            for (auto ip : ips_split) {
+                std::string x(ip);
+                ips.emplace_back(x.c_str());
+            }
+        }
+
+        auto tcp_cli = new_tcp_socket_client(ips.data(), ips.size());
+        auto tls_cli = new_tls_client(tls_ctx, new_tcp_socket_client(ips.data(), ips.size()), true);
         tcpsock.reset(new_tcp_socket_pool(tcp_cli, -1, true));
         tlssock.reset(new_tcp_socket_pool(tls_cli, -1, true));
         resolver.reset(new_default_resolver(kDNSCacheLife));
