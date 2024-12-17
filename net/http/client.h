@@ -48,10 +48,15 @@ public:
         uint16_t retry = 5;                       // default retry: 5 at most
         Response resp;                            // response
         int status_code = -1;                     // status code in response
-        bool enable_proxy;
-        IStream* body_stream = nullptr;                 // use body_stream as body
-        using BodyWriter = Delegate<ssize_t, Request*>; // or call body_writer if body_stream
-        BodyWriter body_writer = {};                    // is not set
+        bool enable_proxy = false;
+        std::string_view uds_path;                // If set, Unix Domain Socket will be used instead of TCP.
+                                                  // URL should still be the format of http://localhost/xxx
+
+        void *body_buffer = nullptr;              // priority: set_body > body_stream > body_writer
+        size_t body_buffer_size = 0;
+        IStream* body_stream = nullptr;
+        using BodyWriter = Delegate<ssize_t, Request*>;
+        BodyWriter body_writer = {};
 
         static Operation* create(Client* c, Verb v, std::string_view url,
                             uint16_t buf_size = 64 * 1024 - 1) {
@@ -67,6 +72,22 @@ public:
         int call() {
             if (!_client) return -1;
             return _client->call(this);
+        }
+        int call(std::string_view unix_socket_path) {
+            if (!_client) return -1;
+            uds_path = unix_socket_path;
+            return _client->call(this);
+        }
+        // set body buffer and set content length automatically
+        void set_body(void *buf, size_t size) {
+            body_buffer = buf;
+            body_buffer_size = size;
+            req.headers.content_length(size);
+        }
+        void set_body(std::string_view buf) {
+            body_buffer = (void*)buf.data();
+            body_buffer_size = buf.size();
+            req.headers.content_length(body_buffer_size);
         }
 
     protected:
