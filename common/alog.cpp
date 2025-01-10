@@ -77,7 +77,7 @@ public:
 static LogOutputNull _log_output_null;
 ILogOutput* const log_output_null = &_log_output_null;
 
-ALogLogger default_logger {log_output_stdout, ALOG_DEBUG};
+ALogLogger default_logger {log_output_stdout, ALOG_ERROR};
 ALogLogger default_audit_logger {log_output_null, ALOG_AUDIT};
 
 uint32_t& log_output_level = default_logger.log_level;
