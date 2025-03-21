@@ -22,6 +22,7 @@ limitations under the License.
 #endif
 #include <photon/common/utility.h>
 #include <photon/common/alog.h>
+#include <stdlib.h>
 
 template<typename T, typename F1, typename F8> __attribute__((always_inline))
 inline T do_crc(const uint8_t *data, size_t nbytes, T crc, F1 f1, F8 f8) {
@@ -722,4 +723,3 @@ uint64_t crc64ecma_hw_avx512(const uint8_t *buf, size_t len, uint64_t crc) {
 uint64_t crc64ecma_hw(const uint8_t *buffer, size_t nbytes, uint64_t crc) {
     return crc64ecma_auto(buffer, nbytes, crc);
 }
-
