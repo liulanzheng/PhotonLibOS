@@ -96,7 +96,7 @@ static void volume_submit_io(struct ocf_io *io) {
         local_iov.truncate(io->bytes);
     }
 
-    ssize_t ret;
+    ssize_t ret = 0;
     if (strncmp((const char *)vol->uuid.data, "cache", vol->uuid.size) == 0) {
         if (vol->cache_params->enable_logging) {
             LOG_DEBUG("OCF cache `, buf `, count: `, offset: `",
@@ -116,6 +116,7 @@ static void volume_submit_io(struct ocf_io *io) {
             LOG_ERROR("OCF: core read with non-zero offset or null src_file, must be a bug");
             vol_io->data->err_no = EINVAL;
             io->end(io, -1);
+            return;
         }
         off_t offset = io->addr - vol_io->data->blk_addr;
         LOG_DEBUG("OCF core `, buf `, count: `, offset: `", io->dir == OCF_READ ? "read" : "write",
