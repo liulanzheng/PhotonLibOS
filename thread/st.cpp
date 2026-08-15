@@ -33,11 +33,11 @@ int st_init(void) {
         engine ^= photon::INIT_EVENT_EPOLL;
     }
 #endif
-    return photon::init(engine, 0, {
-        .libaio_queue_depth = 0,
-        .use_pooled_stack_allocator = true,
-        .bypass_threadpool = true,
-    });
+    photon::PhotonOptions options{};
+    options.libaio_queue_depth = 0;
+    options.use_pooled_stack_allocator = true;
+    options.bypass_threadpool = true;
+    return photon::init(engine, 0, options);
 }
 
 int st_getfdlimit(void) {
